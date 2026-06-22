@@ -1,0 +1,150 @@
+/* ============================================
+   认证页面共享样式（Login + Register）
+   替代两个页面中重复的 ~250 行 CSS
+   ============================================ */
+
+/* 页面背景 */
+.auth-page {
+  position: relative;
+  min-height: 100vh;
+  overflow: hidden;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: radial-gradient(circle at top, #e3f2fd 0%, #f4f9ff 40%, #ffffff 100%);
+}
+
+/* 背景装饰 SVG */
+.auth-bg-svg {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  z-index: 0;
+}
+.auth-bg-svg--left  { left: 0;  width: 420px; }
+.auth-bg-svg--right { right: 0; width: 420px; }
+.auth-bg-svg svg { width: 100%; height: auto; }
+.auth-bg-svg svg rect,
+.auth-bg-svg svg circle,
+.auth-bg-svg svg path,
+.auth-bg-svg svg polygon { opacity: 0.6 !important; }
+
+/* 卡片 */
+.auth-card {
+  position: relative;
+  z-index: 1;
+  width: 380px;
+  padding: 38px 36px 28px;
+  border-radius: var(--radius-xl);
+  background: rgba(255, 255, 255, 0.98);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  box-shadow:
+    0 10px 40px rgba(74, 111, 165, 0.08),
+    0 4px 12px rgba(0, 0, 0, 0.02);
+  transition: all var(--transition-slow);
+}
+
+.auth-card-icon {
+  display: flex;
+  justify-content: center;
+  margin-bottom: var(--spacing-sm);
+}
+.auth-card-icon svg circle,
+.auth-card-icon svg path,
+.auth-card-icon svg rect,
+.auth-card-icon svg line { opacity: 0.8 !important; }
+
+.auth-card-title {
+  margin: 0;
+  text-align: center;
+  font-size: var(--font-size-xxl);
+  font-weight: var(--font-weight-bold);
+  color: #2c3e50;
+  letter-spacing: 1px;
+}
+
+.auth-card-subtitle {
+  margin-top: var(--spacing-xs);
+  margin-bottom: 28px;
+  text-align: center;
+  font-size: 13px;
+  color: #7f8c8d;
+}
+
+/* 表单 */
+.auth-form {
+  width: 100%;
+}
+
+.auth-input-label {
+  display: block;
+  margin-bottom: var(--spacing-xs);
+  margin-left: 2px;
+  font-size: 13px;
+  font-weight: var(--font-weight-medium);
+  color: #34495e;
+}
+
+/* 提交按钮（保留品牌橙色） */
+.auth-submit-btn {
+  width: 100%;
+  height: 48px;
+  margin-top: var(--spacing-xs);
+  border: none !important;
+  border-radius: var(--radius-lg) !important;
+  background: #F5A623 !important;
+  box-shadow: 0 6px 16px rgba(245, 166, 35, 0.25);
+  transition: all var(--transition-normal);
+}
+.auth-submit-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px rgba(245, 166, 35, 0.35);
+  background: #f7b03e !important;
+}
+
+/* 错误消息 */
+.auth-error {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  margin-top: -8px;
+  margin-bottom: var(--spacing-sm);
+  padding: 10px var(--spacing-sm);
+  border-radius: var(--radius-lg);
+  background: rgba(239, 68, 68, 0.08);
+  color: #ef4444;
+  font-size: 13px;
+}
+
+/* 底部 */
+.auth-footer {
+  margin-top: var(--spacing-lg);
+  padding-top: 20px;
+  text-align: center;
+  border-top: 1px solid var(--color-bg-base);
+}
+.auth-footer-text {
+  color: var(--color-text-secondary);
+  font-size: 13px;
+}
+.auth-footer-link {
+  color: var(--color-primary);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  margin-left: 4px;
+  font-size: 13px;
+  transition: color var(--transition-fast);
+}
+.auth-footer-link:hover {
+  color: var(--color-primary-hover);
+}
+
+/* 响应式 */
+@media (max-width: 768px) {
+  .auth-bg-svg { display: none; }
+  .auth-card { width: 85vw; padding: var(--spacing-xl) var(--spacing-lg); }
+  .auth-card-title { font-size: 22px; }
+}

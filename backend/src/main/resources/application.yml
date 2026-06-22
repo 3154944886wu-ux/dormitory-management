@@ -1,0 +1,32 @@
+server:
+  port: 8080
+
+spring:
+  datasource:
+    url: jdbc:mysql://localhost:3306/dormitory?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&useSSL=false
+    username: root
+    #自己数据库的用户名
+    password: '123qweAASD'
+    #数据库密码
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  # 首次运行后改为 never，避免重复执行
+  sql:
+    init:
+      mode: never
+      schema-locations: classpath:schema.sql
+
+mybatis:
+  mapper-locations: classpath:mapper/*.xml
+  type-aliases-package: com.dormitory.model
+  configuration:
+    map-underscore-to-camel-case: true
+
+jwt:
+  secret: dormitory-secret-key-2024-spring-boot
+  expiration: 604800000
+
+#app:
+#   init-admin:
+#     enabled: true
+#   seed-demo:
+#     enabled: true   # 生成演示教师/打卡/请假/晚归/未归数据（开发环境，执行一次后请关闭）

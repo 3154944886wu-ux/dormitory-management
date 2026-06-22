@@ -1,0 +1,100 @@
+/* ============================================
+   页面布局共享样式
+   替代 30+ 页面中重复的 scoped CSS
+   ============================================ */
+
+/* 页面容器 — 统一 padding */
+.page-container {
+  padding: var(--page-padding);
+}
+
+/* 页面标题行 — 替代 30+ 文件的 .page-header */
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--spacing-lg);
+  flex-wrap: wrap;
+  gap: var(--spacing-sm);
+}
+.page-header h2 {
+  margin: 0;
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+/* 卡片标题行 — 替代 23 文件的 .card-header */
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+/* 操作按钮区 — 替代 8 文件的 .header-actions */
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+}
+
+/* 分页容器 — 替代 10+ 文件的 .pagination-wrapper */
+.pagination-wrapper {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: var(--spacing-md);
+}
+
+/* 统计卡片行 */
+.stats-row {
+  display: flex;
+  gap: var(--spacing-lg);
+  margin-bottom: var(--spacing-lg);
+  flex-wrap: wrap;
+}
+.stats-row > * {
+  flex: 1;
+  min-width: 150px;
+}
+
+/* 筛选卡片 */
+.filter-card {
+  margin-bottom: var(--spacing-md);
+}
+
+/* 表格卡片 */
+.table-card {
+  margin-bottom: var(--spacing-md);
+}
+
+/* 微交互：列表项 hover */
+.list-item-hover {
+  transition: background-color var(--transition-normal), transform var(--transition-fast);
+}
+.list-item-hover:hover {
+  background-color: var(--color-bg-hover);
+  transform: translateX(2px);
+}
+
+/* 微交互：可点击元素过渡 */
+.clickable {
+  cursor: pointer;
+  transition: all var(--transition-normal);
+}
+
+/* 统计数字（等宽数字） */
+.stat-number {
+  font-family: var(--font-family-number);
+  font-feature-settings: 'tnum';
+  font-variant-numeric: tabular-nums;
+}
+
+/* 响应式 */
+@media (max-width: 768px) {
+  .page-container { padding: var(--spacing-md); }
+  .page-header { flex-direction: column; align-items: flex-start; }
+  .page-header h2 { font-size: var(--font-size-lg); }
+  .stats-row > * { max-width: 100% !important; flex: 1 1 100% !important; }
+  .header-actions { flex-wrap: wrap; width: 100%; }
+  .header-actions > * { flex: 1; min-width: 0; }
+}

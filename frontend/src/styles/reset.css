@@ -1,0 +1,63 @@
+/* ============================================
+   全局 Reset — 从 App.vue 提取并增强
+   ============================================ */
+
+*,
+*::before,
+*::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+#app {
+  font-family: var(--font-family-base);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  height: 100%;
+  color: var(--color-text-primary);
+  background: var(--color-bg-base);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-normal);
+}
+
+a {
+  color: var(--color-primary);
+  text-decoration: none;
+}
+a:hover {
+  color: var(--color-primary-hover);
+}
+
+/* 滚动条美化 */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-border-hover);
+}
+
+/* 选中文字颜色 */
+::selection {
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+}
+
+/* 聚焦可见轮廓 */
+:focus-visible {
+  outline: 2px solid var(--color-primary-focus-ring);
+  outline-offset: 2px;
+}

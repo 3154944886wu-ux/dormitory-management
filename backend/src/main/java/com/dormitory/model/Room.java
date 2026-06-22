@@ -1,0 +1,39 @@
+package com.dormitory.model;
+
+import lombok.Data;
+import java.time.LocalDateTime;
+
+@Data
+public class Room {
+    private Long id;
+    private Long buildingId;        // 所属楼栋ID
+    private String roomNumber;      // 房间号，如 "101", "201"
+    private Integer floor;          // 楼层
+    private Integer capacity;       // 容纳人数（床位数）
+    private Integer currentCount;   // 当前入住人数
+    private Integer status;         // 1可用, 0停用
+    private String roomType;        // 房间规格(如4人间/2人间)
+    private Integer windowBedsCount;    // 靠窗床位数量
+    private Integer corridorBedsCount;  // 靠走廊床位数量
+    private String specialTag;      // 特殊标签(无障碍/伤病员)
+    private Integer isActive;       // 是否启用(1是/0否)
+
+    // 关联字段
+    private String buildingName;    // 楼栋名称（查询时填充）
+    
+    private LocalDateTime createTime;
+    private LocalDateTime updateTime;
+    
+    // 计算剩余床位
+    public Integer getAvailableBeds() {
+        if (capacity != null && currentCount != null) {
+            return capacity - currentCount;
+        }
+        return capacity != null ? capacity : 0;
+    }
+    
+    // 是否满员
+    public Boolean isFull() {
+        return currentCount != null && capacity != null && currentCount >= capacity;
+    }
+}

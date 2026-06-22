@@ -1,0 +1,43 @@
+# --- 工具/CLI ---
+.agents/
+.claude/
+
+# --- IDE ---
+.idea/
+*.iml
+*.iws
+*.ipr
+
+# --- Java / Maven 编译产物 ---
+backend/target/
+*.class
+*.jar
+*.war
+*.ear
+backend/logs/
+backend/node_modules/
+
+# --- Node 依赖 & 构建产物 ---
+node_modules/
+frontend/dist/
+frontend/.temp/
+frontend/.cache/
+
+# --- 环境变量 ---
+.env
+.env.local
+.env.*.local
+
+# --- 系统文件 ---
+.DS_Store
+Thumbs.db
+Desktop.ini
+*.swp
+*.swo
+*~
+
+# --- 其他 ---
+*.log
+*.tar.gz
+*.zip
+skills-lock.json

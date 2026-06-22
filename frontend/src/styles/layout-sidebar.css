@@ -1,0 +1,122 @@
+/* ============================================
+   侧边栏布局共享样式（AdminLayout + StudentLayout）
+   替代两个 Layout 中重复的 ~55 行 CSS
+   ============================================ */
+
+/* 整体容器 */
+.layout-container {
+  display: flex;
+  height: 100vh;
+  width: 100%;
+}
+
+/* 侧边栏 */
+.sidebar {
+  background-color: var(--color-bg-sidebar);
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar-logo {
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-bold);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.sidebar-role-badge {
+  margin: 10px 20px;
+  padding: 5px 15px;
+  border-radius: 15px;
+  font-size: var(--font-size-xs);
+  text-align: center;
+  color: white;
+}
+.sidebar-role-badge.admin   { background-color: var(--color-primary); }
+.sidebar-role-badge.student { background-color: var(--color-success); }
+
+/* 主内容区 */
+.main-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--color-bg-base);
+}
+
+/* 顶部栏 */
+.top-header {
+  height: var(--header-height);
+  background-color: var(--color-bg-white);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 var(--spacing-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+/* 用户信息区 */
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  cursor: pointer;
+  color: var(--color-text-primary);
+}
+.user-info .username {
+  font-size: var(--font-size-sm);
+}
+
+/* 主内容 */
+.main-content {
+  padding: var(--page-padding);
+  overflow-y: auto;
+  flex: 1;
+}
+
+/* 通知列表（StudentLayout） */
+.notification-list {
+  max-height: 360px;
+  overflow-y: auto;
+}
+.notification-empty {
+  text-align: center;
+  color: var(--color-text-disabled);
+  padding: 20px;
+}
+.notification-item {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--color-border-light);
+  cursor: pointer;
+  transition: background-color var(--transition-fast);
+}
+.notification-item:last-child {
+  border-bottom: none;
+}
+.notification-item:hover {
+  background-color: var(--color-bg-hover);
+}
+.notify-content {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-regular);
+  margin: 4px 0;
+}
+.notify-time {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-disabled);
+}
+
+/* 响应式：小屏适配 */
+@media (max-width: 768px) {
+  .sidebar { width: 64px !important; }
+  .sidebar-logo span { display: none; }
+  .sidebar-role-badge { display: none; }
+  .sidebar .el-menu .el-menu-item span { display: none; }
+  .sidebar .el-sub-menu__title span { display: none; }
+  .top-header { padding: 0 var(--spacing-md); }
+  .main-content { padding: var(--spacing-md); }
+}

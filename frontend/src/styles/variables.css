@@ -1,0 +1,97 @@
+/* ============================================
+   设计 Token 全集 — 智慧校园宿舍管理系统
+   低饱和度蓝紫色系 + 8px 间距网格
+   ============================================ */
+
+:root {
+  /* === 主色调（低饱和度蓝紫） === */
+  --color-primary: #4A6FA5;
+  --color-primary-hover: #3D5E8C;
+  --color-primary-active: #334E73;
+  --color-primary-disabled: #A3B8D4;
+  --color-primary-light: rgba(74, 111, 165, 0.08);
+  --color-primary-focus-ring: rgba(74, 111, 165, 0.20);
+
+  /* === 语义色 === */
+  --color-success: #52C41A;
+  --color-success-light: rgba(82, 196, 26, 0.08);
+  --color-warning: #E6A23C;
+  --color-warning-light: rgba(230, 162, 60, 0.08);
+  --color-danger: #F56C6C;
+  --color-danger-light: rgba(245, 108, 108, 0.08);
+  --color-info: #909399;
+  --color-info-light: rgba(144, 147, 153, 0.08);
+
+  /* === 中性色 === */
+  --color-bg-base: #F2F3F5;
+  --color-bg-white: #FFFFFF;
+  --color-bg-card: #FFFFFF;
+  --color-bg-sidebar: #1D2438;
+  --color-bg-hover: #F5F6F8;
+  --color-bg-mask: rgba(0, 0, 0, 0.45);
+
+  --color-text-primary: #1D2129;
+  --color-text-regular: #4E5969;
+  --color-text-secondary: #86909C;
+  --color-text-disabled: #C9CDD4;
+  --color-text-placeholder: #C9CDD4;
+  --color-text-inverse: #FFFFFF;
+
+  --color-border: #E5E6EB;
+  --color-border-light: #F2F3F5;
+  --color-border-hover: #C9CDD4;
+
+  /* === 8px 基础间距体系 === */
+  --spacing-xs: 8px;
+  --spacing-sm: 12px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  --spacing-xl: 32px;
+  --spacing-xxl: 48px;
+
+  /* === 圆角 === */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+  --radius-round: 9999px;
+
+  /* === 分级阴影 === */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.08);
+
+  /* === 排版 === */
+  --font-size-xs: 12px;
+  --font-size-sm: 14px;
+  --font-size-base: 16px;
+  --font-size-lg: 18px;
+  --font-size-xl: 20px;
+  --font-size-xxl: 24px;
+  --font-size-title: 28px;
+
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+
+  --line-height-tight: 1.25;
+  --line-height-normal: 1.5;
+  --line-height-relaxed: 1.75;
+
+  --font-family-base: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC',
+    'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', Arial, sans-serif;
+  --font-family-number: 'SF Mono', 'Menlo', 'Consolas', 'Monaco', monospace;
+
+  /* === 过渡 === */
+  --transition-fast: 0.15s ease;
+  --transition-normal: 0.2s ease;
+  --transition-slow: 0.3s ease;
+
+  /* === 布局 === */
+  --sidebar-width: 220px;
+  --header-height: 56px;
+  --page-padding: var(--spacing-lg);
+  --card-padding: var(--spacing-lg);
+  --content-max-width: 1400px;
+}

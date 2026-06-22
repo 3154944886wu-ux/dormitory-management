@@ -1,0 +1,603 @@
+═══════════════════════════════════════════════════════════════
+          宿舍管理系统 - 数据库结构说明
+                数据库名: dormitory
+          字符集: utf8mb4 · 引擎: InnoDB
+          版本: 2026-06-07
+═══════════════════════════════════════════════════════════════
+
+共 27 张表，以下按业务模块分组说明。
+
+
+───────────────────────────────────────────────────────────────
+一、系统用户模块
+───────────────────────────────────────────────────────────────
+
+1. users（用户表）
+   ┣━━ id              BIGINT       PK 主键，自增
+   ┣━━ username        VARCHAR(50)  UNIQUE NOT NULL 用户名
+   ┣━━ password        VARCHAR(255) NOT NULL 密码(BCrypt加密)
+   ┣━━ nickname        VARCHAR(50)           昵称
+   ┣━━ role            VARCHAR(20)  DEFAULT 'user' 角色(admin/student)
+   ┣━━ phone           VARCHAR(20)           联系电话
+   ┣━━ email           VARCHAR(100)          邮箱
+   ┣━━ avatar          VARCHAR(255)          头像URL
+   ┣━━ status          TINYINT      DEFAULT 1 状态(1启用/0禁用)
+   ┣━━ create_time     DATETIME     DEFAULT CURRENT_TIMESTAMP
+   ┗━━ update_time     DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE
+
+
+───────────────────────────────────────────────────────────────
+二、宿舍管理模块（楼栋 → 房间 → 床位 → 学生）
+───────────────────────────────────────────────────────────────
+
+2. buildings（楼栋表）
+   ┣━━ id               BIGINT       PK 主键，自增
+   ┣━━ name             VARCHAR(50)  NOT NULL UNIQUE 楼栋名称
+   ┣━━ floors           INT          DEFAULT 6 楼层数
+   ┣━━ rooms_per_floor  INT          DEFAULT 20 每层房间数
+   ┣━━ gender_type      VARCHAR(10)  DEFAULT 'MIXED' 性别类型
+   ┃                                    (MALE/FEMALE/MIXED)
+   ┣━━ gender_limit     VARCHAR(10)  DEFAULT 'MIXED' 性别限制(智能选宿用)
+   ┣━━ manager          VARCHAR(50)           宿管姓名
+   ┣━━ manager_phone    VARCHAR(20)           宿管电话
+   ┣━━ remark           VARCHAR(500)          备注
+   ┣━━ status           TINYINT      DEFAULT 1 状态(1启用/0停用)
+   ┣━━ create_time      DATETIME     DEFAULT CURRENT_TIMESTAMP
+   ┗━━ update_time      DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE
+
+3. rooms（房间表）
+   ┣━━ id                   BIGINT       PK 主键，自增
+   ┣━━ building_id          BIGINT       FK → buildings(id) NOT NULL
+   ┃                                      ON DELETE CASCADE
+   ┣━━ room_number          VARCHAR(20)  NOT NULL 房间号
+   ┣━━ floor                INT          NOT NULL 楼层
+   ┣━━ capacity             INT          DEFAULT 4 床位数
+   ┣━━ current_count        INT          DEFAULT 0 当前入住人数
+   ┣━━ status               TINYINT      DEFAULT 1 状态(1可用/0停用)
+   ┣━━ room_type            VARCHAR(20)  DEFAULT '4人间' 房间规格
+   ┣━━ window_beds_count    INT          DEFAULT 2 靠窗床位数量
+   ┣━━ corridor_beds_count  INT          DEFAULT 2 靠走廊床位数量
+   ┣━━ special_tag          VARCHAR(50)           特殊标签(无障碍/伤病员)
+   ┣━━ is_active            TINYINT      DEFAULT 1 是否启用(1是/0否)
+   ┣━━ create_time          DATETIME     DEFAULT CURRENT_TIMESTAMP
+   ┣━━ update_time          DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE
+   ┃
+   ┣━━ UNIQUE KEY uk_building_room (building_id, room_number)
+   ┗━━ FOREIGN KEY (building_id) REFERENCES buildings(id) ON DELETE CASCADE
+
+4. students（学生表）
+   ┣━━ id               BIGINT       PK 主键，自增
+   ┣━━ student_no       VARCHAR(20)  UNIQUE NOT NULL 学号
+   ┣━━ name             VARCHAR(50)  NOT NULL 姓名
+   ┣━━ gender           VARCHAR(10)           性别
+   ┣━━ phone            VARCHAR(20)           联系电话
+   ┣━━ department       VARCHAR(100)          院系(原系统字段)
+   ┣━━ class_name       VARCHAR(50)           班级
+   ┣━━ college_id       INT                   所属学院ID(关联college.id)
+   ┣━━ major_id         INT                   所属专业ID(关联major.id)
+   ┣━━ payment_status   VARCHAR(10)  DEFAULT 'unpaid' 缴费状态(paid/unpaid)
+   ┣━━ dorm_batch_id    INT                   参与选宿批次ID
+   ┣━━ id_card          VARCHAR(18)           身份证号
+   ┣━━ user_id          BIGINT       FK → users(id) 关联用户ID
+   ┃                                    UNIQUE, ON DELETE SET NULL
+   ┃                                    (注册后关联，一人一账号)
+   ┣━━ room_id          BIGINT       FK → rooms(id) 入住房间ID
+   ┃                                    ON DELETE SET NULL
+   ┣━━ bed_number       VARCHAR(10)           床位号
+   ┣━━ check_in_date    DATETIME              入住日期
+   ┣━━ check_out_date   DATETIME              退宿日期
+   ┣━━ status           TINYINT      DEFAULT 1 状态(1在住/0已退宿)
+   ┣━━ create_time      DATETIME     DEFAULT CURRENT_TIMESTAMP
+   ┗━━ update_time      DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE
+       ┃
+       ┣━━ FOREIGN KEY (room_id) REFERENCES rooms(id) ON DELETE SET NULL
+       ┗━━ FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+         UNIQUE KEY uk_user_id (user_id)
+
+
+───────────────────────────────────────────────────────────────
+三、访客 & 报修 & 水电费模块
+───────────────────────────────────────────────────────────────
+
+5. visitors（访客记录表）
+   ┣━━ id               BIGINT       PK 主键，自增
+   ┣━━ room_id          BIGINT       FK → rooms(id) NOT NULL
+   ┃                                    ON DELETE CASCADE
+   ┣━━ visitor_name     VARCHAR(50)  NOT NULL 访客姓名
+   ┣━━ visitor_phone    VARCHAR(20)  NOT NULL 访客电话
+   ┣━━ visitor_id_card  VARCHAR(18)           访客身份证号
+   ┣━━ relation         VARCHAR(50)           与被访人关系
+   ┣━━ purpose          VARCHAR(200)          来访目的
+   ┣━━ visit_time       DATETIME     NOT NULL 来访时间
+   ┣━━ leave_time       DATETIME              离开时间
+   ┣━━ status           TINYINT      DEFAULT 1 状态(1在访/0已离开)
+   ┣━━ note             TEXT                  备注
+   ┣━━ create_time      DATETIME     DEFAULT CURRENT_TIMESTAMP
+   ┗━━ update_time      DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE
+       ┃
+       ┗━━ FOREIGN KEY (room_id) REFERENCES rooms(id) ON DELETE CASCADE
+
+6. repairs（报修记录表）
+   ┣━━ id               BIGINT       PK 主键，自增
+   ┣━━ room_id          BIGINT       FK → rooms(id) NOT NULL
+   ┃                                    ON DELETE CASCADE
+   ┣━━ student_id       BIGINT       FK → students(id)
+   ┃                                    ON DELETE SET NULL
+   ┣━━ type             VARCHAR(30)  NOT NULL 报修类型
+   ┃                                  (电器/水管/门窗/家具/其他)
+   ┣━━ description      TEXT         NOT NULL 问题描述
+   ┣━━ images           VARCHAR(500)          图片URL(逗号分隔)
+   ┣━━ status           TINYINT      DEFAULT 0 状态
+   ┃                                  (0待处理/1处理中/2已完成/3已关闭)
+   ┣━━ handler          VARCHAR(50)           处理人
+   ┣━━ handler_note     TEXT                  处理备注
+   ┣━━ handle_time      DATETIME              处理时间
+   ┣━━ complete_time    DATETIME              完成时间
+   ┣━━ create_time      DATETIME     DEFAULT CURRENT_TIMESTAMP
+   ┗━━ update_time      DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE
+       ┃
+       ┣━━ FOREIGN KEY (room_id) REFERENCES rooms(id) ON DELETE CASCADE
+       ┗━━ FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE SET NULL
+
+7. utility_fees（水电费表）
+   ┣━━ id                BIGINT       PK 主键，自增
+   ┣━━ room_id           BIGINT       FK → rooms(id) NOT NULL
+   ┃                                     ON DELETE CASCADE
+   ┣━━ year              INT          NOT NULL 年份
+   ┣━━ month             INT          NOT NULL 月份
+   ┣━━ electricity_start DECIMAL(10,2)         电表起始读数
+   ┣━━ electricity_end   DECIMAL(10,2)         电表结束读数
+   ┣━━ electricity_usage DECIMAL(10,2)         用电量(度)
+   ┣━━ electricity_fee   DECIMAL(10,2)         电费
+   ┣━━ water_start       DECIMAL(10,2)         水表起始读数
+   ┣━━ water_end         DECIMAL(10,2)         水表结束读数
+   ┣━━ water_usage       DECIMAL(10,2)         用水量(吨)
+   ┣━━ water_fee         DECIMAL(10,2)         水费
+   ┣━━ total_fee         DECIMAL(10,2)         总费用
+   ┣━━ status            TINYINT      DEFAULT 0 缴费状态(0未缴/1已缴)
+   ┣━━ pay_time          DATETIME              缴费时间
+   ┣━━ create_time       DATETIME     DEFAULT CURRENT_TIMESTAMP
+   ┣━━ update_time       DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE
+   ┃
+   ┣━━ UNIQUE KEY uk_room_year_month (room_id, year, month)
+   ┗━━ FOREIGN KEY (room_id) REFERENCES rooms(id) ON DELETE CASCADE
+
+
+───────────────────────────────────────────────────────────────
+四、归寝打卡模块（规则 → 打卡 → 异常 → 请假）
+───────────────────────────────────────────────────────────────
+
+8. check_in_records（归寝打卡记录表）
+   ┣━━ id                BIGINT       PK 主键，自增
+   ┣━━ student_id        BIGINT       FK → students(id) NOT NULL
+   ┃                                     ON DELETE CASCADE
+   ┣━━ room_id           BIGINT       FK → rooms(id)
+   ┃                                     ON DELETE SET NULL
+   ┣━━ check_date        DATE         NOT NULL 打卡日期
+   ┣━━ check_time        DATETIME              打卡时间
+   ┣━━ check_type        TINYINT      DEFAULT 0 打卡方式
+   ┃                                    (0定位/1人脸/2手动)
+   ┣━━ latitude          DECIMAL(10,7)         纬度(GPS)
+   ┣━━ longitude         DECIMAL(10,7)         经度(GPS)
+   ┣━━ location_accuracy DECIMAL(10,2)         定位精度(米)
+   ┣━━ device_info       VARCHAR(200)          设备信息
+   ┣━━ ip_address        VARCHAR(50)           IP地址
+   ┣━━ status            TINYINT      DEFAULT 0 状态
+   ┃                                    (0正常/1晚归/2未归/3请假)
+   ┣━━ remark            VARCHAR(500)          备注
+   ┣━━ create_time       DATETIME     DEFAULT CURRENT_TIMESTAMP
+   ┣━━ update_time       DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE
+   ┃
+   ┣━━ UNIQUE KEY uk_student_date (student_id, check_date)
+   ┣━━ FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE
+   ┗━━ FOREIGN KEY (room_id) REFERENCES rooms(id) ON DELETE SET NULL
+
+9. check_rules（归寝规则表）
+   ┣━━ id                BIGINT       PK 主键，自增
+   ┣━━ name              VARCHAR(50)  NOT NULL 规则名称
+   ┣━━ building_id       BIGINT       FK → buildings(id) 适用楼栋
+   ┃                                    ON DELETE SET NULL
+   ┃                                    (NULL表示全局规则)
+   ┣━━ check_start_time  TIME         NOT NULL 归寝开始时间(如22:00)
+   ┣━━ check_end_time    TIME         NOT NULL 归寝结束时间(如23:00)
+   ┣━━ late_threshold    TIME                  晚归判定时间(如23:30)
+   ┣━━ apply_days        VARCHAR(20)  DEFAULT '1,2,3,4,5' 适用星期
+   ┣━━ allow_late_count  INT          DEFAULT 3 允许晚归次数/月
+   ┣━━ is_default        TINYINT      DEFAULT 0 是否默认规则
+   ┣━━ status            TINYINT      DEFAULT 1 状态(1启用/0禁用)
+   ┣━━ remark            VARCHAR(500)          备注
+   ┣━━ allowed_latitude  DECIMAL(10,7)         允许打卡纬度
+   ┣━━ allowed_longitude DECIMAL(10,7)         允许打卡经度
+   ┣━━ allowed_radius    INT          DEFAULT 500 允许范围半径(米)
+   ┣━━ create_time       DATETIME     DEFAULT CURRENT_TIMESTAMP
+   ┗━━ update_time       DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE
+       ┃
+       ┗━━ FOREIGN KEY (building_id) REFERENCES buildings(id) ON DELETE SET NULL
+
+10. check_exceptions（归寝异常记录表）
+    ┣━━ id                BIGINT       PK 主键，自增
+    ┣━━ student_id        BIGINT       FK → students(id) NOT NULL
+    ┃                                     ON DELETE CASCADE
+    ┣━━ exception_date    DATE         NOT NULL 异常日期
+    ┣━━ exception_type    TINYINT      NOT NULL 异常类型
+    ┃                                    (1晚归/2未归/3缺卡)
+    ┣━━ check_record_id   BIGINT       FK → check_in_records(id)
+    ┃                                     ON DELETE SET NULL
+    ┣━━ handled           TINYINT      DEFAULT 0 是否已处理(0否/1是)
+    ┣━━ handler_id        BIGINT                 处理人ID
+    ┣━━ handle_time       DATETIME               处理时间
+    ┣━━ handle_note       VARCHAR(500)           处理备注
+    ┣━━ create_time       DATETIME     DEFAULT CURRENT_TIMESTAMP
+    ┣━━ update_time       DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE
+    ┃
+    ┣━━ FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE
+    ┗━━ FOREIGN KEY (check_record_id) REFERENCES check_in_records(id) ON DELETE SET NULL
+
+11. leave_requests（请假申请表）
+    ┣━━ id                BIGINT       PK 主键，自增
+    ┣━━ student_id        BIGINT       FK → students(id) NOT NULL
+    ┃                                     ON DELETE CASCADE
+    ┣━━ leave_type        TINYINT      DEFAULT 0 请假类型
+    ┃                                    (0事假/1病假/2其他)
+    ┣━━ reason            VARCHAR(500) NOT NULL 请假原因
+    ┣━━ start_time        DATETIME     NOT NULL 开始时间
+    ┣━━ end_time          DATETIME     NOT NULL 结束时间
+    ┣━━ contact_phone     VARCHAR(20)           联系电话
+    ┣━━ destination       VARCHAR(200)          去向
+    ┣━━ attachment        VARCHAR(500)          附件URL(请假条等)
+    ┣━━ status            TINYINT      DEFAULT 0 状态
+    ┃                                    (0待审批/1已批准/2已拒绝/
+    ┃                                     3已撤销/4已销假)
+    ┣━━ approver_id       BIGINT                 审批人ID
+    ┣━━ approver_name     VARCHAR(50)            审批人姓名
+    ┣━━ approve_time      DATETIME               审批时间
+    ┣━━ approve_note      VARCHAR(500)           审批备注
+    ┣━━ actual_return_time DATETIME              实际返回时间
+    ┣━━ create_time       DATETIME     DEFAULT CURRENT_TIMESTAMP
+    ┗━━ update_time       DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE
+        ┃
+        ┗━━ FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE
+
+
+───────────────────────────────────────────────────────────────
+五、公告 & 安全卫生检查模块
+───────────────────────────────────────────────────────────────
+
+12. announcements（公告表）
+    ┣━━ id               BIGINT       PK 主键，自增
+    ┣━━ title            VARCHAR(200) NOT NULL 标题
+    ┣━━ content          TEXT         NOT NULL 内容
+    ┣━━ type             TINYINT      DEFAULT 0 类型
+    ┃                                   (0普通公告/1重要通知/2紧急通知)
+    ┣━━ status           TINYINT      DEFAULT 0 状态
+    ┃                                   (0草稿/1已发布/2已下线)
+    ┣━━ publisher_id     BIGINT                 发布人ID
+    ┣━━ publisher_name   VARCHAR(50)            发布人姓名
+    ┣━━ publish_time     DATETIME               发布时间
+    ┣━━ view_count       INT          DEFAULT 0 浏览次数
+    ┣━━ is_top           TINYINT      DEFAULT 0 是否置顶(0否/1是)
+    ┣━━ create_time      DATETIME     DEFAULT CURRENT_TIMESTAMP
+    ┗━━ update_time      DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE
+
+13. inspection_plans（安全卫生检查计划表）
+    ┣━━ id               BIGINT       PK 主键，自增
+    ┣━━ name             VARCHAR(100) NOT NULL 计划名称
+    ┣━━ description      VARCHAR(500)          计划描述
+    ┣━━ inspection_type  VARCHAR(20)  NOT NULL 检查类型
+    ┃                                   (SAFETY/HYGIENE/COMPREHENSIVE)
+    ┣━━ status           VARCHAR(20)  DEFAULT 'DRAFT' 状态
+    ┃                                   (DRAFT/SCHEDULED/IN_PROGRESS/
+    ┃                                    COMPLETED/CANCELLED)
+    ┣━━ scheduled_date   DATE                  计划检查日期
+    ┣━━ building_ids     VARCHAR(500)          检查楼栋ID列表(逗号分隔)
+    ┣━━ inspector_ids    VARCHAR(500)          检查人员ID列表(逗号分隔)
+    ┣━━ total_rooms      INT          DEFAULT 0 总房间数
+    ┣━━ completed_rooms  INT          DEFAULT 0 已完成房间数
+    ┣━━ create_time      DATETIME     DEFAULT CURRENT_TIMESTAMP
+    ┗━━ update_time      DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE
+
+14. inspection_records（安全卫生检查记录表）
+    ┣━━ id                 BIGINT       PK 主键，自增
+    ┣━━ plan_id            BIGINT       FK → inspection_plans(id)
+    ┃                                     ON DELETE SET NULL
+    ┣━━ building_id        BIGINT       FK → buildings(id) NOT NULL
+    ┃                                     ON DELETE CASCADE
+    ┣━━ room_id            BIGINT       FK → rooms(id) NOT NULL
+    ┃                                     ON DELETE CASCADE
+    ┣━━ inspector_id       BIGINT       NOT NULL 检查人ID
+    ┣━━ inspector_name     VARCHAR(50)           检查人姓名
+    ┣━━ inspection_time    DATETIME     NOT NULL 检查时间
+    ┣━━ overall_score      DECIMAL(5,2)          总评分
+    ┣━━ result             VARCHAR(20)  DEFAULT 'PASS' 结果(PASS/FAIL)
+    ┣━━ items_json         TEXT                  检查项详情JSON
+    ┣━━ photos             VARCHAR(1000)         照片URL列表(逗号分隔)
+    ┣━━ remark             TEXT                  备注
+    ┣━━ need_rectification TINYINT      DEFAULT 0 是否需要整改(0否/1是)
+    ┣━━ rectification_status VARCHAR(20) DEFAULT 'NONE' 整改状态
+    ┃                                     (NONE/PENDING/COMPLETED/VERIFIED)
+    ┣━━ rectification_deadline DATE              整改截止日期
+    ┣━━ rectification_photos VARCHAR(1000)       整改后照片URL列表
+    ┣━━ rectification_time   DATETIME            整改完成时间
+    ┣━━ verified_by        VARCHAR(50)           核实人
+    ┣━━ verified_time      DATETIME              核实时间
+    ┣━━ create_time        DATETIME     DEFAULT CURRENT_TIMESTAMP
+    ┗━━ update_time        DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE
+        ┃
+        ┣━━ FOREIGN KEY (plan_id) REFERENCES inspection_plans(id) ON DELETE SET NULL
+        ┣━━ FOREIGN KEY (building_id) REFERENCES buildings(id) ON DELETE CASCADE
+        ┗━━ FOREIGN KEY (room_id) REFERENCES rooms(id) ON DELETE CASCADE
+
+
+───────────────────────────────────────────────────────────────
+六、智能选宿模块（选宿流程核心，12 张表）
+说明: 支持从批次创建 → 房源划拨 → 问卷填写 → 智能匹配 →
+     确认入住 → 调换申请 的全流程管理
+───────────────────────────────────────────────────────────────
+
+15. college（学院表）
+    ┣━━ id          INT           PK 主键，自增
+    ┣━━ name        VARCHAR(100)  NOT NULL 学院名称
+    ┗━━ create_time DATETIME      DEFAULT CURRENT_TIMESTAMP
+
+16. major（专业表）
+    ┣━━ id          INT           PK 主键，自增
+    ┣━━ name        VARCHAR(100)  NOT NULL 专业名称
+    ┣━━ college_id  INT           FK → college(id) NOT NULL
+    ┃                              ON DELETE CASCADE
+    ┗━━ create_time DATETIME      DEFAULT CURRENT_TIMESTAMP
+
+17. bed（床位表）
+    ┣━━ id          BIGINT        PK 主键，自增
+    ┣━━ bed_number  VARCHAR(10)   NOT NULL 床位编号(A/B/C/D)
+    ┣━━ room_id     BIGINT        FK → rooms(id) NOT NULL
+    ┃                              ON DELETE CASCADE
+    ┣━━ bed_type    VARCHAR(10)   NOT NULL DEFAULT 'corridor'
+    ┃                              (window靠窗/corridor靠走廊)
+    ┣━━ is_occupied TINYINT       DEFAULT 0 是否已被占用(0空/1占)
+    ┣━━ create_time DATETIME      DEFAULT CURRENT_TIMESTAMP
+    ┣━━ update_time DATETIME      DEFAULT CURRENT_TIMESTAMP ON UPDATE
+    ┃
+    ┣━━ UNIQUE KEY uk_room_bed (room_id, bed_number)
+    ┗━━ FOREIGN KEY (room_id) REFERENCES rooms(id) ON DELETE CASCADE
+
+18. dorm_batch（选宿批次表）
+    ┣━━ id                INT           PK 主键，自增
+    ┣━━ name              VARCHAR(100)  NOT NULL 批次名称
+    ┃                                    (如"计算机学院2026级")
+    ┣━━ college_id        INT           FK → college(id) NOT NULL
+    ┃                                     ON DELETE CASCADE
+    ┣━━ start_time        DATETIME              问卷开始时间
+    ┣━━ end_time          DATETIME              问卷结束时间
+    ┣━━ confirm_deadline  DATETIME              确认截止时间
+    ┣━━ max_reallocation  INT          DEFAULT 1 允许重分配最大次数
+    ┣━━ allow_mix_major   TINYINT      DEFAULT 0 允许跨专业混住(0否/1是)
+    ┣━━ major_bonus       INT          DEFAULT 10 同专业匹配加分值
+    ┣━━ prefer_same_floor TINYINT      DEFAULT 1 优先同楼层分配(0否/1是)
+    ┣━━ match_status      VARCHAR(20)  DEFAULT 'pending'
+    ┃       批次状态流转:
+    ┃       pending → running → matching → confirming → finished → archived
+    ┃       running → cancelled（作废）
+    ┃       finished → pending（重置）
+    ┣━━ create_time       DATETIME     DEFAULT CURRENT_TIMESTAMP
+    ┗━━ update_time       DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE
+
+19. batch_room（批次房源池关联表）
+    ┣━━ id          BIGINT        PK 主键，自增
+    ┣━━ batch_id    INT           FK → dorm_batch(id) NOT NULL ON DELETE CASCADE
+    ┣━━ room_id     BIGINT        FK → rooms(id) NOT NULL ON DELETE CASCADE
+    ┣━━ create_time DATETIME      DEFAULT CURRENT_TIMESTAMP
+    ┃
+    ┗━━ UNIQUE KEY uk_batch_room (batch_id, room_id)
+
+20. questionnaire（问卷题目表）
+    ┣━━ id            INT           PK 主键，自增
+    ┣━━ question_text VARCHAR(255)  NOT NULL 题目内容
+    ┣━━ question_type VARCHAR(10)   NOT NULL DEFAULT 'match'
+    ┃                               (match匹配类/bed床位偏好类)
+    ┣━━ is_required   TINYINT       DEFAULT 1 是否必填(0否/1是)
+    ┣━━ weight        INT           DEFAULT 1 权重系数
+    ┣━━ is_active     TINYINT       DEFAULT 1 是否启用(0否/1是)
+    ┣━━ create_time   DATETIME      DEFAULT CURRENT_TIMESTAMP
+    ┗━━ update_time   DATETIME      DEFAULT CURRENT_TIMESTAMP ON UPDATE
+
+21. question_option（题目选项表）
+    ┣━━ id           INT           PK 主键，自增
+    ┣━━ q_id         INT           FK → questionnaire(id) NOT NULL
+    ┃                                ON DELETE CASCADE
+    ┣━━ option_text  VARCHAR(100)  NOT NULL 选项文本(如"早睡")
+    ┗━━ option_value INT           DEFAULT 0 匹配分值(相同得该分)
+
+22. student_answer（新生答案表）
+    ┣━━ id          BIGINT        PK 主键，自增
+    ┣━━ student_id  BIGINT        FK → students(id) NOT NULL ON DELETE CASCADE
+    ┣━━ q_id        INT           FK → questionnaire(id) NOT NULL ON DELETE CASCADE
+    ┣━━ option_id   INT           FK → question_option(id) NOT NULL ON DELETE CASCADE
+    ┣━━ submit_time DATETIME      DEFAULT CURRENT_TIMESTAMP
+    ┃
+    ┗━━ UNIQUE KEY uk_student_question (student_id, q_id)
+        一题一答，重复提交覆盖
+
+23. roommate_group（室友组表）
+    ┣━━ id          BIGINT        PK 主键，自增
+    ┣━━ batch_id    INT           FK → dorm_batch(id) NOT NULL ON DELETE CASCADE
+    ┣━━ room_id     BIGINT        FK → rooms(id) 分配的宿舍ID
+    ┃                              ON DELETE SET NULL
+    ┣━━ member_ids  VARCHAR(500)  成员学生ID列表(逗号分隔,对应students.id)
+    ┗━━ create_time DATETIME      DEFAULT CURRENT_TIMESTAMP
+
+24. allocation_result（分配结果表）
+    ┣━━ id                  BIGINT        PK 主键，自增
+    ┣━━ student_id          BIGINT        FK → students(id) NOT NULL
+    ┃                                       ON DELETE CASCADE
+    ┣━━ batch_id            INT           FK → dorm_batch(id) NOT NULL
+    ┃                                       ON DELETE CASCADE
+    ┣━━ roommate_group_id   BIGINT        FK → roommate_group(id)
+    ┃                                       ON DELETE SET NULL
+    ┣━━ room_id             BIGINT        FK → rooms(id)
+    ┃                                       ON DELETE SET NULL
+    ┣━━ bed_id              BIGINT        FK → bed(id)
+    ┃                                       ON DELETE SET NULL
+    ┣━━ match_score         DECIMAL(5,2)  DEFAULT 0.00 匹配度得分
+    ┣━━ reallocation_count  INT           DEFAULT 0 重新匹配次数
+    ┣━━ status              VARCHAR(20)   DEFAULT 'recommended'
+    ┃       状态: recommended(推荐) → confirmed(学生确认)
+    ┃                           → auto_confirmed(自动确认)
+    ┃                           → manual_assigned(管理员手动分配)
+    ┃                           → adjusted(调换)
+    ┣━━ created_at          DATETIME      DEFAULT CURRENT_TIMESTAMP
+    ┣━━ updated_at          DATETIME      DEFAULT CURRENT_TIMESTAMP ON UPDATE
+    ┃
+    ┗━━ UNIQUE KEY uk_student_batch (student_id, batch_id)
+        每个学生在每个批次只有一条分配记录
+
+25. operation_log（操作日志表）
+    ┣━━ id            BIGINT        PK 主键，自增
+    ┣━━ student_id    BIGINT        FK → students(id) 被操作学生
+    ┃                                ON DELETE SET NULL
+    ┣━━ operator_type VARCHAR(20)   NOT NULL
+    ┃                 (student/admin/system)
+    ┣━━ operator_id   VARCHAR(50)   操作者标识(学号或管理员名)
+    ┣━━ action        VARCHAR(50)   NOT NULL
+    ┃                 (确认宿舍/智能重匹配/手动调换/管理员修改)
+    ┣━━ detail        TEXT          操作详情JSON
+    ┗━━ create_time   DATETIME      DEFAULT CURRENT_TIMESTAMP
+
+26. notification（通知记录表）
+    ┣━━ id           BIGINT        PK 主键，自增
+    ┣━━ recipient_id BIGINT        FK → students(id) 接收学生
+    ┃                                ON DELETE SET NULL
+    ┣━━ batch_id     INT           FK → dorm_batch(id)
+    ┃                                ON DELETE SET NULL
+    ┣━━ type         VARCHAR(30)   NOT NULL
+    ┃                 (推荐生成/确认提醒/自动确认/分配结果)
+    ┣━━ content      TEXT          通知内容
+    ┣━━ channel      VARCHAR(10)   DEFAULT 'inner'
+    ┃                 (sms/email/inner)
+    ┣━━ status       VARCHAR(10)   DEFAULT 'pending'
+    ┃                 (pending/sent/failed)
+    ┗━━ create_time  DATETIME      DEFAULT CURRENT_TIMESTAMP
+
+27. relocation_application（调换申请表）
+    ┣━━ id                    BIGINT        PK 主键，自增
+    ┣━━ student_id            BIGINT        NOT NULL 申请人ID(关联students.id)
+    ┣━━ batch_id              INT           NOT NULL 所属批次ID
+    ┣━━ current_room_id       BIGINT                  当前房间ID(快照)
+    ┣━━ current_bed_id        BIGINT                  当前床位ID(快照)
+    ┣━━ reason                TEXT          NOT NULL 申请理由
+    ┣━━ preferred_building_id BIGINT                  偏好楼栋ID(可选)
+    ┣━━ status                VARCHAR(20)   DEFAULT 'pending'
+    ┃           pending → approved → executed
+    ┃           pending → rejected
+    ┣━━ reviewed_by           BIGINT                  审核人(关联users.id)
+    ┣━━ review_comment        TEXT                    审核意见
+    ┣━━ executed_by           BIGINT                  执行人(关联users.id)
+    ┣━━ new_room_id           BIGINT                  执行后新房间ID
+    ┣━━ new_bed_id            BIGINT                  执行后新床位ID
+    ┣━━ created_at            DATETIME      DEFAULT CURRENT_TIMESTAMP
+    ┗━━ updated_at            DATETIME      DEFAULT CURRENT_TIMESTAMP ON UPDATE
+
+
+═══════════════════════════════════════════════════════════════
+外键关系汇总
+═══════════════════════════════════════════════════════════════
+
+buildings（父）
+  ┣━━ rooms.building_id              ON DELETE CASCADE
+  ┣━━ check_rules.building_id        ON DELETE SET NULL
+  ┗━━ inspection_records.building_id ON DELETE CASCADE
+
+users（父）
+  ┗━━ students.user_id               ON DELETE SET NULL
+
+rooms（父）
+  ┣━━ students.room_id               ON DELETE SET NULL
+  ┣━━ visitors.room_id               ON DELETE CASCADE
+  ┣━━ repairs.room_id                ON DELETE CASCADE
+  ┣━━ utility_fees.room_id           ON DELETE CASCADE
+  ┣━━ check_in_records.room_id       ON DELETE SET NULL
+  ┣━━ inspection_records.room_id     ON DELETE CASCADE
+  ┣━━ bed.room_id                    ON DELETE CASCADE
+  ┣━━ batch_room.room_id             ON DELETE CASCADE
+  ┣━━ roommate_group.room_id         ON DELETE SET NULL
+  ┗━━ allocation_result.room_id      ON DELETE SET NULL
+
+students（父）
+  ┣━━ repairs.student_id             ON DELETE SET NULL
+  ┣━━ check_in_records.student_id    ON DELETE CASCADE
+  ┣━━ check_exceptions.student_id    ON DELETE CASCADE
+  ┣━━ leave_requests.student_id      ON DELETE CASCADE
+  ┣━━ student_answer.student_id      ON DELETE CASCADE
+  ┣━━ allocation_result.student_id   ON DELETE CASCADE
+  ┣━━ operation_log.student_id       ON DELETE SET NULL
+  ┗━━ notification.recipient_id      ON DELETE SET NULL
+
+check_in_records（父）
+  ┗━━ check_exceptions.check_record_id  ON DELETE SET NULL
+
+inspection_plans（父）
+  ┗━━ inspection_records.plan_id     ON DELETE SET NULL
+
+college（父）
+  ┣━━ major.college_id               ON DELETE CASCADE
+  ┗━━ dorm_batch.college_id          ON DELETE CASCADE
+
+dorm_batch（父）
+  ┣━━ batch_room.batch_id            ON DELETE CASCADE
+  ┣━━ roommate_group.batch_id        ON DELETE CASCADE
+  ┣━━ allocation_result.batch_id     ON DELETE CASCADE
+  ┣━━ relocation_application.batch_id ON DELETE CASCADE（调换申请关联）
+  ┗━━ notification.batch_id          ON DELETE SET NULL
+
+questionnaire（父）
+  ┗━━ question_option.q_id           ON DELETE CASCADE
+
+question_option（父）
+  ┗━━ student_answer.option_id       ON DELETE CASCADE
+
+roommate_group（父）
+  ┗━━ allocation_result.roommate_group_id  ON DELETE SET NULL
+
+bed（父）
+  ┗━━ allocation_result.bed_id       ON DELETE SET NULL
+
+
+═══════════════════════════════════════════════════════════════
+预置测试数据
+═══════════════════════════════════════════════════════════════
+
+users:
+  帐号: admin / admin123 角色: admin
+  其他学生测试账号由注册生成
+
+buildings:
+  1号楼 (男宿，6层，每层20间)  宿管: 张三
+  2号楼 (女宿，6层，每层20间)  宿管: 李四
+  3号楼 (通用，6层，每层20间)  无宿管
+
+rooms:
+  每栋楼共 120 个房间，3栋楼共 360 间，每间4床位
+
+bed:
+  360间 × 4床位 = 1440 条床位记录，默认 is_occupied=0
+
+college:
+  ① 计算机与人工智能学院  ② 信息科学与技术学院
+  ③ 电气工程学院         ④ 机械工程学院
+  ⑤ 土木工程学院
+
+major:
+  ① 计算机科学与技术(计院)  ② 软件工程(计院)  ③ 人工智能(计院)
+  ④ 通信工程(信院)         ⑤ 电子信息工程(信院)
+  ⑥ 电气工程及其自动化(电气)
+  ⑦ 机械设计制造及其自动化(机械)
+  ⑧ 土木工程(土木)
+
+questionnaire（预置6道题目）:
+  match类: ①作息习惯 ②卫生习惯 ③是否吸烟 ④性格特点 ⑤宿舍活动偏好
+  bed类:  ⑥床位偏好(靠窗/靠走廊)
+
+announcements:
+  ① "欢迎使用宿舍管理系统" - 重要通知
+  ② "宿舍安全须知" - 紧急通知(置顶)
+
+═══════════════════════════════════════════════════════════════
