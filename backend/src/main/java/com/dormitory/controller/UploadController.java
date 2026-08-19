@@ -1,7 +1,7 @@
 package com.dormitory.controller;
 
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -22,11 +22,16 @@ import java.util.*;
 public class UploadController {
 
     private static final String UPLOAD_DIR = System.getProperty("user.dir") + File.separator + "uploads";
+    private static final long MAX_FILE_SIZE = 5 * 1024 * 1024;
+    private static final Set<String> ALLOWED_EXTENSIONS = Set.of(
+        ".jpg", ".jpeg", ".png", ".gif", ".webp", ".pdf"
+    );
 
     /**
      * 单文件上传
      */
     @PostMapping
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'STUDENT')")
     public ResponseEntity<?> upload(@RequestParam("file") MultipartFile file) {
         if (file.isEmpty()) {
             return ResponseEntity.badRequest().body(Map.of(
@@ -36,11 +41,17 @@ public class UploadController {
         }
 
         try {
+            validateFile(file);
             String url = saveFile(file);
             return ResponseEntity.ok(Map.of(
                 "success", true,
                 "message", "上传成功",
                 "url", url
+            ));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of(
+                "success", false,
+                "message", e.getMessage()
             ));
         } catch (IOException e) {
             return ResponseEntity.badRequest().body(Map.of(
@@ -54,12 +65,19 @@ public class UploadController {
      * 多文件上传
      */
     @PostMapping("/batch")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'STUDENT')")
     public ResponseEntity<?> uploadBatch(@RequestParam("files") MultipartFile[] files) {
         List<String> urls = new ArrayList<>();
         for (MultipartFile file : files) {
             if (!file.isEmpty()) {
                 try {
+                    validateFile(file);
                     urls.add(saveFile(file));
+                } catch (IllegalArgumentException e) {
+                    return ResponseEntity.badRequest().body(Map.of(
+                        "success", false,
+                        "message", e.getMessage()
+                    ));
                 } catch (IOException e) {
                     return ResponseEntity.badRequest().body(Map.of(
                         "success", false,
@@ -74,6 +92,22 @@ public class UploadController {
             "message", "上传成功",
             "urls", urls
         ));
+    }
+
+    private void validateFile(MultipartFile file) {
+        if (file.getSize() > MAX_FILE_SIZE) {
+            throw new IllegalArgumentException("文件大小不能超过 5MB");
+        }
+
+        String originalName = file.getOriginalFilename();
+        if (originalName == null || !originalName.contains(".")) {
+            throw new IllegalArgumentException("不支持的文件类型");
+        }
+
+        String suffix = originalName.substring(originalName.lastIndexOf(".")).toLowerCase(Locale.ROOT);
+        if (!ALLOWED_EXTENSIONS.contains(suffix)) {
+            throw new IllegalArgumentException("仅支持上传图片或 PDF 文件");
+        }
     }
 
     private String saveFile(MultipartFile file) throws IOException {

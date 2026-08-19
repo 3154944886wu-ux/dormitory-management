@@ -4,6 +4,7 @@ import com.dormitory.mapper.*;
 import com.dormitory.model.Repair;
 import com.dormitory.model.UtilityFee;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
@@ -12,6 +13,7 @@ import java.util.*;
 
 @RestController
 @RequestMapping("/api/dashboard")
+@PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
 public class DashboardController {
 
     private final BuildingMapper buildingMapper;

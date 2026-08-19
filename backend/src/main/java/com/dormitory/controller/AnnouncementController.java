@@ -5,6 +5,7 @@ import com.dormitory.model.User;
 import com.dormitory.service.AnnouncementService;
 import com.dormitory.utils.JwtUtils;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
@@ -24,6 +25,7 @@ public class AnnouncementController {
     }
     
     @GetMapping
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'STUDENT')")
     public ResponseEntity<Map<String, Object>> getAll(
             @RequestParam(required = false) Integer status,
             @RequestParam(required = false) Integer type) {
@@ -57,6 +59,7 @@ public class AnnouncementController {
     }
     
     @GetMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'STUDENT')")
     public ResponseEntity<Map<String, Object>> getById(@PathVariable Long id) {
         Announcement announcement = announcementService.getAnnouncementById(id);
         if (announcement == null) {
@@ -72,6 +75,7 @@ public class AnnouncementController {
     }
     
     @PostMapping
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Map<String, Object>> create(
             @RequestBody Announcement announcement,
             @RequestHeader("Authorization") String token) {
@@ -87,6 +91,7 @@ public class AnnouncementController {
     }
     
     @PutMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Map<String, Object>> update(
             @PathVariable Long id,
             @RequestBody Announcement announcement) {
@@ -107,6 +112,7 @@ public class AnnouncementController {
     }
     
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Map<String, Object>> delete(@PathVariable Long id) {
         announcementService.deleteAnnouncement(id);
         Map<String, Object> result = new HashMap<>();
@@ -116,6 +122,7 @@ public class AnnouncementController {
     }
     
     @PutMapping("/{id}/publish")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Map<String, Object>> publish(@PathVariable Long id) {
         try {
             Announcement announcement = announcementService.publishAnnouncement(id);
@@ -133,6 +140,7 @@ public class AnnouncementController {
     }
     
     @PutMapping("/{id}/offline")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Map<String, Object>> offline(@PathVariable Long id) {
         try {
             Announcement announcement = announcementService.offlineAnnouncement(id);
@@ -150,6 +158,7 @@ public class AnnouncementController {
     }
     
     @PutMapping("/{id}/top")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Map<String, Object>> toggleTop(@PathVariable Long id) {
         try {
             Announcement announcement = announcementService.toggleTop(id);

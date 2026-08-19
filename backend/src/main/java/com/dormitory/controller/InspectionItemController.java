@@ -4,6 +4,7 @@ import com.dormitory.model.InspectionItem;
 import com.dormitory.service.InspectionItemService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
@@ -24,6 +25,7 @@ public class InspectionItemController {
      * 分页获取所有检查项
      */
     @GetMapping
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
     public ResponseEntity<?> getAll(@RequestParam(defaultValue = "1") int page,
                                     @RequestParam(defaultValue = "20") int size) {
         List<InspectionItem> items = itemService.findAll(page, size);
@@ -42,6 +44,7 @@ public class InspectionItemController {
      * 获取启用的检查项
      */
     @GetMapping("/active")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
     public ResponseEntity<?> getActive() {
         List<InspectionItem> items = itemService.findAllActive();
         return ResponseEntity.ok(Map.of("data", items));
@@ -51,6 +54,7 @@ public class InspectionItemController {
      * 按类别获取检查项
      */
     @GetMapping("/category/{category}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
     public ResponseEntity<?> getByCategory(@PathVariable String category) {
         List<InspectionItem> items = itemService.findByCategory(category);
         return ResponseEntity.ok(Map.of("data", items));
@@ -60,6 +64,7 @@ public class InspectionItemController {
      * 获取单个检查项
      */
     @GetMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
     public ResponseEntity<?> getById(@PathVariable Long id) {
         InspectionItem item = itemService.findById(id);
         if (item == null) {
@@ -72,6 +77,7 @@ public class InspectionItemController {
      * 创建检查项
      */
     @PostMapping
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> create(@RequestBody InspectionItem item) {
         try {
             InspectionItem created = itemService.create(item);
@@ -92,6 +98,7 @@ public class InspectionItemController {
      * 更新检查项
      */
     @PutMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> update(@PathVariable Long id, @RequestBody InspectionItem item) {
         try {
             item.setId(id);
@@ -113,6 +120,7 @@ public class InspectionItemController {
      * 删除检查项
      */
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> delete(@PathVariable Long id) {
         try {
             itemService.delete(id);

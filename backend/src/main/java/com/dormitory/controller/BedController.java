@@ -3,6 +3,7 @@ package com.dormitory.controller;
 import com.dormitory.model.Bed;
 import com.dormitory.service.BedService;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
@@ -20,6 +21,7 @@ public class BedController {
     }
 
     @GetMapping("/available/{roomId}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'STUDENT')")
     public ResponseEntity<Map<String, Object>> getAvailableBeds(@PathVariable Long roomId) {
         List<Bed> beds = bedService.findAvailableByRoomId(roomId);
 
