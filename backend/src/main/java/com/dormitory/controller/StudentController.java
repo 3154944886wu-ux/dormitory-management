@@ -4,6 +4,7 @@ import com.dormitory.model.Student;
 import com.dormitory.service.StudentService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
@@ -21,6 +22,7 @@ public class StudentController {
     }
     
     @GetMapping
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
     public ResponseEntity<Map<String, Object>> list(
             @RequestParam(required = false) String name,
             @RequestParam(required = false) Long roomId,
@@ -56,6 +58,7 @@ public class StudentController {
     }
     
     @GetMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
     public ResponseEntity<Map<String, Object>> getById(@PathVariable Long id) {
         Student student = studentService.findById(id);
         
@@ -72,16 +75,25 @@ public class StudentController {
     }
     
     @GetMapping("/no/{studentNo}")
-    public ResponseEntity<Map<String, Object>> getByStudentNo(@PathVariable String studentNo) {
-        Student student = studentService.findByStudentNo(studentNo);
-        
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'STUDENT')")
+    public ResponseEntity<Map<String, Object>> getByStudentNo(
+            @PathVariable String studentNo,
+            Authentication auth) {
         Map<String, Object> result = new HashMap<>();
+        if (isStudent(auth) && (studentNo == null || !studentNo.equals(auth.getName()))) {
+            result.put("code", 403);
+            result.put("message", "只能查询本人信息");
+            return ResponseEntity.status(403).body(result);
+        }
+
+        Student student = studentService.findByStudentNo(studentNo);
+
         if (student == null) {
             result.put("code", 404);
             result.put("message", "学生不存在");
             return ResponseEntity.status(404).body(result);
         }
-        
+
         result.put("code", 200);
         result.put("data", student);
         return ResponseEntity.ok(result);
@@ -175,5 +187,10 @@ public class StudentController {
             result.put("message", e.getMessage());
             return ResponseEntity.badRequest().body(result);
         }
+    }
+
+    private boolean isStudent(Authentication auth) {
+        return auth != null && auth.getAuthorities().stream()
+                .anyMatch(a -> "ROLE_STUDENT".equals(a.getAuthority()));
     }
 }

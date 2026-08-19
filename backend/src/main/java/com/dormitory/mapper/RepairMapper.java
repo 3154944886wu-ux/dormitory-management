@@ -55,6 +55,16 @@ public interface RepairMapper {
              "WHERE r.status = #{status} " +
              "ORDER BY r.create_time DESC")
     List<Repair> findByStatus(Integer status);
+
+    @Select("SELECT r.*, s.name as student_name, s.student_no, " +
+             "rm.room_number, b.name as building_name " +
+             "FROM repairs r " +
+             "LEFT JOIN students s ON r.student_id = s.id " +
+             "LEFT JOIN rooms rm ON r.room_id = rm.id " +
+             "LEFT JOIN buildings b ON rm.building_id = b.id " +
+             "WHERE rm.room_number LIKE CONCAT('%', #{roomNumber}, '%') " +
+             "ORDER BY r.status, r.create_time DESC")
+    List<Repair> findByRoomNumber(String roomNumber);
     
     @Insert("INSERT INTO repairs(student_id, room_id, type, description, images, status) " +
              "VALUES(#{studentId}, #{roomId}, #{type}, #{description}, #{images}, #{status})")

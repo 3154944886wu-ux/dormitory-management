@@ -8,6 +8,7 @@ import com.dormitory.utils.JwtUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
@@ -136,10 +137,20 @@ public class LeaveRequestController {
      */
     @GetMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'STUDENT')")
-    public ResponseEntity<?> getById(@PathVariable Long id) {
+    public ResponseEntity<?> getById(@PathVariable Long id, Authentication auth) {
         LeaveRequest request = leaveRequestService.findById(id);
         if (request == null) {
             return ResponseEntity.notFound().build();
+        }
+        if (auth != null && auth.getAuthorities().stream()
+                .anyMatch(a -> "ROLE_STUDENT".equals(a.getAuthority()))) {
+            Long studentId = getStudentIdFromAuth(auth);
+            if (!studentId.equals(request.getStudentId())) {
+                return ResponseEntity.status(403).body(Map.of(
+                    "success", false,
+                    "message", "无权查看该请假申请"
+                ));
+            }
         }
         return ResponseEntity.ok(Map.of("data", request));
     }
@@ -250,6 +261,14 @@ public class LeaveRequestController {
     private Long getStudentId(String token) {
         String username = jwtUtils.getUsernameFromToken(stripBearer(token));
         Student student = studentMapper.findByStudentNo(username);
+        if (student == null) {
+            throw new RuntimeException("当前账号未关联学生信息");
+        }
+        return student.getId();
+    }
+
+    private Long getStudentIdFromAuth(Authentication auth) {
+        Student student = studentMapper.findByStudentNo(auth.getName());
         if (student == null) {
             throw new RuntimeException("当前账号未关联学生信息");
         }

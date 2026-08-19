@@ -53,21 +53,44 @@ public class UtilityFeeService {
         if (room == null) {
             throw new RuntimeException("房间不存在");
         }
-        
+
         // 检查是否已存在该月份的费用记录
         UtilityFee existing = feeMapper.findByRoomAndMonth(
             fee.getRoomId(), fee.getYear(), fee.getMonth());
         if (existing != null) {
             throw new RuntimeException("该房间当月费用记录已存在");
         }
-        
+
         // 计算用量
         calculateUsage(fee);
-        
+
         // 计算费用
         calculateTotalFee(fee);
-        
+
         fee.setStatus(0); // 未缴费
+        feeMapper.insert(fee);
+        return fee.getId();
+    }
+
+    /**
+     * 直接创建费用记录（使用前端传入的金额，不通过读数计算）
+     */
+    @Transactional
+    public Long createDirect(UtilityFee fee) {
+        // 验证房间存在
+        Room room = roomMapper.findById(fee.getRoomId());
+        if (room == null) {
+            throw new RuntimeException("房间不存在");
+        }
+
+        // 检查是否已存在该月份的费用记录
+        UtilityFee existing = feeMapper.findByRoomAndMonth(
+            fee.getRoomId(), fee.getYear(), fee.getMonth());
+        if (existing != null) {
+            throw new RuntimeException("该房间当月费用记录已存在");
+        }
+
+        fee.setStatus(fee.getStatus() != null ? fee.getStatus() : 0);
         feeMapper.insert(fee);
         return fee.getId();
     }
@@ -78,11 +101,24 @@ public class UtilityFeeService {
         if (existing == null) {
             throw new RuntimeException("费用记录不存在");
         }
-        
+
         // 重新计算用量和费用
         calculateUsage(fee);
         calculateTotalFee(fee);
-        
+
+        feeMapper.update(fee);
+    }
+
+    /**
+     * 直接更新费用记录（使用前端传入的金额）
+     */
+    @Transactional
+    public void updateDirect(UtilityFee fee) {
+        UtilityFee existing = feeMapper.findById(fee.getId());
+        if (existing == null) {
+            throw new RuntimeException("费用记录不存在");
+        }
+
         feeMapper.update(fee);
     }
     

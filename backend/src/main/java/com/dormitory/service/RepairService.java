@@ -45,6 +45,10 @@ public class RepairService {
     public List<Repair> findByStatus(Integer status) {
         return repairMapper.findByStatus(status);
     }
+
+    public List<Repair> findByRoomNumber(String roomNumber) {
+        return repairMapper.findByRoomNumber(roomNumber);
+    }
     
     public int getPendingCount() {
         return repairMapper.countPending();
@@ -56,18 +60,20 @@ public class RepairService {
     
     @Transactional
     public Long create(Repair repair) {
-        // 验证学生存在
-        Student student = studentMapper.findById(repair.getStudentId());
-        if (student == null) {
-            throw new RuntimeException("学生不存在");
+        if (repair.getRoomId() == null) {
+            throw new RuntimeException("请选择房间");
         }
-        
-        // 验证房间存在
         Room room = roomMapper.findById(repair.getRoomId());
         if (room == null) {
             throw new RuntimeException("房间不存在");
         }
-        
+        if (repair.getStudentId() != null) {
+            Student student = studentMapper.findById(repair.getStudentId());
+            if (student == null) {
+                throw new RuntimeException("学生不存在");
+            }
+        }
+
         repair.setStatus(0); // 待处理
         repairMapper.insert(repair);
         return repair.getId();

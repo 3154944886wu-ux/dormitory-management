@@ -23,6 +23,7 @@ public class VisitorController {
     }
     
     @GetMapping
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
     public ResponseEntity<Map<String, Object>> list(
             @RequestParam(required = false) Long roomId,
             @RequestParam(required = false) Integer status,
@@ -50,6 +51,7 @@ public class VisitorController {
     }
     
     @GetMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
     public ResponseEntity<Map<String, Object>> getById(@PathVariable Long id) {
         Visitor visitor = visitorService.findById(id);
         
@@ -66,6 +68,7 @@ public class VisitorController {
     }
     
     @GetMapping("/active/count")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
     public ResponseEntity<Map<String, Object>> getActiveCount() {
         Map<String, Object> result = new HashMap<>();
         result.put("code", 200);
