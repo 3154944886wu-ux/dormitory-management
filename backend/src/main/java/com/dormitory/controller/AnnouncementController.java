@@ -3,6 +3,7 @@ package com.dormitory.controller;
 import com.dormitory.model.Announcement;
 import com.dormitory.model.User;
 import com.dormitory.service.AnnouncementService;
+import com.dormitory.utils.AnnouncementAccess;
 import com.dormitory.utils.JwtUtils;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -69,7 +70,7 @@ public class AnnouncementController {
     public ResponseEntity<Map<String, Object>> getById(@PathVariable Long id, Authentication auth) {
         Announcement announcement = announcementService.getAnnouncementById(id);
         Map<String, Object> result = new HashMap<>();
-        if (announcement == null || (isStudent(auth) && !Integer.valueOf(1).equals(announcement.getStatus()))) {
+        if (announcement == null || (isStudent(auth) && !AnnouncementAccess.isPublished(announcement))) {
             result.put("code", 404);
             result.put("message", "公告不存在");
             return ResponseEntity.status(404).body(result);
