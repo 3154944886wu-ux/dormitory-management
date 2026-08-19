@@ -6,17 +6,16 @@
           <span>水电费查询</span>
         </div>
       </template>
-      
-      <!-- 统计卡片 -->
+
       <el-row :gutter="20" class="stats-row">
         <el-col :span="8">
           <el-card shadow="hover" class="stat-card">
-            <el-statistic title="电费总计" :value="stats.electricity" suffix="元" />
+            <el-statistic title="电费总计" :value="stats.electricity" :precision="2" suffix="元" />
           </el-card>
         </el-col>
         <el-col :span="8">
           <el-card shadow="hover" class="stat-card">
-            <el-statistic title="水费总计" :value="stats.water" suffix="元" />
+            <el-statistic title="水费总计" :value="stats.water" :precision="2" suffix="元" />
           </el-card>
         </el-col>
         <el-col :span="8">
@@ -25,26 +24,21 @@
           </el-card>
         </el-col>
       </el-row>
-      
-      <!-- 费用列表 -->
+
       <el-table :data="fees" v-loading="loading" stripe style="margin-top: 20px">
-        <el-table-column label="月份" prop="month" width="120" />
-        <el-table-column label="类型" width="100">
+        <el-table-column label="月份" width="120">
           <template #default="{ row }">
-            <el-tag :type="row.type === 'ELECTRICITY' ? 'warning' : 'primary'" size="small">
-              {{ row.type === 'ELECTRICITY' ? '电费' : '水费' }}
-            </el-tag>
+            {{ formatMonth(row) }}
           </template>
         </el-table-column>
-        <el-table-column label="用量" width="120">
-          <template #default="{ row }">
-            {{ row.usage }} {{ row.type === 'ELECTRICITY' ? '度' : '吨' }}
-          </template>
+        <el-table-column label="电费" width="110">
+          <template #default="{ row }">¥{{ formatMoney(row.electricityFee) }}</template>
         </el-table-column>
-        <el-table-column label="金额" prop="amount" width="100">
-          <template #default="{ row }">
-            ¥{{ row.amount }}
-          </template>
+        <el-table-column label="水费" width="110">
+          <template #default="{ row }">¥{{ formatMoney(row.waterFee) }}</template>
+        </el-table-column>
+        <el-table-column label="合计" width="110">
+          <template #default="{ row }">¥{{ formatMoney(row.totalFee) }}</template>
         </el-table-column>
         <el-table-column label="状态" width="100">
           <template #default="{ row }">
@@ -53,10 +47,13 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="缴费时间" prop="payTime" width="160" />
+        <el-table-column label="缴费时间" min-width="160">
+          <template #default="{ row }">
+            {{ formatDateTime(row.payTime) }}
+          </template>
+        </el-table-column>
       </el-table>
-      
-      <!-- 分页 -->
+
       <div class="pagination">
         <el-pagination
           v-model:current-page="pageNum"
@@ -64,8 +61,8 @@
           :page-sizes="[10, 20, 50]"
           :total="total"
           layout="total, sizes, prev, pager, next"
-          @size-change="loadFees"
-          @current-change="loadFees"
+          @size-change="applyPage"
+          @current-change="applyPage"
         />
       </div>
     </el-card>
@@ -78,6 +75,7 @@ import { ElMessage } from 'element-plus'
 import api from '@/utils/api'
 
 const loading = ref(false)
+const allFees = ref([])
 const fees = ref([])
 const total = ref(0)
 const pageNum = ref(1)
@@ -89,34 +87,35 @@ const stats = reactive({
   count: 0
 })
 
+const formatMoney = (value) => Number(value || 0).toFixed(2)
+
+const formatMonth = (row) => {
+  if (row.year == null || row.month == null) return '-'
+  return `${row.year}-${String(row.month).padStart(2, '0')}`
+}
+
+const formatDateTime = (value) => {
+  if (!value) return '-'
+  return String(value).replace('T', ' ').substring(0, 16)
+}
+
+const applyPage = () => {
+  const start = (pageNum.value - 1) * pageSize.value
+  fees.value = allFees.value.slice(start, start + pageSize.value)
+}
+
 const loadFees = async () => {
   loading.value = true
   try {
-    const res = await api.get('/utility-fees', {
-      params: {
-        pageNum: pageNum.value,
-        pageSize: pageSize.value
-      }
-    })
-    fees.value = res.data || []
-    total.value = res.data?.length || 0
-    
-    // 计算统计数据
-    let electricity = 0
-    let water = 0
-    fees.value.forEach(fee => {
-      if (fee.type === 'ELECTRICITY') {
-        electricity += fee.amount || 0
-      } else {
-        water += fee.amount || 0
-      }
-    })
-    stats.electricity = electricity
-    stats.water = water
-    stats.count = fees.value.length
+    const res = await api.get('/utility-fees')
+    allFees.value = Array.isArray(res.data) ? res.data : []
+    total.value = allFees.value.length
+    stats.electricity = allFees.value.reduce((sum, fee) => sum + Number(fee.electricityFee || 0), 0)
+    stats.water = allFees.value.reduce((sum, fee) => sum + Number(fee.waterFee || 0), 0)
+    stats.count = allFees.value.length
+    applyPage()
   } catch (error) {
-    console.error('加载费用数据失败:', error)
-    ElMessage.error('加载费用数据失败')
+    ElMessage.error(error.message || '加载费用数据失败')
   } finally {
     loading.value = false
   }

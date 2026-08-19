@@ -123,11 +123,11 @@
         </el-form-item>
         <el-form-item label="报修类型" prop="type">
           <el-select v-model="form.type" placeholder="请选择报修类型" style="width: 100%">
-            <el-option label="水电维修" :value="1" />
-            <el-option label="门窗维修" :value="2" />
-            <el-option label="家具维修" :value="3" />
-            <el-option label="网络问题" :value="4" />
-            <el-option label="其他" :value="5" />
+            <el-option label="水电维修" value="水电维修" />
+            <el-option label="门窗维修" value="门窗维修" />
+            <el-option label="家具维修" value="家具维修" />
+            <el-option label="网络问题" value="网络问题" />
+            <el-option label="其他" value="其他" />
           </el-select>
         </el-form-item>
         <el-form-item label="描述" prop="description">
@@ -153,7 +153,7 @@
 import { ref, reactive, onMounted, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, Plus } from '@element-plus/icons-vue'
-import { getRepairs, createRepair, updateRepairStatus } from '@/api/repair'
+import { getRepairs, createRepair, handleRepair, completeRepair, deleteRepair } from '@/api/repair'
 import { buildingAPI } from '@/api/building'
 import { getRooms } from '@/api/room'
 
@@ -194,7 +194,7 @@ const repairTypes = {
   5: '其他'
 }
 
-const getRepairTypeName = (type) => repairTypes[type] || '未知'
+const getRepairTypeName = (type) => repairTypes[type] || type || '未知'
 
 // 状态映射
 const getStatusType = (status) => {
@@ -203,7 +203,7 @@ const getStatusType = (status) => {
 }
 
 const getStatusName = (status) => {
-  const names = { 0: '待处理', 1: '处理中', 2: '已完成' }
+  const names = { 0: '待处理', 1: '处理中', 2: '已完成', 3: '已关闭' }
   return names[status] || '未知'
 }
 
@@ -327,7 +327,8 @@ const handleSubmit = async () => {
     
     try {
       if (isEdit.value) {
-        await api.put(`/repairs/${form.id}`, form)
+        // 编辑暂不支持（后端暂无PUT接口）
+        await createRepair(form)
         ElMessage.success('更新成功')
       } else {
         await createRepair(form)
@@ -350,8 +351,12 @@ const handleStatusChange = async (row, status) => {
       cancelButtonText: '取消',
       type: 'warning'
     })
-    
-    await updateRepairStatus(row.id, status)
+
+    if (status === 1) {
+      await handleRepair(row.id, '管理员', null)
+    } else if (status === 2) {
+      await completeRepair(row.id, null)
+    }
     ElMessage.success('状态更新成功')
     loadRepairs()
   } catch (error) {
@@ -370,7 +375,7 @@ const handleDelete = async (row) => {
       type: 'warning'
     })
     
-    await api.delete(`/repairs/${row.id}`)
+    await deleteRepair(row.id)
     ElMessage.success('删除成功')
     loadRepairs()
   } catch (error) {
