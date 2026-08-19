@@ -28,7 +28,8 @@ api.interceptors.response.use(
     return res
   },
   error => {
-    if (error.response?.status === 401) {
+    // 登录接口的 401 不跳转，让页面显示错误信息
+    if (error.response?.status === 401 && !error.config.url.includes('/auth/login')) {
       localStorage.removeItem('token')
       localStorage.removeItem('user')
       window.location.href = '/login'

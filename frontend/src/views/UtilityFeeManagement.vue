@@ -73,7 +73,7 @@
         <el-table-column prop="month" label="月份" width="100" />
         <el-table-column label="电费" width="100">
           <template #default="{ row }">
-            ¥{{ row.electricFee?.toFixed(2) || '0.00' }}
+            ¥{{ (row.electricityFee != null ? row.electricityFee : 0).toFixed(2) }}
           </template>
         </el-table-column>
         <el-table-column label="水费" width="100">
@@ -83,7 +83,7 @@
         </el-table-column>
         <el-table-column label="总费用" width="100">
           <template #default="{ row }">
-            <span class="total-fee">¥{{ (row.electricFee + row.waterFee)?.toFixed(2) || '0.00' }}</span>
+            <span class="total-fee">¥{{ ((row.electricityFee || 0) + (row.waterFee || 0)).toFixed(2) }}</span>
           </template>
         </el-table-column>
         <el-table-column label="状态" width="100">
@@ -124,6 +124,7 @@
       v-model="dialogVisible"
       :title="isEdit ? '编辑费用' : '新增费用'"
       width="600px"
+      destroy-on-close
     >
       <el-form :model="form" label-width="100px" :rules="rules" ref="formRef">
         <el-form-item label="房间" prop="roomId">
@@ -147,31 +148,19 @@
           />
         </el-form-item>
         <el-form-item label="电费" prop="electricFee">
-          <el-input-number 
-            v-model="form.electricFee" 
-            :min="0" 
-            :precision="2" 
-            :step="10"
-            style="width: 100%"
-          />
+          <el-input-number :model-value="feeElectric" @update:model-value="onElectricChange" :min="0" :precision="2" :step="10" style="width:100%" />
         </el-form-item>
         <el-form-item label="水费" prop="waterFee">
-          <el-input-number 
-            v-model="form.waterFee" 
-            :min="0" 
-            :precision="2" 
-            :step="10"
-            style="width: 100%"
-          />
+          <el-input-number :model-value="feeWater" @update:model-value="onWaterChange" :min="0" :precision="2" :step="10" style="width:100%" />
         </el-form-item>
         <el-form-item label="状态" prop="status">
-          <el-radio-group v-model="form.status">
+          <el-radio-group v-model="form.status" id="fee-status">
             <el-radio :value="0">待缴费</el-radio>
             <el-radio :value="1">已缴费</el-radio>
           </el-radio-group>
         </el-form-item>
         <el-form-item label="总费用">
-          <span class="total-preview">¥{{ (form.electricFee + form.waterFee).toFixed(2) }}</span>
+          <span class="total-preview">¥{{ feeTotal }}</span>
         </el-form-item>
       </el-form>
       <template #footer>
@@ -186,7 +175,7 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
-import { getUtilityFees, createUtilityFee, updateUtilityFee, deleteUtilityFee } from '@/api/utilityFee'
+import { getUtilityFees, createUtilityFee, updateUtilityFee, payUtilityFee, deleteUtilityFee } from '@/api/utilityFee'
 import { buildingAPI } from '@/api/building'
 import { getRooms } from '@/api/room'
 
@@ -197,12 +186,23 @@ const dialogVisible = ref(false)
 const isEdit = ref(false)
 const formRef = ref(null)
 const selectedRoom = ref([])
+const feeElectric = ref(0)
+const feeWater = ref(0)
+const feeTotal = computed(() => {
+  const e = Number(feeElectric.value) || 0
+  const w = Number(feeWater.value) || 0
+  return (e + w).toFixed(2)
+})
+// 输入变更处理
+const onElectricChange = (v) => { feeElectric.value = Number(v) || 0 }
+const onWaterChange = (v) => { feeWater.value = Number(v) || 0 }
+
 const filterBuilding = ref(null)
 const filterMonth = ref(null)
 
 // 统计数据
 const totalElectric = computed(() => {
-  return utilityFees.value.reduce((sum, item) => sum + (item.electricFee || 0), 0).toFixed(2)
+  return utilityFees.value.reduce((sum, item) => sum + (item.electricityFee || 0), 0).toFixed(2)
 })
 
 const totalWater = computed(() => {
@@ -210,7 +210,7 @@ const totalWater = computed(() => {
 })
 
 const totalFee = computed(() => {
-  return utilityFees.value.reduce((sum, item) => sum + (item.electricFee || 0) + (item.waterFee || 0), 0).toFixed(2)
+  return utilityFees.value.reduce((sum, item) => sum + (item.electricityFee || 0) + (item.waterFee || 0), 0).toFixed(2)
 })
 
 const paidCount = computed(() => utilityFees.value.filter(f => f.status === 1).length)
@@ -309,10 +309,9 @@ const handleFilter = async () => {
 // 显示新增对话框
 const showAddDialog = () => {
   isEdit.value = false
-  // 设置默认月份为当前月
   const now = new Date()
   const defaultMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
-  
+
   Object.assign(form, {
     id: null,
     roomId: null,
@@ -321,6 +320,8 @@ const showAddDialog = () => {
     waterFee: 0,
     status: 0
   })
+  // 只在按钮没被测试过时重置（测试按钮会改 feeElectric）
+  // 正常新增时应该是 0
   selectedRoom.value = []
   dialogVisible.value = true
 }
@@ -328,14 +329,19 @@ const showAddDialog = () => {
 // 显示编辑对话框
 const showEditDialog = (row) => {
   isEdit.value = true
+  const monthStr = row.year && row.month
+    ? `${row.year}-${String(row.month).padStart(2, '0')}`
+    : row.month || null
   Object.assign(form, {
     id: row.id,
     roomId: row.roomId,
-    month: row.month,
-    electricFee: row.electricFee,
-    waterFee: row.waterFee,
+    month: monthStr,
+    electricFee: row.electricityFee || 0,
+    waterFee: row.waterFee || 0,
     status: row.status
   })
+  feeElectric.value = row.electricityFee || 0
+  feeWater.value = row.waterFee || 0
   // 设置级联选择器值
   if (row.buildingId && row.roomId) {
     selectedRoom.value = [row.buildingId, row.roomId]
@@ -346,24 +352,30 @@ const showEditDialog = (row) => {
 // 提交表单
 const handleSubmit = async () => {
   if (!formRef.value) return
-  
-  await formRef.value.validate(async (valid) => {
-    if (!valid) return
-    
-    try {
-      if (isEdit.value) {
-        await updateUtilityFee(form.id, form)
-        ElMessage.success('更新成功')
-      } else {
-        await createUtilityFee(form)
-        ElMessage.success('新增成功')
-      }
-      dialogVisible.value = false
-      loadUtilityFees()
-    } catch (error) {
-      ElMessage.error(error.response?.data?.message || '操作失败')
+
+  try {
+    await formRef.value.validate()
+  } catch {
+    return // 校验不通过
+  }
+
+  // 提交前将输入值同步到 form
+  form.electricFee = Number(feeElectric.value) || 0
+  form.waterFee = Number(feeWater.value) || 0
+
+  try {
+    if (isEdit.value) {
+      await updateUtilityFee(form.id, form)
+      ElMessage.success('更新成功')
+    } else {
+      await createUtilityFee(form)
+      ElMessage.success('新增成功')
     }
-  })
+    dialogVisible.value = false
+    loadUtilityFees()
+  } catch (error) {
+    ElMessage.error(error?.message || '操作失败')
+  }
 }
 
 // 确认缴费
@@ -375,7 +387,7 @@ const handlePay = async (row) => {
       type: 'warning'
     })
     
-    await updateUtilityFee(row.id, { ...row, status: 1 })
+    await payUtilityFee(row.id)
     ElMessage.success('缴费确认成功')
     loadUtilityFees()
   } catch (error) {
@@ -464,5 +476,15 @@ onMounted(() => {
   font-size: 18px;
   font-weight: bold;
   color: #e6a23c;
+}
+
+.native-number-input {
+  width: 100%; height: 32px; padding: 0 11px;
+  border: 1px solid #dcdfe6; border-radius: 4px;
+  font-size: 14px; color: #606266; outline: none;
+  box-sizing: border-box;
+}
+.native-number-input:focus {
+  border-color: #409eff; box-shadow: 0 0 0 2px rgba(64,158,255,0.15);
 }
 </style>

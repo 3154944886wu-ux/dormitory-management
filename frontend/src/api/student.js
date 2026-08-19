@@ -70,7 +70,7 @@ export const studentAPI = {
 
   // 公告列表
   getAnnouncements: (limit = 5) => {
-    return api.get('/announcements', { params: { pageSize: limit } })
+    return api.get('/announcements/published', { params: { pageSize: limit } })
   },
 
   // 我的打卡记录（客户端分页/筛选）
@@ -114,7 +114,28 @@ export const studentAPI = {
         total
       }
     }
-  }
+  },
+
+  // 我的报修记录
+  getRepairs: async (params = {}) => {
+    const res = await api.get('/repairs', { params })
+    const records = Array.isArray(res.data) ? res.data : (res.data?.records || [])
+
+    const total = records.length
+    const page = params.page || 1
+    const size = params.size || 10
+    const start = (page - 1) * size
+
+    return {
+      data: {
+        records: records.slice(start, start + size),
+        total
+      }
+    }
+  },
+
+  // 提交报修
+  createRepair: (data) => api.post('/repairs', data)
 }
 
 export default {
