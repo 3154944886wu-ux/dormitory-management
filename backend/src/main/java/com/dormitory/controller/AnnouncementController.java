@@ -6,6 +6,7 @@ import com.dormitory.service.AnnouncementService;
 import com.dormitory.utils.JwtUtils;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
@@ -28,21 +29,26 @@ public class AnnouncementController {
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'STUDENT')")
     public ResponseEntity<Map<String, Object>> getAll(
             @RequestParam(required = false) Integer status,
-            @RequestParam(required = false) Integer type) {
-        List<Announcement> announcements = announcementService.getAllAnnouncements();
-        
-        // 过滤
-        if (status != null) {
-            announcements = announcements.stream()
-                    .filter(a -> a.getStatus().equals(status))
-                    .toList();
+            @RequestParam(required = false) Integer type,
+            Authentication auth) {
+        List<Announcement> announcements;
+        if (isStudent(auth)) {
+            announcements = announcementService.getPublishedAnnouncements();
+        } else {
+            announcements = announcementService.getAllAnnouncements();
+            if (status != null) {
+                announcements = announcements.stream()
+                        .filter(a -> a.getStatus().equals(status))
+                        .toList();
+            }
         }
+
         if (type != null) {
             announcements = announcements.stream()
                     .filter(a -> a.getType().equals(type))
                     .toList();
         }
-        
+
         Map<String, Object> result = new HashMap<>();
         result.put("code", 200);
         result.put("data", announcements);
@@ -60,15 +66,14 @@ public class AnnouncementController {
     
     @GetMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'STUDENT')")
-    public ResponseEntity<Map<String, Object>> getById(@PathVariable Long id) {
+    public ResponseEntity<Map<String, Object>> getById(@PathVariable Long id, Authentication auth) {
         Announcement announcement = announcementService.getAnnouncementById(id);
-        if (announcement == null) {
-            Map<String, Object> result = new HashMap<>();
+        Map<String, Object> result = new HashMap<>();
+        if (announcement == null || (isStudent(auth) && !Integer.valueOf(1).equals(announcement.getStatus()))) {
             result.put("code", 404);
             result.put("message", "公告不存在");
             return ResponseEntity.status(404).body(result);
         }
-        Map<String, Object> result = new HashMap<>();
         result.put("code", 200);
         result.put("data", announcement);
         return ResponseEntity.ok(result);
@@ -180,5 +185,10 @@ public class AnnouncementController {
             token = token.substring(7);
         }
         return jwtUtils.getUserIdFromToken(token);
+    }
+
+    private boolean isStudent(Authentication auth) {
+        return auth != null && auth.getAuthorities().stream()
+                .anyMatch(a -> "ROLE_STUDENT".equals(a.getAuthority()));
     }
 }
