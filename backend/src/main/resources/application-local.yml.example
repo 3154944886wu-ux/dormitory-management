@@ -1,0 +1,14 @@
+# 复制为 application-local.yml（该文件已被 .gitignore 忽略，不会提交）
+# Spring Boot 会自动加载同目录下的 application-local.yml
+
+spring:
+  datasource:
+    username: root
+    password: your_password_here
+
+jwt:
+  secret: replace-with-a-long-random-secret
+
+app:
+  init-admin:
+    enabled: true
