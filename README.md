@@ -74,15 +74,9 @@ CREATE DATABASE dormitory DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_
 
 ### 2. 初始化数据库
 
-按需选择一种方式：
+详见 [`database/MIGRATIONS.md`](database/MIGRATIONS.md)（**唯一推荐路径**）。
 
-**方式 A：完整导入（推荐首次部署）**
-
-```bash
-mysql -u root -p dormitory < database/dormitory.sql
-```
-
-**方式 B：分步导入（适合开发调试）**
+**推荐（首次部署）**：
 
 ```bash
 mysql -u root -p dormitory < database/schema.sql
@@ -90,31 +84,37 @@ mysql -u root -p dormitory < database/test_data.sql
 mysql -u root -p dormitory < database/migration_teachers.sql
 mysql -u root -p dormitory < database/migration_checkin_manager.sql
 mysql -u root -p dormitory < database/migration_check_rules_fix.sql
+mysql -u root -p dormitory < database/migration_add_location.sql
+mysql -u root -p dormitory < database/migration_smart_dorm.sql
+mysql -u root -p dormitory < database/migration_rename_teachers_to_managers.sql
+mysql -u root -p dormitory < database/visitors.sql
 ```
 
-> 若从旧版本升级，请按 `migration_*.sql` 文件名顺序依次执行尚未应用过的脚本。
+> 不推荐仅导入 `dormitory.sql`（可能缺少 `managers` 等表）。从旧库升级请按 `MIGRATIONS.md` 执行尚未应用的 `migration_*.sql`。
 
 ### 3. 配置后端
 
-编辑 `backend/src/main/resources/application.yml`，修改数据库连接：
+复制本地配置模板并填写数据库连接（**勿将密码提交到 Git**）：
+
+```bash
+cp backend/src/main/resources/application-local.yml.example backend/src/main/resources/application-local.yml
+```
+
+编辑 `application-local.yml`：
 
 ```yaml
 spring:
   datasource:
-    url: jdbc:mysql://localhost:3306/dormitory?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&useSSL=false
     username: root
     password: your_password
-```
-
-首次无管理员账号时，可临时启用：
-
-```yaml
+jwt:
+  secret: your-long-random-secret
 app:
   init-admin:
-    enabled: true
+    enabled: true   # 首次创建 admin 后改为 false
 ```
 
-启动成功后会创建 `admin / admin123`，**随后请改回 `false`**。
+也可通过环境变量：`DB_USERNAME`、`DB_PASSWORD`、`JWT_SECRET`、`INIT_ADMIN`。
 
 ### 4. 启动后端
 

@@ -2,6 +2,8 @@
 
 基于 Spring Boot 3 的宿舍管理系统后端 API 服务。
 
+> **注意**：本目录仅包含 Spring Boot 后端，请使用 `mvn spring-boot:run` 启动。历史 Node/Express 代码已移除。
+
 ## 技术栈
 
 - Java 17+
@@ -88,15 +90,7 @@ CREATE DATABASE dormitory CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 ### 2. 配置数据库连接
 
-编辑 `src/main/resources/application.yml`:
-
-```yaml
-spring:
-  datasource:
-    url: jdbc:mysql://localhost:3306/dormitory?useSSL=false&serverTimezone=Asia/Shanghai
-    username: your_username
-    password: your_password
-```
+复制 `src/main/resources/application-local.yml.example` 为 `application-local.yml`，填写数据库密码与 JWT secret。勿修改已提交的 `application.yml` 中的占位配置。
 
 ### 3. 运行项目
 
