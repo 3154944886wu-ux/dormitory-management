@@ -153,7 +153,7 @@
 import { ref, reactive, onMounted, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, Plus } from '@element-plus/icons-vue'
-import { getRepairs, createRepair, handleRepair, completeRepair, deleteRepair } from '@/api/repair'
+import { getRepairs, createRepair, updateRepair, handleRepair, completeRepair, deleteRepair } from '@/api/repair'
 import { buildingAPI } from '@/api/building'
 import { getRooms } from '@/api/room'
 
@@ -327,8 +327,7 @@ const handleSubmit = async () => {
     
     try {
       if (isEdit.value) {
-        // 编辑暂不支持（后端暂无PUT接口）
-        await createRepair(form)
+        await updateRepair(form.id, form)
         ElMessage.success('更新成功')
       } else {
         await createRepair(form)
@@ -337,7 +336,7 @@ const handleSubmit = async () => {
       dialogVisible.value = false
       loadRepairs()
     } catch (error) {
-      ElMessage.error(error.response?.data?.message || '操作失败')
+      ElMessage.error(error.message || '操作失败')
     }
   })
 }

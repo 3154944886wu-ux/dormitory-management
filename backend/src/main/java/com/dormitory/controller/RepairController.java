@@ -181,6 +181,23 @@ public class RepairController {
         }
     }
 
+    @PutMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Map<String, Object>> update(@PathVariable Long id, @RequestBody Repair repair) {
+        Map<String, Object> result = new HashMap<>();
+        try {
+            repair.setId(id);
+            repairService.update(repair);
+            result.put("code", 200);
+            result.put("message", "更新成功");
+            return ResponseEntity.ok(result);
+        } catch (RuntimeException e) {
+            result.put("code", 400);
+            result.put("message", e.getMessage());
+            return ResponseEntity.badRequest().body(result);
+        }
+    }
+
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Map<String, Object>> delete(@PathVariable Long id) {

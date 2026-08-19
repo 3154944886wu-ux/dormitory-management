@@ -78,6 +78,25 @@ public class RepairService {
         repairMapper.insert(repair);
         return repair.getId();
     }
+
+    @Transactional
+    public void update(Repair repair) {
+        Repair existing = repairMapper.findById(repair.getId());
+        if (existing == null) {
+            throw new RuntimeException("报修记录不存在");
+        }
+        if (repair.getRoomId() == null) {
+            throw new RuntimeException("请选择房间");
+        }
+        Room room = roomMapper.findById(repair.getRoomId());
+        if (room == null) {
+            throw new RuntimeException("房间不存在");
+        }
+        existing.setRoomId(repair.getRoomId());
+        existing.setType(repair.getType());
+        existing.setDescription(repair.getDescription());
+        repairMapper.update(existing);
+    }
     
     @Transactional
     public void handle(Long id, String handler, String note) {
