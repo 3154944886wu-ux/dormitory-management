@@ -21,6 +21,7 @@ public class RoomController {
     }
     
     @GetMapping
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'STUDENT')")
     public ResponseEntity<Map<String, Object>> list(
             @RequestParam(required = false) Long buildingId,
             @RequestParam(name = "pageNum", defaultValue = "1") int page,
@@ -52,6 +53,7 @@ public class RoomController {
     }
     
     @GetMapping("/building/{buildingId}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'STUDENT')")
     public ResponseEntity<Map<String, Object>> getByBuildingId(@PathVariable Long buildingId) {
         List<Room> rooms = roomService.findByBuildingId(buildingId);
 
@@ -62,6 +64,7 @@ public class RoomController {
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'STUDENT')")
     public ResponseEntity<Map<String, Object>> getById(@PathVariable Long id) {
         Room room = roomService.findById(id);
         

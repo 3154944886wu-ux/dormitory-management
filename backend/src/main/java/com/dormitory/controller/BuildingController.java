@@ -21,6 +21,7 @@ public class BuildingController {
     }
     
     @GetMapping
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'STUDENT')")
     public ResponseEntity<Map<String, Object>> list() {
         List<Building> buildings = buildingService.findAll();
         
@@ -31,6 +32,7 @@ public class BuildingController {
     }
     
     @GetMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'STUDENT')")
     public ResponseEntity<Map<String, Object>> getById(@PathVariable Long id) {
         Building building = buildingService.findById(id);
         
