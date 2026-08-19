@@ -145,11 +145,14 @@ public class AuthController {
 
     @GetMapping("/me")
     public ResponseEntity<Map<String, Object>> getCurrentUser() {
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        String username = auth.getName();
-        User user = userService.findByUsername(username);
-
+        User user = currentUserOrNull();
         Map<String, Object> result = new HashMap<>();
+        if (user == null) {
+            result.put("code", 401);
+            result.put("message", "未登录");
+            return ResponseEntity.status(401).body(result);
+        }
+        user.setPassword(null);
         result.put("code", 200);
         result.put("data", user);
         return ResponseEntity.ok(result);
@@ -157,9 +160,13 @@ public class AuthController {
 
     @PutMapping("/profile")
     public ResponseEntity<Map<String, Object>> updateProfile(@RequestBody Map<String, String> profileData) {
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        String username = auth.getName();
-        User user = userService.findByUsername(username);
+        User user = currentUserOrNull();
+        Map<String, Object> result = new HashMap<>();
+        if (user == null) {
+            result.put("code", 401);
+            result.put("message", "未登录");
+            return ResponseEntity.status(401).body(result);
+        }
 
         user.setNickname(profileData.get("nickname"));
         user.setPhone(profileData.get("phone"));
@@ -168,8 +175,8 @@ public class AuthController {
         userService.updateProfile(user);
 
         User updated = userService.findById(user.getId());
+        updated.setPassword(null);
 
-        Map<String, Object> result = new HashMap<>();
         result.put("code", 200);
         result.put("message", "信息更新成功");
         result.put("data", updated);
@@ -178,15 +185,18 @@ public class AuthController {
 
     @PutMapping("/password")
     public ResponseEntity<Map<String, Object>> changePassword(@RequestBody Map<String, String> passwordData) {
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        String username = auth.getName();
-        User user = userService.findByUsername(username);
+        User user = currentUserOrNull();
+        Map<String, Object> result = new HashMap<>();
+        if (user == null) {
+            result.put("code", 401);
+            result.put("message", "未登录");
+            return ResponseEntity.status(401).body(result);
+        }
 
         String oldPassword = passwordData.get("oldPassword");
         String newPassword = passwordData.get("newPassword");
 
         if (!userService.verifyPassword(oldPassword, user.getPassword())) {
-            Map<String, Object> result = new HashMap<>();
             result.put("code", 400);
             result.put("message", "原密码错误");
             return ResponseEntity.badRequest().body(result);
@@ -194,9 +204,16 @@ public class AuthController {
 
         userService.updatePassword(user.getId(), newPassword);
 
-        Map<String, Object> result = new HashMap<>();
         result.put("code", 200);
         result.put("message", "密码修改成功");
         return ResponseEntity.ok(result);
+    }
+
+    private User currentUserOrNull() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated() || "anonymousUser".equals(auth.getName())) {
+            return null;
+        }
+        return userService.findByUsername(auth.getName());
     }
 }
