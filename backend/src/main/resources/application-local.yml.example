@@ -7,7 +7,8 @@ spring:
     password: your_password_here
 
 jwt:
-  secret: replace-with-a-long-random-secret
+  secret: replace-with-a-long-random-secret-at-least-32
+  expiration: 604800000
 
 app:
   init-admin:

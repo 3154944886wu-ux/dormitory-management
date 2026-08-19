@@ -8,6 +8,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
+import jakarta.annotation.PostConstruct;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
 import java.util.HashMap;
@@ -21,6 +22,11 @@ public class JwtUtils {
 
     @Value("${jwt.expiration}")
     private Long expiration;
+
+    @PostConstruct
+    void validateSecret() {
+        JwtSecretRules.validate(secret);
+    }
 
     private SecretKey getSecretKey() {
         return Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
