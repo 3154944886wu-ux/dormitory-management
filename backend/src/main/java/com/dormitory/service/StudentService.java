@@ -53,9 +53,25 @@ public class StudentService {
     public List<Student> findByRoomId(Long roomId) {
         return studentMapper.findByRoomId(roomId);
     }
+
+    public List<Student> findByRoomIdWithPagination(Long roomId, int offset, int size) {
+        return studentMapper.findByRoomIdWithPagination(roomId, offset, size);
+    }
+
+    public long countByRoomId(Long roomId) {
+        return studentMapper.countByRoomIdAll(roomId);
+    }
     
     public List<Student> searchByName(String name) {
         return studentMapper.findByName(name);
+    }
+
+    public List<Student> searchByName(String name, int offset, int size) {
+        return studentMapper.findByNameWithPagination(name, offset, size);
+    }
+
+    public long countByName(String name) {
+        return studentMapper.countByName(name);
     }
     
     @Transactional

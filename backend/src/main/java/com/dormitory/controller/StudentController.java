@@ -34,11 +34,11 @@ public class StudentController {
         long total;
 
         if (name != null && !name.isEmpty()) {
-            students = studentService.searchByName(name);
-            total = students.size();
+            students = studentService.searchByName(name, offset, size);
+            total = studentService.countByName(name);
         } else if (roomId != null) {
-            students = studentService.findByRoomId(roomId);
-            total = students.size();
+            students = studentService.findByRoomIdWithPagination(roomId, offset, size);
+            total = studentService.countByRoomId(roomId);
         } else {
             students = studentService.findAllWithPagination(offset, size);
             total = studentService.countAll();

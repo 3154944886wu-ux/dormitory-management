@@ -42,6 +42,34 @@ public interface StudentMapper {
              "LEFT JOIN buildings b ON r.building_id = b.id " +
              "WHERE s.name LIKE CONCAT('%', #{name}, '%')")
     List<Student> findByName(String name);
+
+    @Select("SELECT s.*, r.room_number, b.name as building_name " +
+             "FROM students s " +
+             "LEFT JOIN rooms r ON s.room_id = r.id " +
+             "LEFT JOIN buildings b ON r.building_id = b.id " +
+             "WHERE s.name LIKE CONCAT('%', #{name}, '%') " +
+             "ORDER BY s.student_no " +
+             "LIMIT #{size} OFFSET #{offset}")
+    List<Student> findByNameWithPagination(@Param("name") String name,
+                                          @Param("offset") int offset,
+                                          @Param("size") int size);
+
+    @Select("SELECT COUNT(*) FROM students WHERE name LIKE CONCAT('%', #{name}, '%')")
+    long countByName(String name);
+
+    @Select("SELECT s.*, r.room_number, b.name as building_name " +
+             "FROM students s " +
+             "LEFT JOIN rooms r ON s.room_id = r.id " +
+             "LEFT JOIN buildings b ON r.building_id = b.id " +
+             "WHERE s.room_id = #{roomId} " +
+             "ORDER BY s.student_no " +
+             "LIMIT #{size} OFFSET #{offset}")
+    List<Student> findByRoomIdWithPagination(@Param("roomId") Long roomId,
+                                            @Param("offset") int offset,
+                                            @Param("size") int size);
+
+    @Select("SELECT COUNT(*) FROM students WHERE room_id = #{roomId}")
+    long countByRoomIdAll(Long roomId);
     
     @Insert("INSERT INTO students(student_no, name, gender, phone, department, class_name, college_id, major_id, " +
              "dorm_batch_id, id_card, room_id, bed_number, check_in_date, status) " +
