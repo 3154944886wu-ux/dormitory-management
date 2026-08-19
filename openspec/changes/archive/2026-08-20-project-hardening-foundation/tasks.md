@@ -46,7 +46,7 @@
 ## 7. 验证
 
 - [x] `mvn compile`
-- [ ] `npm run build`（可选，本地 Node 环境）
+- [x] `npm run build`（frontend，Vite 构建通过）
 
 ## 并发策略
 
