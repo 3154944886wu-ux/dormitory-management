@@ -1,7 +1,9 @@
 package com.dormitory.service;
 
 import com.dormitory.mapper.CheckExceptionMapper;
+import com.dormitory.mapper.UserMapper;
 import com.dormitory.model.CheckException;
+import com.dormitory.model.User;
 import com.dormitory.util.MapValueUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -20,6 +22,12 @@ public class CheckExceptionService {
 
     @Autowired
     private OperationLogService operationLogService;
+
+    @Autowired
+    private ManagerScopeService managerScopeService;
+
+    @Autowired
+    private UserMapper userMapper;
 
     public CheckException findById(Long id) {
         return checkExceptionMapper.findById(id);
@@ -69,7 +77,12 @@ public class CheckExceptionService {
         if (exception.getHandled() == 1) {
             throw new RuntimeException("该异常已处理");
         }
-        
+
+        User handler = handlerId == null ? null : userMapper.findById(handlerId);
+        if (handler != null && "MANAGER".equalsIgnoreCase(handler.getRole())) {
+            managerScopeService.assertStudentInScope(handler.getRole(), handlerId, exception.getStudentId());
+        }
+
         checkExceptionMapper.handle(id, handlerId, handleResult, handleNote);
         operationLogService.log(exception.getStudentId(), "manager", handlerName, "check_exception.handle", Map.of(
                 "exceptionId", id,

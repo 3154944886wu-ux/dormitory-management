@@ -13,6 +13,8 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -109,7 +111,11 @@ public class CheckInController {
      */
     @GetMapping("/date/{date}")
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
-    public ResponseEntity<?> getByDate(@PathVariable @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate date) {
+    public ResponseEntity<?> getByDate(@PathVariable @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate date,
+                                       HttpServletRequest request) {
+        if (isManager()) {
+            return ResponseEntity.ok(scopedCheckInRecords(date, date, null, request));
+        }
         List<CheckInRecord> records = checkInService.findByDate(date);
         return ResponseEntity.ok(records);
     }
@@ -123,7 +129,11 @@ public class CheckInController {
             @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate startDate,
             @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate endDate,
             @RequestParam(required = false) Long buildingId,
-            @RequestParam(required = false) Integer status) {
+            @RequestParam(required = false) Integer status,
+            HttpServletRequest request) {
+        if (isManager()) {
+            return ResponseEntity.ok(scopedCheckInRecords(startDate, endDate, status, request));
+        }
         List<CheckInRecord> records = checkInService.search(startDate, endDate, buildingId, status);
         return ResponseEntity.ok(records);
     }
@@ -143,7 +153,7 @@ public class CheckInController {
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "20") int size,
             HttpServletRequest request) {
-        if (isManager(request)) {
+        if (isManager()) {
             Long userId = getUserIdFromRequest(request);
             if (!managerScopeService.hasScope(userId)) {
                 return ResponseEntity.ok(Map.of("code", 200, "data", Map.of("records", List.of(), "total", 0, "page", page, "size", size)));
@@ -173,11 +183,11 @@ public class CheckInController {
             HttpServletRequest request) {
         if (startDate != null || endDate != null) {
             Map<String, Object> data;
-            if (isManager(request)) {
+            if (isManager()) {
                 Long userId = getUserIdFromRequest(request);
                 if (!managerScopeService.hasScope(userId)) {
                     data = Map.of(
-                            "summary", Map.of("normalCount", 0, "lateCount", 0, "absentCount", 0, "leaveCount", 0, "totalCount", 0),
+                            "summary", emptyCheckInSummary(),
                             "dailyTrend", List.of()
                     );
                 } else {
@@ -195,6 +205,17 @@ public class CheckInController {
         if (date == null) {
             date = LocalDate.now();
         }
+        if (isManager()) {
+            Long userId = getUserIdFromRequest(request);
+            if (!managerScopeService.hasScope(userId)) {
+                return ResponseEntity.ok(Map.of("code", 200, "data", emptyCheckInSummary()));
+            }
+            Map<String, Object> trend = checkInService.getTrendStatistics(
+                    date, date,
+                    managerScopeService.buildingIdsCsv(userId),
+                    managerScopeService.classNamesCsv(userId));
+            return ResponseEntity.ok(Map.of("code", 200, "data", trend.get("summary")));
+        }
         Map<String, Object> stats = checkInService.getStatistics(date);
         return ResponseEntity.ok(Map.of("code", 200, "data", stats));
     }
@@ -208,11 +229,11 @@ public class CheckInController {
             @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate startDate,
             @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate endDate,
             HttpServletRequest request) {
-        if (isManager(request)) {
+        if (isManager()) {
             Long userId = getUserIdFromRequest(request);
             if (!managerScopeService.hasScope(userId)) {
                 return ResponseEntity.ok(Map.of("code", 200, "data", Map.of(
-                        "summary", Map.of("normalCount", 0, "lateCount", 0, "absentCount", 0, "leaveCount", 0, "totalCount", 0),
+                        "summary", emptyCheckInSummary(),
                         "dailyTrend", List.of()
                 )));
             }
@@ -262,7 +283,7 @@ public class CheckInController {
             @RequestParam(required = false) Integer status,
             HttpServletRequest request) {
         Map<String, Object> result;
-        if (isManager(request)) {
+        if (isManager()) {
             Long userId = getUserIdFromRequest(request);
             if (!managerScopeService.hasScope(userId)) {
                 result = Map.of("records", List.of(), "total", 0);
@@ -291,7 +312,7 @@ public class CheckInController {
                     .append(nullToEmpty(record.getLongitude())).append(',')
                     .append(nullToEmpty(record.getLocationAccuracy())).append('\n');
         }
-        operationLogService.log(null, isManager(request) ? "manager" : "admin",
+        operationLogService.log(null, isManager() ? "manager" : "admin",
                 jwtUtils.getUsernameFromToken(getToken(request)), "checkin.export", Map.of("count", records.size()));
 
         return ResponseEntity.ok()
@@ -333,9 +354,33 @@ public class CheckInController {
         return token;
     }
 
-    private boolean isManager(HttpServletRequest request) {
-        String role = jwtUtils.parseToken(getToken(request)).get("role", String.class);
-        return "MANAGER".equalsIgnoreCase(role);
+    private boolean isManager() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || authentication.getAuthorities() == null) {
+            return false;
+        }
+        return authentication.getAuthorities().stream()
+                .anyMatch(authority -> "ROLE_MANAGER".equals(authority.getAuthority()));
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<CheckInRecord> scopedCheckInRecords(LocalDate startDate, LocalDate endDate,
+                                                     Integer status, HttpServletRequest request) {
+        Long userId = getUserIdFromRequest(request);
+        if (!managerScopeService.hasScope(userId)) {
+            return List.of();
+        }
+        Map<String, Object> result = checkInService.searchScopedPaged(
+                startDate, endDate,
+                managerScopeService.buildingIdsCsv(userId),
+                managerScopeService.classNamesCsv(userId),
+                status, 1, 10000);
+        Object records = result.get("records");
+        return records instanceof List<?> list ? (List<CheckInRecord>) list : List.of();
+    }
+
+    private Map<String, Object> emptyCheckInSummary() {
+        return Map.of("normalCount", 0, "lateCount", 0, "absentCount", 0, "leaveCount", 0, "totalCount", 0);
     }
 
     private BigDecimal toBigDecimal(Object value) {
@@ -371,10 +416,13 @@ public class CheckInController {
      */
     @GetMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
-    public ResponseEntity<?> getById(@PathVariable Long id) {
+    public ResponseEntity<?> getById(@PathVariable Long id, HttpServletRequest request) {
         CheckInRecord record = checkInService.findById(id);
         if (record == null) {
             return ResponseEntity.notFound().build();
+        }
+        if (isManager()) {
+            managerScopeService.assertStudentInScope("MANAGER", getUserIdFromRequest(request), record.getStudentId());
         }
         return ResponseEntity.ok(record);
     }

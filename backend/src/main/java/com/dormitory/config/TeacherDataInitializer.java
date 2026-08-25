@@ -3,9 +3,11 @@ package com.dormitory.config;
 import com.dormitory.mapper.TeacherMapper;
 import com.dormitory.service.TeacherService;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 @Component
+@ConditionalOnProperty(value = "app.seed-demo.enabled", havingValue = "true")
 public class TeacherDataInitializer implements CommandLineRunner {
 
     private final TeacherMapper teacherMapper;
