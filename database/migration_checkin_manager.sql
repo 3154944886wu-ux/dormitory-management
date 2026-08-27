@@ -18,14 +18,39 @@ CREATE TABLE IF NOT EXISTS manager_scope (
     INDEX idx_manager_scope_class (class_name)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='manager管理范围表';
 
-ALTER TABLE check_rules
-    ADD COLUMN absent_deadline TIME COMMENT '未归判定截止时间(如00:00)' AFTER late_threshold,
-    ADD COLUMN require_location TINYINT DEFAULT 1 COMMENT '是否必须定位打卡: 1是, 0否' AFTER allowed_radius,
-    ADD COLUMN max_location_accuracy INT DEFAULT 200 COMMENT '最大允许定位误差(米)' AFTER require_location,
-    ADD COLUMN exception_threshold INT DEFAULT 3 COMMENT '异常预警阈值' AFTER max_location_accuracy;
+-- 辅助存储过程：仅在列缺失时添加（幂等，可重复执行）
+DROP PROCEDURE IF EXISTS add_column_if_missing;
+DELIMITER $$
+CREATE PROCEDURE add_column_if_missing(
+    IN tbl_name  VARCHAR(128),
+    IN col_name  VARCHAR(128),
+    IN col_def   TEXT
+)
+BEGIN
+    DECLARE col_exists INT DEFAULT 0;
+    SELECT COUNT(*) INTO col_exists
+    FROM INFORMATION_SCHEMA.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = tbl_name
+      AND COLUMN_NAME = col_name;
 
-ALTER TABLE check_exceptions
-    ADD COLUMN handle_result VARCHAR(50) COMMENT '处理结果: safe_return/reported_stay_out/unreachable/other' AFTER handler_id;
+    IF col_exists = 0 THEN
+        SET @sql = CONCAT('ALTER TABLE ', tbl_name, ' ADD COLUMN ', col_name, ' ', col_def);
+        PREPARE stmt FROM @sql;
+        EXECUTE stmt;
+        DEALLOCATE PREPARE stmt;
+    END IF;
+END$$
+DELIMITER ;
+
+CALL add_column_if_missing('check_rules', 'absent_deadline', "TIME COMMENT '未归判定截止时间(如00:00)' AFTER late_threshold");
+CALL add_column_if_missing('check_rules', 'require_location', "TINYINT DEFAULT 1 COMMENT '是否必须定位打卡: 1是, 0否'");
+CALL add_column_if_missing('check_rules', 'max_location_accuracy', "INT DEFAULT 200 COMMENT '最大允许定位误差(米)' AFTER require_location");
+CALL add_column_if_missing('check_rules', 'exception_threshold', "INT DEFAULT 3 COMMENT '异常预警阈值' AFTER max_location_accuracy");
+
+CALL add_column_if_missing('check_exceptions', 'handle_result', "VARCHAR(50) COMMENT '处理结果: safe_return/reported_stay_out/unreachable/other' AFTER handler_id");
+
+DROP PROCEDURE IF EXISTS add_column_if_missing;
 
 UPDATE check_rules
 SET absent_deadline = COALESCE(absent_deadline, check_end_time),

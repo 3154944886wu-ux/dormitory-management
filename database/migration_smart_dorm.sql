@@ -240,6 +240,7 @@ CREATE TABLE IF NOT EXISTS allocation_result (
     room_id           BIGINT        COMMENT '分配的宿舍ID',
     bed_id            BIGINT        COMMENT '分配的床位ID',
     match_score       DECIMAL(5,2)  DEFAULT 0.00 COMMENT '匹配度得分',
+    reallocation_count INT          DEFAULT 0 COMMENT '重新匹配次数',
     status            VARCHAR(20)   DEFAULT 'recommended' COMMENT '状态: recommended/confirmed/auto_confirmed/manual_assigned/adjusted',
     created_at        DATETIME      DEFAULT CURRENT_TIMESTAMP,
     updated_at        DATETIME      DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -250,6 +251,9 @@ CREATE TABLE IF NOT EXISTS allocation_result (
     FOREIGN KEY (bed_id)            REFERENCES bed(id) ON DELETE SET NULL,
     UNIQUE KEY uk_student_batch (student_id, batch_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='分配结果表';
+
+-- 兼容已存在 allocation_result 的旧库：补充 reallocation_count 列
+CALL add_column_if_missing('allocation_result', 'reallocation_count', "INT DEFAULT 0 COMMENT '重新匹配次数' AFTER match_score");
 
 
 -- 15. 操作日志表
@@ -263,6 +267,34 @@ CREATE TABLE IF NOT EXISTS operation_log (
     create_time   DATETIME      DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='操作日志表';
+
+
+-- 15b. 调换申请表
+CREATE TABLE IF NOT EXISTS relocation_application (
+    id                  BIGINT        PRIMARY KEY AUTO_INCREMENT,
+    student_id          BIGINT        NOT NULL COMMENT '申请人ID(关联students.id)',
+    batch_id            INT           NOT NULL COMMENT '所属批次ID',
+    current_room_id     BIGINT        COMMENT '当前房间ID(快照)',
+    current_bed_id      BIGINT        COMMENT '当前床位ID(快照)',
+    reason              TEXT          NOT NULL COMMENT '申请理由',
+    preferred_building_id BIGINT      COMMENT '偏好楼栋ID(可选)',
+    status              VARCHAR(20)   DEFAULT 'pending' COMMENT '状态: pending/approved/rejected/executed',
+    reviewed_by         BIGINT        COMMENT '审核人(关联users.id)',
+    review_comment      TEXT          COMMENT '审核意见',
+    executed_by         BIGINT        COMMENT '执行人(关联users.id)',
+    new_room_id         BIGINT        COMMENT '执行后新房间ID',
+    new_bed_id          BIGINT        COMMENT '执行后新床位ID',
+    created_at          DATETIME      DEFAULT CURRENT_TIMESTAMP,
+    updated_at          DATETIME      DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (student_id)          REFERENCES students(id) ON DELETE CASCADE,
+    FOREIGN KEY (batch_id)            REFERENCES dorm_batch(id) ON DELETE CASCADE,
+    FOREIGN KEY (current_room_id)     REFERENCES rooms(id) ON DELETE SET NULL,
+    FOREIGN KEY (current_bed_id)      REFERENCES bed(id) ON DELETE SET NULL,
+    FOREIGN KEY (reviewed_by)         REFERENCES users(id) ON DELETE SET NULL,
+    FOREIGN KEY (executed_by)         REFERENCES users(id) ON DELETE SET NULL,
+    FOREIGN KEY (new_room_id)         REFERENCES rooms(id) ON DELETE SET NULL,
+    FOREIGN KEY (new_bed_id)          REFERENCES bed(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='调换申请表';
 
 
 -- 16. 通知记录表
