@@ -1,12 +1,18 @@
 package com.dormitory.controller;
 
+import com.dormitory.mapper.StudentMapper;
 import com.dormitory.model.InspectionRecord;
+import com.dormitory.model.Student;
 import com.dormitory.service.InspectionRecordService;
+import com.dormitory.utils.InspectionRoomAccess;
 import com.dormitory.utils.JwtUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
@@ -19,7 +25,6 @@ import java.util.Map;
  */
 @RestController
 @RequestMapping("/api/inspection/records")
-@PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
 public class InspectionRecordController {
 
     @Autowired
@@ -28,10 +33,14 @@ public class InspectionRecordController {
     @Autowired
     private JwtUtils jwtUtils;
 
+    @Autowired
+    private StudentMapper studentMapper;
+
     /**
      * 分页获取所有检查记录
      */
     @GetMapping
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
     public ResponseEntity<?> getAll(@RequestParam(defaultValue = "1") int page,
                                     @RequestParam(defaultValue = "10") int size) {
         List<InspectionRecord> records = recordService.findAll(page, size);
@@ -50,6 +59,7 @@ public class InspectionRecordController {
      * 获取待整改记录
      */
     @GetMapping("/pending")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
     public ResponseEntity<?> getPending() {
         List<InspectionRecord> records = recordService.findByRectificationStatus("PENDING");
         return ResponseEntity.ok(Map.of("data", records));
@@ -59,24 +69,49 @@ public class InspectionRecordController {
      * 按检查计划查询
      */
     @GetMapping("/plan/{planId}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
     public ResponseEntity<?> getByPlanId(@PathVariable Long planId) {
         List<InspectionRecord> records = recordService.findByPlanId(planId);
         return ResponseEntity.ok(Map.of("data", records));
     }
 
     /**
-     * 按房间查询
+     * 按房间查询。管理员/宿管可查任意房间；学生仅能查本人入住房间。
      */
     @GetMapping("/room/{roomId}")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<?> getByRoomId(@PathVariable Long roomId) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        String role = currentRole(auth);
+        Long studentRoomId = null;
+        if ("STUDENT".equals(role) && auth != null) {
+            Student student = studentMapper.findByStudentNo(auth.getName());
+            studentRoomId = student == null ? null : student.getRoomId();
+        }
+        if (!InspectionRoomAccess.canView(role, roomId, studentRoomId)) {
+            return ResponseEntity.status(403).body(Map.of("code", 403, "message", "无权查看该房间检查记录"));
+        }
         List<InspectionRecord> records = recordService.findByRoomId(roomId);
         return ResponseEntity.ok(Map.of("data", records));
+    }
+
+    private String currentRole(Authentication auth) {
+        if (auth == null || auth.getAuthorities() == null) {
+            return null;
+        }
+        return auth.getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority)
+                .filter(a -> a != null && a.startsWith("ROLE_"))
+                .map(a -> a.substring(5))
+                .findFirst()
+                .orElse(null);
     }
 
     /**
      * 按整改状态查询
      */
     @GetMapping("/status/{status}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
     public ResponseEntity<?> getByStatus(@PathVariable String status) {
         List<InspectionRecord> records = recordService.findByRectificationStatus(status);
         return ResponseEntity.ok(Map.of("data", records));
@@ -86,6 +121,7 @@ public class InspectionRecordController {
      * 按检查结果查询
      */
     @GetMapping("/result/{result}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
     public ResponseEntity<?> getByResult(@PathVariable String result) {
         List<InspectionRecord> records = recordService.findByResult(result);
         return ResponseEntity.ok(Map.of("data", records));
@@ -95,6 +131,7 @@ public class InspectionRecordController {
      * 多条件搜索检查记录
      */
     @GetMapping("/search")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
     public ResponseEntity<?> search(
             @RequestParam(required = false) Long planId,
             @RequestParam(required = false) Long buildingId,
@@ -111,6 +148,7 @@ public class InspectionRecordController {
      * 获取单个检查记录
      */
     @GetMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
     public ResponseEntity<?> getById(@PathVariable Long id) {
         InspectionRecord record = recordService.findById(id);
         if (record == null) {
@@ -123,6 +161,7 @@ public class InspectionRecordController {
      * 创建检查记录（提交检查结果）
      */
     @PostMapping
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
     public ResponseEntity<?> create(@RequestBody InspectionRecord record,
                                    @RequestHeader("Authorization") String token) {
         try {
@@ -149,6 +188,7 @@ public class InspectionRecordController {
      * 更新检查记录
      */
     @PutMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
     public ResponseEntity<?> update(@PathVariable Long id, @RequestBody InspectionRecord record) {
         try {
             record.setId(id);
@@ -170,6 +210,7 @@ public class InspectionRecordController {
      * 提交整改（PENDING -> COMPLETED）
      */
     @PostMapping("/{id}/rectify")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
     public ResponseEntity<?> submitRectify(@PathVariable Long id,
                                            @RequestBody Map<String, String> body) {
         try {
@@ -194,6 +235,7 @@ public class InspectionRecordController {
      * 审核整改（COMPLETED -> VERIFIED）
      */
     @PostMapping("/{id}/approve")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
     public ResponseEntity<?> approveRectify(@PathVariable Long id,
                                             @RequestHeader("Authorization") String token) {
         try {
@@ -216,6 +258,7 @@ public class InspectionRecordController {
      * 删除检查记录
      */
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
     public ResponseEntity<?> delete(@PathVariable Long id) {
         try {
             recordService.delete(id);

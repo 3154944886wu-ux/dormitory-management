@@ -1,4 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import { isTokenExpired } from '../utils/jwt'
 
 const routes = [
   {
@@ -355,17 +356,6 @@ const router = createRouter({
   history: createWebHistory(),
   routes
 })
-
-function isTokenExpired(token) {
-  try {
-    const payloadPart = token.split('.')[1]
-    const normalized = payloadPart.replace(/-/g, '+').replace(/_/g, '/')
-    const payload = JSON.parse(atob(normalized))
-    return !payload.exp || payload.exp * 1000 <= Date.now()
-  } catch {
-    return true
-  }
-}
 
 // 路由守卫
 router.beforeEach((to, from, next) => {
