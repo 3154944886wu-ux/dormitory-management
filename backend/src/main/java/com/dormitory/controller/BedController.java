@@ -21,7 +21,7 @@ public class BedController {
     }
 
     @GetMapping("/available/{roomId}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'STUDENT')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
     public ResponseEntity<Map<String, Object>> getAvailableBeds(@PathVariable Long roomId) {
         List<Bed> beds = bedService.findAvailableByRoomId(roomId);
 

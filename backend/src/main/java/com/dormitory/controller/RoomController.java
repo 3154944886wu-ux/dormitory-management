@@ -2,6 +2,7 @@ package com.dormitory.controller;
 
 import com.dormitory.model.Room;
 import com.dormitory.service.RoomService;
+import com.dormitory.utils.Pagination;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -21,19 +22,21 @@ public class RoomController {
     }
     
     @GetMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'STUDENT')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
     public ResponseEntity<Map<String, Object>> list(
             @RequestParam(required = false) Long buildingId,
             @RequestParam(name = "pageNum", defaultValue = "1") int page,
             @RequestParam(name = "pageSize", defaultValue = "20") int size) {
-        int offset = (page - 1) * size;
+        int safePage = Pagination.page(page);
+        int safeSize = Pagination.size(size);
+        int offset = Pagination.offset(safePage, safeSize);
         List<Room> rooms;
         long total;
         if (buildingId != null) {
-            rooms = roomService.findByBuildingIdWithPagination(buildingId, offset, size);
+            rooms = roomService.findByBuildingIdWithPagination(buildingId, offset, safeSize);
             total = roomService.countByBuildingId(buildingId);
         } else {
-            rooms = roomService.findAllWithPagination(offset, size);
+            rooms = roomService.findAllWithPagination(offset, safeSize);
             total = roomService.countAll();
         }
 
@@ -42,9 +45,9 @@ public class RoomController {
         data.put("content", rooms);
         data.put("total", total);
         data.put("totalElements", total);
-        data.put("totalPages", (int) Math.ceil((double) total / size));
-        data.put("currentPage", page);
-        data.put("pageSize", size);
+        data.put("totalPages", (int) Math.ceil(safeSize == 0 ? 0 : (double) total / safeSize));
+        data.put("currentPage", safePage);
+        data.put("pageSize", safeSize);
 
         Map<String, Object> result = new HashMap<>();
         result.put("code", 200);
@@ -53,7 +56,7 @@ public class RoomController {
     }
     
     @GetMapping("/building/{buildingId}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'STUDENT')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
     public ResponseEntity<Map<String, Object>> getByBuildingId(@PathVariable Long buildingId) {
         List<Room> rooms = roomService.findByBuildingId(buildingId);
 
@@ -64,7 +67,7 @@ public class RoomController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'STUDENT')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
     public ResponseEntity<Map<String, Object>> getById(@PathVariable Long id) {
         Room room = roomService.findById(id);
         

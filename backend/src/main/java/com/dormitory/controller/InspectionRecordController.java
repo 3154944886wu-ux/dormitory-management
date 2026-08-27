@@ -210,10 +210,24 @@ public class InspectionRecordController {
      * 提交整改（PENDING -> COMPLETED）
      */
     @PostMapping("/{id}/rectify")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<?> submitRectify(@PathVariable Long id,
                                            @RequestBody Map<String, String> body) {
         try {
+            InspectionRecord existing = recordService.findById(id);
+            if (existing == null) {
+                return ResponseEntity.status(404).body(Map.of("success", false, "message", "检查记录不存在"));
+            }
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            String role = currentRole(auth);
+            Long studentRoomId = null;
+            if ("STUDENT".equals(role) && auth != null) {
+                Student student = studentMapper.findByStudentNo(auth.getName());
+                studentRoomId = student == null ? null : student.getRoomId();
+            }
+            if (!InspectionRoomAccess.canView(role, existing.getRoomId(), studentRoomId)) {
+                return ResponseEntity.status(403).body(Map.of("code", 403, "success", false, "message", "无权提交该房间整改"));
+            }
             String rectificationPhotos = body.get("rectificationPhotos");
             String rectifyRemark = body.get("rectifyRemark");
 

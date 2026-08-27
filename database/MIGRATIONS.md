@@ -17,6 +17,7 @@ mysql -u root -p dormitory < database/migration_smart_dorm.sql
 mysql -u root -p dormitory < database/migration_rename_teachers_to_managers.sql
 mysql -u root -p dormitory < database/visitors.sql
 mysql -u root -p dormitory < database/migration_rectify_remark.sql
+mysql -u root -p dormitory < database/migration_remaining_integrity.sql
 ```
 
 `schema.sql` 已包含 `inspection_items` 表及种子数据；若从更旧版本升级，可单独执行 `migration_inspection_items.sql`。
@@ -35,11 +36,12 @@ mysql -u root -p dormitory < database/migration_rectify_remark.sql
 | `migration_rename_teachers_to_managers.sql` | teachers → managers 重命名 |
 | `visitors.sql` | 访客模块补充 |
 | `migration_rectify_remark.sql` | 检查整改说明独立列 |
+| `migration_remaining_integrity.sql` | 楼栋 name 唯一、异常 (学生,日期,类型) 唯一 |
 | `migration_inspection_items.sql` | 仅缺检查项表时执行 |
 
 ## 不推荐
 
-- **仅导入 `dormitory.sql`**：全量快照可能缺少 `managers` 等后续迁移表，与当前代码不一致。
+- **仅导入 `dormitory.sql`**：这是历史 dump，可能缺少后续迁移表，且含有应用不读取的 `payment_status` 等列。黄金路径仍是 `schema.sql` + 下方 migration，不要单独导入 dump。
 - **仅导入 `schema.sql` 不加 migration**：缺少智能选宿、归寝扩展等表。
 
 ## 演示数据

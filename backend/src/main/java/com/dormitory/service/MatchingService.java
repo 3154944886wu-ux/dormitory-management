@@ -59,7 +59,10 @@ public class MatchingService {
             throw new RuntimeException("只有 running 状态的批次才能执行匹配");
         }
 
-        batchMapper.updateStatus(batch.getId(), "matching");
+        int claimed = batchMapper.updateStatusIf(batch.getId(), "running", "matching");
+        if (claimed == 0) {
+            throw new RuntimeException("批次状态已变化，无法执行匹配");
+        }
 
         try {
             // 清理旧的匹配数据（防止重复运行时数据叠加）
@@ -215,8 +218,11 @@ public class MatchingService {
 
             batchMapper.updateStatus(batch.getId(), "confirming");
         } catch (Exception e) {
-            batchMapper.updateStatus(batch.getId(), "running");
-            throw new RuntimeException("匹配失败: " + e.getMessage(), e);
+            batchMapper.updateStatusIf(batch.getId(), "matching", "running");
+            if (e instanceof RuntimeException runtime) {
+                throw runtime;
+            }
+            throw new RuntimeException(e.getMessage(), e);
         }
     }
 

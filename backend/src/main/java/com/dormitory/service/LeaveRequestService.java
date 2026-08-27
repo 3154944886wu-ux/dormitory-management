@@ -7,6 +7,7 @@ import com.dormitory.model.ManagerScope;
 import com.dormitory.model.Student;
 import com.dormitory.utils.LeaveReturn;
 import com.dormitory.utils.ManagerScopeMatcher;
+import com.dormitory.utils.Pagination;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -156,8 +157,7 @@ public class LeaveRequestService {
     }
     
     public List<LeaveRequest> findAll(int page, int size) {
-        int offset = (page - 1) * size;
-        return leaveRequestMapper.findAll(offset, size);
+        return leaveRequestMapper.findAll(Pagination.offset(page, size), Pagination.size(size));
     }
     
     public int count() {

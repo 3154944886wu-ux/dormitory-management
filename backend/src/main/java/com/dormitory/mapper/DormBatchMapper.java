@@ -51,6 +51,11 @@ public interface DormBatchMapper {
     @Update("UPDATE dorm_batch SET match_status = #{matchStatus} WHERE id = #{id}")
     int updateStatus(@Param("id") Long id, @Param("matchStatus") String matchStatus);
 
+    @Update("UPDATE dorm_batch SET match_status = #{toStatus} WHERE id = #{id} AND match_status = #{fromStatus}")
+    int updateStatusIf(@Param("id") Long id,
+                       @Param("fromStatus") String fromStatus,
+                       @Param("toStatus") String toStatus);
+
     @Select("SELECT db.*, c.name as college_name " +
             "FROM dorm_batch db " +
             "LEFT JOIN college c ON db.college_id = c.id " +

@@ -1,7 +1,13 @@
 package com.dormitory.controller;
 
+import com.dormitory.mapper.UserMapper;
 import com.dormitory.model.Student;
+import com.dormitory.model.User;
+import com.dormitory.service.ManagerScopeService;
 import com.dormitory.service.StudentService;
+import com.dormitory.utils.ApiResponses;
+import com.dormitory.utils.AuthRoles;
+import com.dormitory.utils.Pagination;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
@@ -16,9 +22,15 @@ import java.util.Map;
 public class StudentController {
     
     private final StudentService studentService;
+    private final ManagerScopeService managerScopeService;
+    private final UserMapper userMapper;
     
-    public StudentController(StudentService studentService) {
+    public StudentController(StudentService studentService,
+                             ManagerScopeService managerScopeService,
+                             UserMapper userMapper) {
         this.studentService = studentService;
+        this.managerScopeService = managerScopeService;
+        this.userMapper = userMapper;
     }
     
     @GetMapping
@@ -27,29 +39,52 @@ public class StudentController {
             @RequestParam(required = false) String name,
             @RequestParam(required = false) Long roomId,
             @RequestParam(name = "pageNum", defaultValue = "1") int page,
-            @RequestParam(name = "pageSize", defaultValue = "20") int size) {
+            @RequestParam(name = "pageSize", defaultValue = "20") int size,
+            Authentication auth) {
 
-        int offset = (page - 1) * size;
+        int safePage = Pagination.page(page);
+        int safeSize = Pagination.size(size);
         List<Student> students;
         long total;
+        Long managerId = managerUserId(auth);
 
-        if (name != null && !name.isEmpty()) {
-            students = studentService.searchByName(name, offset, size);
-            total = studentService.countByName(name);
-        } else if (roomId != null) {
-            students = studentService.findByRoomIdWithPagination(roomId, offset, size);
-            total = studentService.countByRoomId(roomId);
+        if (managerId != null) {
+            if (!managerScopeService.hasScope(managerId)) {
+                students = List.of();
+                total = 0;
+            } else {
+                List<Student> all;
+                if (name != null && !name.isEmpty()) {
+                    all = studentService.searchByName(name);
+                } else if (roomId != null) {
+                    all = studentService.findByRoomId(roomId);
+                } else {
+                    all = studentService.findAll();
+                }
+                all = managerScopeService.filterVisible(managerId, all, Student::getBuildingId, Student::getClassName);
+                total = all.size();
+                students = Pagination.slice(all, safePage, safeSize);
+            }
         } else {
-            students = studentService.findAllWithPagination(offset, size);
-            total = studentService.countAll();
+            int offset = Pagination.offset(safePage, safeSize);
+            if (name != null && !name.isEmpty()) {
+                students = studentService.searchByName(name, offset, safeSize);
+                total = studentService.countByName(name);
+            } else if (roomId != null) {
+                students = studentService.findByRoomIdWithPagination(roomId, offset, safeSize);
+                total = studentService.countByRoomId(roomId);
+            } else {
+                students = studentService.findAllWithPagination(offset, safeSize);
+                total = studentService.countAll();
+            }
         }
 
         Map<String, Object> data = new HashMap<>();
         data.put("list", students);
         data.put("total", total);
-        data.put("totalPages", (int) Math.ceil((double) total / size));
-        data.put("currentPage", page);
-        data.put("pageSize", size);
+        data.put("totalPages", (int) Math.ceil(safeSize == 0 ? 0 : (double) total / safeSize));
+        data.put("currentPage", safePage);
+        data.put("pageSize", safeSize);
 
         Map<String, Object> result = new HashMap<>();
         result.put("code", 200);
@@ -59,7 +94,7 @@ public class StudentController {
     
     @GetMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
-    public ResponseEntity<Map<String, Object>> getById(@PathVariable Long id) {
+    public ResponseEntity<Map<String, Object>> getById(@PathVariable Long id, Authentication auth) {
         Student student = studentService.findById(id);
         
         Map<String, Object> result = new HashMap<>();
@@ -67,6 +102,10 @@ public class StudentController {
             result.put("code", 404);
             result.put("message", "学生不存在");
             return ResponseEntity.status(404).body(result);
+        }
+        ResponseEntity<Map<String, Object>> denied = denyIfOutOfScope(auth, student.getBuildingId(), student.getClassName());
+        if (denied != null) {
+            return denied;
         }
         
         result.put("code", 200);
@@ -93,6 +132,12 @@ public class StudentController {
             result.put("message", "学生不存在");
             return ResponseEntity.status(404).body(result);
         }
+        if (!isStudent(auth)) {
+            ResponseEntity<Map<String, Object>> denied = denyIfOutOfScope(auth, student.getBuildingId(), student.getClassName());
+            if (denied != null) {
+                return denied;
+            }
+        }
 
         result.put("code", 200);
         result.put("data", student);
@@ -109,7 +154,7 @@ public class StudentController {
             result.put("code", 201);
             result.put("message", "创建成功");
             result.put("data", Map.of("id", id));
-            return ResponseEntity.ok(result);
+            return ResponseEntity.status(201).body(result);
         } catch (RuntimeException e) {
             result.put("code", 400);
             result.put("message", e.getMessage());
@@ -190,7 +235,25 @@ public class StudentController {
     }
 
     private boolean isStudent(Authentication auth) {
-        return auth != null && auth.getAuthorities().stream()
-                .anyMatch(a -> "ROLE_STUDENT".equals(a.getAuthority()));
+        return AuthRoles.has(auth, "STUDENT");
+    }
+
+    private Long managerUserId(Authentication auth) {
+        if (!AuthRoles.isManagerOnly(auth)) {
+            return null;
+        }
+        User user = userMapper.findByUsername(auth.getName());
+        return user == null ? null : user.getId();
+    }
+
+    private ResponseEntity<Map<String, Object>> denyIfOutOfScope(Authentication auth, Long buildingId, String className) {
+        Long managerId = managerUserId(auth);
+        if (managerId == null) {
+            return null;
+        }
+        if (!managerScopeService.canSee(managerId, buildingId, className)) {
+            return ApiResponses.forbidden("无权查看该范围外的学生");
+        }
+        return null;
     }
 }

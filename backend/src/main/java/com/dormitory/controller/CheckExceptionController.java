@@ -4,7 +4,9 @@ import com.dormitory.model.CheckException;
 import com.dormitory.service.CheckExceptionService;
 import com.dormitory.service.ManagerScopeService;
 import com.dormitory.service.OperationLogService;
+import com.dormitory.utils.ApiResponses;
 import com.dormitory.utils.JwtUtils;
+import com.dormitory.utils.Pagination;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpHeaders;
@@ -51,23 +53,30 @@ public class CheckExceptionController {
         if (isManager(request)) {
             Long userId = getUserId(request);
             if (!managerScopeService.hasScope(userId)) {
-                return ResponseEntity.ok(Map.of("data", List.of(), "total", 0, "page", page, "size", size));
+                return ResponseEntity.ok(Map.of("data", List.of(), "total", 0, "page", Pagination.page(page), "size", Pagination.size(size)));
             }
             List<CheckException> scoped = checkExceptionService.searchScoped(
                     null, null,
-                    managerScopeService.buildingIdsCsv(userId),
-                    managerScopeService.classNamesJson(userId),
+                    managerScopeService.scopesJson(userId),
                     null, null);
-            return ResponseEntity.ok(Map.of("data", scoped, "total", scoped.size(), "page", page, "size", size));
+            int safePage = Pagination.page(page);
+            int safeSize = Pagination.size(size);
+            return ResponseEntity.ok(Map.of(
+                    "data", Pagination.slice(scoped, safePage, safeSize),
+                    "total", scoped.size(),
+                    "page", safePage,
+                    "size", safeSize));
         }
-        List<CheckException> exceptions = checkExceptionService.findAll(page, size);
+        int safePage = Pagination.page(page);
+        int safeSize = Pagination.size(size);
+        List<CheckException> exceptions = checkExceptionService.findAll(safePage, safeSize);
         int total = checkExceptionService.count();
         
         Map<String, Object> result = new HashMap<>();
         result.put("data", exceptions);
         result.put("total", total);
-        result.put("page", page);
-        result.put("size", size);
+        result.put("page", safePage);
+        result.put("size", safeSize);
         
         return ResponseEntity.ok(result);
     }
@@ -77,10 +86,14 @@ public class CheckExceptionController {
      */
     @GetMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
-    public ResponseEntity<?> getById(@PathVariable Long id) {
+    public ResponseEntity<?> getById(@PathVariable Long id, HttpServletRequest request) {
         CheckException exception = checkExceptionService.findById(id);
         if (exception == null) {
             return ResponseEntity.notFound().build();
+        }
+        ResponseEntity<?> denied = denyIfOutOfScope(request, exception);
+        if (denied != null) {
+            return denied;
         }
         return ResponseEntity.ok(Map.of("data", exception));
     }
@@ -90,7 +103,16 @@ public class CheckExceptionController {
      */
     @GetMapping("/date/{date}")
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
-    public ResponseEntity<?> getByDate(@PathVariable @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+    public ResponseEntity<?> getByDate(@PathVariable @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+                                      HttpServletRequest request) {
+        if (isManager(request)) {
+            Long userId = getUserId(request);
+            if (!managerScopeService.hasScope(userId)) {
+                return ResponseEntity.ok(Map.of("data", List.of()));
+            }
+            return ResponseEntity.ok(Map.of("data", checkExceptionService.searchScoped(
+                    date, date, managerScopeService.scopesJson(userId), null, null)));
+        }
         List<CheckException> exceptions = checkExceptionService.findByDate(date);
         return ResponseEntity.ok(Map.of("data", exceptions));
     }
@@ -100,8 +122,13 @@ public class CheckExceptionController {
      */
     @GetMapping("/student/{studentId}")
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
-    public ResponseEntity<?> getByStudent(@PathVariable Long studentId) {
+    public ResponseEntity<?> getByStudent(@PathVariable Long studentId, HttpServletRequest request) {
         List<CheckException> exceptions = checkExceptionService.findByStudentId(studentId);
+        if (isManager(request)) {
+            Long userId = getUserId(request);
+            exceptions = managerScopeService.filterVisible(userId, exceptions,
+                    CheckException::getBuildingId, CheckException::getClassName);
+        }
         return ResponseEntity.ok(Map.of("data", exceptions));
     }
 
@@ -110,7 +137,15 @@ public class CheckExceptionController {
      */
     @GetMapping("/handled/{handled}")
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
-    public ResponseEntity<?> getByHandled(@PathVariable Integer handled) {
+    public ResponseEntity<?> getByHandled(@PathVariable Integer handled, HttpServletRequest request) {
+        if (isManager(request)) {
+            Long userId = getUserId(request);
+            if (!managerScopeService.hasScope(userId)) {
+                return ResponseEntity.ok(Map.of("data", List.of()));
+            }
+            return ResponseEntity.ok(Map.of("data", checkExceptionService.searchScoped(
+                    null, null, managerScopeService.scopesJson(userId), null, handled)));
+        }
         List<CheckException> exceptions = checkExceptionService.findByHandled(handled);
         return ResponseEntity.ok(Map.of("data", exceptions));
     }
@@ -134,8 +169,7 @@ public class CheckExceptionController {
             }
             List<CheckException> exceptions = checkExceptionService.searchScoped(
                     startDate, endDate,
-                    managerScopeService.buildingIdsCsv(userId),
-                    managerScopeService.classNamesJson(userId),
+                    managerScopeService.scopesJson(userId),
                     exceptionType, handled);
             return ResponseEntity.ok(Map.of("data", exceptions));
         }
@@ -153,8 +187,14 @@ public class CheckExceptionController {
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
     public ResponseEntity<?> handle(@PathVariable Long id,
                                    @RequestBody Map<String, Object> body,
-                                   @RequestHeader("Authorization") String token) {
+                                   @RequestHeader("Authorization") String token,
+                                   HttpServletRequest request) {
         try {
+            CheckException exception = checkExceptionService.findById(id);
+            ResponseEntity<?> denied = denyIfOutOfScope(request, exception);
+            if (denied != null) {
+                return denied;
+            }
             String handleNote = (String) body.get("handleNote");
             String handleResult = (String) body.get("handleResult");
             Long handlerId = jwtUtils.getUserIdFromToken(token.replace("Bearer ", ""));
@@ -181,9 +221,23 @@ public class CheckExceptionController {
     @GetMapping("/statistics")
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
     public ResponseEntity<?> getStatistics(
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+            HttpServletRequest request) {
         if (date == null) {
             date = LocalDate.now();
+        }
+        if (isManager(request)) {
+            Long userId = getUserId(request);
+            if (!managerScopeService.hasScope(userId)) {
+                return ResponseEntity.ok(Map.of(
+                        "lateCount", 0, "absentCount", 0, "missingCount", 0,
+                        "totalCount", 0, "unhandledCount", 0));
+            }
+            Map<String, Object> scoped = checkExceptionService.getScopedTrendStatistics(
+                    date, date, managerScopeService.scopesJson(userId));
+            @SuppressWarnings("unchecked")
+            Map<String, Object> summary = (Map<String, Object>) scoped.getOrDefault("summary", Map.of());
+            return ResponseEntity.ok(summary);
         }
         Map<String, Object> stats = checkExceptionService.getStatistics(date);
         return ResponseEntity.ok(stats);
@@ -220,8 +274,7 @@ public class CheckExceptionController {
             }
             return ResponseEntity.ok(Map.of("code", 200, "data", checkExceptionService.getScopedTrendStatistics(
                     startDate, endDate,
-                    managerScopeService.buildingIdsCsv(userId),
-                    managerScopeService.classNamesJson(userId)
+                    managerScopeService.scopesJson(userId)
             )));
         }
         return ResponseEntity.ok(Map.of("code", 200, "data", checkExceptionService.getTrendStatistics(startDate, endDate)));
@@ -243,8 +296,7 @@ public class CheckExceptionController {
                 exceptions = List.of();
             } else {
             exceptions = checkExceptionService.searchScoped(startDate, endDate,
-                    managerScopeService.buildingIdsCsv(userId),
-                    managerScopeService.classNamesJson(userId),
+                    managerScopeService.scopesJson(userId),
                     exceptionType, handled);
             }
         } else {
@@ -289,6 +341,20 @@ public class CheckExceptionController {
     private boolean isManager(HttpServletRequest request) {
         String role = jwtUtils.parseToken(getToken(request)).get("role", String.class);
         return "MANAGER".equalsIgnoreCase(role);
+    }
+
+    private ResponseEntity<?> denyIfOutOfScope(HttpServletRequest request, CheckException exception) {
+        if (exception == null) {
+            return ResponseEntity.badRequest().body(Map.of("code", 400, "success", false, "message", "异常记录不存在"));
+        }
+        if (!isManager(request)) {
+            return null;
+        }
+        Long userId = getUserId(request);
+        if (!managerScopeService.canSee(userId, exception.getBuildingId(), exception.getClassName())) {
+            return ApiResponses.forbidden("无权处理该范围外的异常");
+        }
+        return null;
     }
 
     private String exceptionTypeText(Integer type) {

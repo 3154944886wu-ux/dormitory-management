@@ -27,7 +27,7 @@ CREATE TABLE IF NOT EXISTS users (
 -- 楼栋表
 CREATE TABLE IF NOT EXISTS buildings (
     id BIGINT PRIMARY KEY AUTO_INCREMENT,
-    name VARCHAR(50) NOT NULL COMMENT '楼栋名称',
+    name VARCHAR(50) NOT NULL UNIQUE COMMENT '楼栋名称',
     floors INT DEFAULT 6 COMMENT '楼层数',
     rooms_per_floor INT DEFAULT 20 COMMENT '每层房间数',
     gender_type VARCHAR(10) DEFAULT 'MIXED' COMMENT '性别类型: MALE, FEMALE, MIXED',
@@ -261,7 +261,8 @@ CREATE TABLE IF NOT EXISTS check_exceptions (
     create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
     update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE,
-    FOREIGN KEY (check_record_id) REFERENCES check_in_records(id) ON DELETE SET NULL
+    FOREIGN KEY (check_record_id) REFERENCES check_in_records(id) ON DELETE SET NULL,
+    UNIQUE KEY uk_student_date_type (student_id, exception_date, exception_type)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='归寝异常记录表';
 
 -- 公告表

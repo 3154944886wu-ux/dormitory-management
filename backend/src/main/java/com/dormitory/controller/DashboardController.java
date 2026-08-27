@@ -3,6 +3,7 @@ package com.dormitory.controller;
 import com.dormitory.mapper.*;
 import com.dormitory.model.Repair;
 import com.dormitory.model.UtilityFee;
+import com.dormitory.utils.DashboardFees;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -72,9 +73,11 @@ public class DashboardController {
         int pendingRepairs = repairMapper.countByStatus(0);
         int processingRepairs = repairMapper.countByStatus(1);
         int completedRepairs = repairMapper.countByStatus(2);
+        int closedRepairs = repairMapper.countByStatus(3);
         data.put("pendingRepairs", pendingRepairs);
         data.put("processingRepairs", processingRepairs);
         data.put("completedRepairs", completedRepairs);
+        data.put("closedRepairs", closedRepairs);
         
         // 访客统计
         int activeVisitors = visitorMapper.countActive();
@@ -125,11 +128,13 @@ public class DashboardController {
         int pending = repairMapper.countByStatus(0);
         int processing = repairMapper.countByStatus(1);
         int completed = repairMapper.countByStatus(2);
-        int total = pending + processing + completed;
+        int closed = repairMapper.countByStatus(3);
+        int total = pending + processing + completed + closed;
         
         data.put("pending", pending);
         data.put("processing", processing);
         data.put("completed", completed);
+        data.put("closed", closed);
         data.put("total", total);
         
         // 最近报修列表（取前5条）
@@ -178,6 +183,7 @@ public class DashboardController {
         data.put("totalAmount", totalAmount);
         data.put("paidAmount", paidAmount);
         data.put("unpaidAmount", unpaidAmount);
+        data.putAll(DashboardFees.summarize(allFees));
         
         // 最近账单（取前5条）
         List<UtilityFee> recentFees = allFees.size() > 5 ? allFees.subList(0, 5) : allFees;

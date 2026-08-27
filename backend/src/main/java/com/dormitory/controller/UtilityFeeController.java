@@ -4,6 +4,7 @@ import com.dormitory.mapper.StudentMapper;
 import com.dormitory.model.Student;
 import com.dormitory.model.UtilityFee;
 import com.dormitory.service.UtilityFeeService;
+import com.dormitory.utils.BillingPeriod;
 import com.dormitory.utils.FeeTotal;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -100,9 +101,9 @@ public class UtilityFeeController {
             // 月份: "YYYY-MM" -> year, month
             String monthStr = (String) body.get("month");
             if (monthStr == null || monthStr.isEmpty()) throw new RuntimeException("请选择月份");
-            String[] parts = monthStr.split("-");
-            fee.setYear(Integer.parseInt(parts[0]));
-            fee.setMonth(Integer.parseInt(parts[1]));
+            int[] yearMonth = BillingPeriod.yearMonth(monthStr);
+            fee.setYear(yearMonth[0]);
+            fee.setMonth(yearMonth[1]);
 
             // 直接传入的金额
             Object electricFeeObj = body.get("electricFee");
@@ -155,9 +156,9 @@ public class UtilityFeeController {
             // 月份
             String monthStr = (String) body.get("month");
             if (monthStr != null && !monthStr.isEmpty()) {
-                String[] parts = monthStr.split("-");
-                fee.setYear(Integer.parseInt(parts[0]));
-                fee.setMonth(Integer.parseInt(parts[1]));
+                int[] yearMonth = BillingPeriod.yearMonth(monthStr);
+                fee.setYear(yearMonth[0]);
+                fee.setMonth(yearMonth[1]);
             }
 
             // 直接传入的金额

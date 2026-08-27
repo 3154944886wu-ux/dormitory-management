@@ -6,7 +6,9 @@ import com.dormitory.service.CheckInService;
 import com.dormitory.service.ManagerScopeService;
 import com.dormitory.service.OperationLogService;
 import com.dormitory.mapper.StudentMapper;
+import com.dormitory.utils.ApiResponses;
 import com.dormitory.utils.JwtUtils;
+import com.dormitory.utils.Pagination;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpHeaders;
@@ -109,7 +111,19 @@ public class CheckInController {
      */
     @GetMapping("/date/{date}")
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
-    public ResponseEntity<?> getByDate(@PathVariable @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate date) {
+    public ResponseEntity<?> getByDate(@PathVariable @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate date,
+                                      HttpServletRequest request) {
+        if (isManager(request)) {
+            Long userId = getUserIdFromRequest(request);
+            if (!managerScopeService.hasScope(userId)) {
+                return ResponseEntity.ok(List.of());
+            }
+            Map<String, Object> result = checkInService.searchScopedPaged(
+                    date, date, managerScopeService.scopesJson(userId), null, 1, 10000);
+            @SuppressWarnings("unchecked")
+            List<CheckInRecord> records = (List<CheckInRecord>) result.get("records");
+            return ResponseEntity.ok(records);
+        }
         List<CheckInRecord> records = checkInService.findByDate(date);
         return ResponseEntity.ok(records);
     }
@@ -123,7 +137,19 @@ public class CheckInController {
             @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate startDate,
             @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate endDate,
             @RequestParam(required = false) Long buildingId,
-            @RequestParam(required = false) Integer status) {
+            @RequestParam(required = false) Integer status,
+            HttpServletRequest request) {
+        if (isManager(request)) {
+            Long userId = getUserIdFromRequest(request);
+            if (!managerScopeService.hasScope(userId)) {
+                return ResponseEntity.ok(List.of());
+            }
+            Map<String, Object> result = checkInService.searchScopedPaged(
+                    startDate, endDate, managerScopeService.scopesJson(userId), status, 1, 10000);
+            @SuppressWarnings("unchecked")
+            List<CheckInRecord> records = (List<CheckInRecord>) result.get("records");
+            return ResponseEntity.ok(records);
+        }
         List<CheckInRecord> records = checkInService.search(startDate, endDate, buildingId, status);
         return ResponseEntity.ok(records);
     }
@@ -143,21 +169,22 @@ public class CheckInController {
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "20") int size,
             HttpServletRequest request) {
+        int safePage = Pagination.page(page);
+        int safeSize = Pagination.size(size);
         if (isManager(request)) {
             Long userId = getUserIdFromRequest(request);
             if (!managerScopeService.hasScope(userId)) {
-                return ResponseEntity.ok(Map.of("code", 200, "data", Map.of("records", List.of(), "total", 0, "page", page, "size", size)));
+                return ResponseEntity.ok(Map.of("code", 200, "data", Map.of("records", List.of(), "total", 0, "page", safePage, "size", safeSize)));
             }
             Map<String, Object> result = checkInService.searchScopedPaged(
                     startDate, endDate,
-                    managerScopeService.buildingIdsCsv(userId),
-                    managerScopeService.classNamesJson(userId),
-                    status, page, size);
+                    managerScopeService.scopesJson(userId),
+                    status, safePage, safeSize);
             return ResponseEntity.ok(Map.of("code", 200, "data", result));
         }
 
         Map<String, Object> result = checkInService.searchPaged(
-                startDate, endDate, buildingId, status, studentName, studentNo, page, size);
+                startDate, endDate, buildingId, status, studentName, studentNo, safePage, safeSize);
         return ResponseEntity.ok(Map.of("code", 200, "data", result));
     }
     
@@ -183,17 +210,26 @@ public class CheckInController {
                 } else {
                     data = checkInService.getTrendStatistics(
                             startDate, endDate,
-                            managerScopeService.buildingIdsCsv(userId),
-                            managerScopeService.classNamesJson(userId));
+                            managerScopeService.scopesJson(userId));
                 }
             } else {
-                data = checkInService.getTrendStatistics(startDate, endDate, null, null);
+                data = checkInService.getTrendStatistics(startDate, endDate, null);
             }
             return ResponseEntity.ok(Map.of("code", 200, "data", data));
         }
 
         if (date == null) {
             date = LocalDate.now();
+        }
+        if (isManager(request)) {
+            Long userId = getUserIdFromRequest(request);
+            if (!managerScopeService.hasScope(userId)) {
+                return ResponseEntity.ok(Map.of("code", 200, "data", Map.of(
+                        "normalCount", 0, "lateCount", 0, "absentCount", 0, "leaveCount", 0, "totalCount", 0)));
+            }
+            Map<String, Object> data = checkInService.getTrendStatistics(
+                    date, date, managerScopeService.scopesJson(userId));
+            return ResponseEntity.ok(Map.of("code", 200, "data", data.getOrDefault("summary", data)));
         }
         Map<String, Object> stats = checkInService.getStatistics(date);
         return ResponseEntity.ok(Map.of("code", 200, "data", stats));
@@ -218,12 +254,11 @@ public class CheckInController {
             }
             return ResponseEntity.ok(Map.of("code", 200, "data", checkInService.getTrendStatistics(
                     startDate, endDate,
-                    managerScopeService.buildingIdsCsv(userId),
-                    managerScopeService.classNamesJson(userId)
+                    managerScopeService.scopesJson(userId)
             )));
         }
         return ResponseEntity.ok(Map.of("code", 200, "data", checkInService.getTrendStatistics(
-                startDate, endDate, null, null)));
+                startDate, endDate, null)));
     }
     
     /**
@@ -268,8 +303,7 @@ public class CheckInController {
                 result = Map.of("records", List.of(), "total", 0);
             } else {
             result = checkInService.searchScopedPaged(startDate, endDate,
-                    managerScopeService.buildingIdsCsv(userId),
-                    managerScopeService.classNamesJson(userId),
+                    managerScopeService.scopesJson(userId),
                     status, 1, 10000);
             }
         } else {
@@ -371,10 +405,16 @@ public class CheckInController {
      */
     @GetMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
-    public ResponseEntity<?> getById(@PathVariable Long id) {
+    public ResponseEntity<?> getById(@PathVariable Long id, HttpServletRequest request) {
         CheckInRecord record = checkInService.findById(id);
         if (record == null) {
             return ResponseEntity.notFound().build();
+        }
+        if (isManager(request)) {
+            Long userId = getUserIdFromRequest(request);
+            if (!managerScopeService.canSee(userId, record.getBuildingId(), record.getClassName())) {
+                return ApiResponses.forbidden("无权查看该范围外的打卡记录");
+            }
         }
         return ResponseEntity.ok(record);
     }

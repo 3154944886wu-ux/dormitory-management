@@ -4,7 +4,10 @@ import com.dormitory.model.LeaveRequest;
 import com.dormitory.model.Student;
 import com.dormitory.mapper.StudentMapper;
 import com.dormitory.service.LeaveRequestService;
+import com.dormitory.service.ManagerScopeService;
+import com.dormitory.utils.ApiResponses;
 import com.dormitory.utils.JwtUtils;
+import com.dormitory.utils.Pagination;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -31,6 +34,9 @@ public class LeaveRequestController {
 
     @Autowired
     private StudentMapper studentMapper;
+
+    @Autowired
+    private ManagerScopeService managerScopeService;
 
     /**
      * 提交请假申请
@@ -62,8 +68,13 @@ public class LeaveRequestController {
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
     public ResponseEntity<?> approve(@PathVariable Long id,
                                     @RequestBody Map<String, Object> body,
-                                    @RequestHeader("Authorization") String token) {
+                                    @RequestHeader("Authorization") String token,
+                                    Authentication auth) {
         try {
+            ResponseEntity<?> denied = denyIfOutOfScope(id, auth, token);
+            if (denied != null) {
+                return denied;
+            }
             Integer status = parseStatus(body.get("status"));
             if (status == null) {
                 status = 1; // 批准接口默认通过
@@ -137,7 +148,8 @@ public class LeaveRequestController {
      */
     @GetMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'STUDENT')")
-    public ResponseEntity<?> getById(@PathVariable Long id, Authentication auth) {
+    public ResponseEntity<?> getById(@PathVariable Long id, Authentication auth,
+                                     @RequestHeader(value = "Authorization", required = false) String token) {
         LeaveRequest request = leaveRequestService.findById(id);
         if (request == null) {
             return ResponseEntity.notFound().build();
@@ -150,6 +162,11 @@ public class LeaveRequestController {
                     "success", false,
                     "message", "无权查看该请假申请"
                 ));
+            }
+        } else {
+            Long managerId = managerScopeUserId(auth, token);
+            if (managerId != null && !managerScopeService.canSee(managerId, request.getBuildingId(), request.getClassName())) {
+                return ApiResponses.forbidden("无权查看该范围外的请假申请");
             }
         }
         return ResponseEntity.ok(Map.of("data", request));
@@ -195,19 +212,16 @@ public class LeaveRequestController {
         if (managerId != null) {
             requests = leaveRequestService.filterByManagerScope(requests, managerId);
         }
+        int safePage = Pagination.page(page);
+        int safeSize = Pagination.size(size);
         int total = requests.size();
-        
-        // 简单分页
-        int start = (page - 1) * size;
-        int end = Math.min(start + size, total);
-        List<LeaveRequest> pagedRequests = start < total ? 
-            requests.subList(start, end) : List.of();
+        List<LeaveRequest> pagedRequests = Pagination.slice(requests, safePage, safeSize);
         
         Map<String, Object> result = new HashMap<>();
         result.put("data", pagedRequests);
         result.put("total", total);
-        result.put("page", page);
-        result.put("size", size);
+        result.put("page", safePage);
+        result.put("size", safeSize);
         
         return ResponseEntity.ok(result);
     }
@@ -219,8 +233,13 @@ public class LeaveRequestController {
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
     public ResponseEntity<?> reject(@PathVariable Long id,
                                    @RequestBody Map<String, Object> body,
-                                   @RequestHeader("Authorization") String token) {
+                                   @RequestHeader("Authorization") String token,
+                                   Authentication auth) {
         try {
+            ResponseEntity<?> denied = denyIfOutOfScope(id, auth, token);
+            if (denied != null) {
+                return denied;
+            }
             String reason = (String) body.get("reason");
             
             // 从token获取审批人信息
@@ -252,25 +271,24 @@ public class LeaveRequestController {
                                     @RequestHeader("Authorization") String token) {
         List<LeaveRequest> requests;
         int total;
+        int safePage = Pagination.page(page);
+        int safeSize = Pagination.size(size);
         Long managerId = managerScopeUserId(auth, token);
         if (managerId != null) {
-            // manager 仅能查看其管理范围内的请假：先按范围过滤再内存分页
             List<LeaveRequest> all = leaveRequestService.filterByManagerScope(
                     leaveRequestService.findAllList(), managerId);
             total = all.size();
-            int start = (page - 1) * size;
-            int end = Math.min(start + size, total);
-            requests = start < total ? all.subList(start, end) : List.of();
+            requests = Pagination.slice(all, safePage, safeSize);
         } else {
-            requests = leaveRequestService.findAll(page, size);
+            requests = leaveRequestService.findAll(safePage, safeSize);
             total = leaveRequestService.count();
         }
         
         Map<String, Object> result = new HashMap<>();
         result.put("data", requests);
         result.put("total", total);
-        result.put("page", page);
-        result.put("size", size);
+        result.put("page", safePage);
+        result.put("size", safeSize);
         
         return ResponseEntity.ok(result);
     }
@@ -314,6 +332,18 @@ public class LeaveRequestController {
                 .anyMatch(a -> "ROLE_MANAGER".equals(a.getAuthority()));
         if (manager && !admin) {
             return jwtUtils.getUserIdFromToken(stripBearer(token));
+        }
+        return null;
+    }
+
+    private ResponseEntity<?> denyIfOutOfScope(Long id, Authentication auth, String token) {
+        LeaveRequest request = leaveRequestService.findById(id);
+        if (request == null) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", "请假申请不存在"));
+        }
+        Long managerId = managerScopeUserId(auth, token);
+        if (managerId != null && !managerScopeService.canSee(managerId, request.getBuildingId(), request.getClassName())) {
+            return ApiResponses.forbidden("无权审批该范围外的请假申请");
         }
         return null;
     }

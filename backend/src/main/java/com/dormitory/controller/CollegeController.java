@@ -2,6 +2,8 @@ package com.dormitory.controller;
 
 import com.dormitory.model.College;
 import com.dormitory.mapper.CollegeMapper;
+import com.dormitory.utils.ApiResponses;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
@@ -21,38 +23,38 @@ public class CollegeController {
 
     @GetMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'STUDENT')")
-    public Map<String, Object> list() {
+    public ResponseEntity<Map<String, Object>> list() {
         List<College> list = collegeMapper.findAll();
         Map<String, Object> result = new HashMap<>();
         result.put("code", 200);
         result.put("data", list);
-        return result;
+        return ApiResponses.json(result);
     }
 
     @GetMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
-    public Map<String, Object> getById(@PathVariable Long id) {
+    public ResponseEntity<Map<String, Object>> getById(@PathVariable Long id) {
         College college = collegeMapper.findById(id);
         Map<String, Object> result = new HashMap<>();
         if (college == null) {
             result.put("code", 404);
             result.put("message", "学院不存在");
-            return result;
+            return ApiResponses.json(result);
         }
         result.put("code", 200);
         result.put("data", college);
-        return result;
+        return ApiResponses.json(result);
     }
 
     @PostMapping
     @PreAuthorize("hasRole('ADMIN')")
-    public Map<String, Object> create(@RequestBody College college) {
+    public ResponseEntity<Map<String, Object>> create(@RequestBody College college) {
         Map<String, Object> result = new HashMap<>();
         try {
             if (college.getName() == null || college.getName().isBlank()) {
                 result.put("code", 400);
                 result.put("message", "学院名称不能为空");
-                return result;
+                return ApiResponses.json(result);
             }
             collegeMapper.insert(college);
             result.put("code", 201);
@@ -62,19 +64,19 @@ public class CollegeController {
             result.put("code", 400);
             result.put("message", e.getMessage());
         }
-        return result;
+        return ApiResponses.json(result);
     }
 
     @PutMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
-    public Map<String, Object> update(@PathVariable Long id, @RequestBody College college) {
+    public ResponseEntity<Map<String, Object>> update(@PathVariable Long id, @RequestBody College college) {
         Map<String, Object> result = new HashMap<>();
         try {
             College existing = collegeMapper.findById(id);
             if (existing == null) {
                 result.put("code", 404);
                 result.put("message", "学院不存在");
-                return result;
+                return ApiResponses.json(result);
             }
             college.setId(id);
             collegeMapper.update(college);
@@ -84,12 +86,12 @@ public class CollegeController {
             result.put("code", 400);
             result.put("message", e.getMessage());
         }
-        return result;
+        return ApiResponses.json(result);
     }
 
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
-    public Map<String, Object> delete(@PathVariable Long id) {
+    public ResponseEntity<Map<String, Object>> delete(@PathVariable Long id) {
         Map<String, Object> result = new HashMap<>();
         try {
             collegeMapper.deleteById(id);
@@ -99,6 +101,6 @@ public class CollegeController {
             result.put("code", 400);
             result.put("message", e.getMessage());
         }
-        return result;
+        return ApiResponses.json(result);
     }
 }

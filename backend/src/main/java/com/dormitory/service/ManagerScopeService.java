@@ -2,6 +2,8 @@ package com.dormitory.service;
 
 import com.dormitory.mapper.ManagerScopeMapper;
 import com.dormitory.model.ManagerScope;
+import com.dormitory.utils.ManagerScopeJson;
+import com.dormitory.utils.ManagerScopeMatcher;
 import com.dormitory.utils.ScopeLists;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -62,6 +64,30 @@ public class ManagerScopeService {
                 .distinct()
                 .toList());
         return json;
+    }
+
+    public String scopesJson(Long userId) {
+        return ManagerScopeJson.encode(findActiveByUserId(userId));
+    }
+
+    public boolean canSee(Long userId, Long buildingId, String className) {
+        return ManagerScopeMatcher.isVisible(findActiveByUserId(userId), buildingId, className);
+    }
+
+    public <T> java.util.List<T> filterVisible(Long userId, java.util.List<T> items,
+                                               java.util.function.Function<T, Long> buildingId,
+                                               java.util.function.Function<T, String> className) {
+        if (items == null || items.isEmpty()) {
+            return java.util.List.of();
+        }
+        java.util.List<ManagerScope> scopes = findActiveByUserId(userId);
+        java.util.List<T> visible = new java.util.ArrayList<>();
+        for (T item : items) {
+            if (ManagerScopeMatcher.isVisible(scopes, buildingId.apply(item), className.apply(item))) {
+                visible.add(item);
+            }
+        }
+        return visible;
     }
 
     public boolean hasScope(Long userId) {

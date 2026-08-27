@@ -3,6 +3,9 @@ package com.dormitory.controller;
 import com.dormitory.model.DormBatch;
 import com.dormitory.service.DormBatchService;
 import com.dormitory.service.MatchingService;
+import com.dormitory.utils.ApiResponses;
+import com.dormitory.utils.MatchingErrors;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
@@ -24,7 +27,7 @@ public class DormBatchController {
 
     @GetMapping
     @PreAuthorize("hasRole('ADMIN')")
-    public Map<String, Object> list(@RequestParam(required = false) Long collegeId,
+    public ResponseEntity<Map<String, Object>> list(@RequestParam(required = false) Long collegeId,
                                      @RequestParam(required = false) String matchStatus) {
         List<DormBatch> list;
         if (collegeId != null) {
@@ -38,27 +41,27 @@ public class DormBatchController {
         Map<String, Object> result = new HashMap<>();
         result.put("code", 200);
         result.put("data", list);
-        return result;
+        return ApiResponses.json(result);
     }
 
     @GetMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
-    public Map<String, Object> getById(@PathVariable Long id) {
+    public ResponseEntity<Map<String, Object>> getById(@PathVariable Long id) {
         DormBatch batch = batchService.findById(id);
         Map<String, Object> result = new HashMap<>();
         if (batch == null) {
             result.put("code", 404);
             result.put("message", "批次不存在");
-            return result;
+            return ApiResponses.json(result);
         }
         result.put("code", 200);
         result.put("data", batch);
-        return result;
+        return ApiResponses.json(result);
     }
 
     @PostMapping
     @PreAuthorize("hasRole('ADMIN')")
-    public Map<String, Object> create(@RequestBody DormBatch batch) {
+    public ResponseEntity<Map<String, Object>> create(@RequestBody DormBatch batch) {
         Map<String, Object> result = new HashMap<>();
         try {
             DormBatch created = batchService.create(batch);
@@ -69,12 +72,12 @@ public class DormBatchController {
             result.put("code", 400);
             result.put("message", e.getMessage());
         }
-        return result;
+        return ApiResponses.json(result);
     }
 
     @PutMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
-    public Map<String, Object> update(@PathVariable Long id, @RequestBody DormBatch batch) {
+    public ResponseEntity<Map<String, Object>> update(@PathVariable Long id, @RequestBody DormBatch batch) {
         Map<String, Object> result = new HashMap<>();
         try {
             DormBatch updated = batchService.update(id, batch);
@@ -85,12 +88,12 @@ public class DormBatchController {
             result.put("code", 400);
             result.put("message", e.getMessage());
         }
-        return result;
+        return ApiResponses.json(result);
     }
 
     @PutMapping("/{id}/start")
     @PreAuthorize("hasRole('ADMIN')")
-    public Map<String, Object> start(@PathVariable Long id) {
+    public ResponseEntity<Map<String, Object>> start(@PathVariable Long id) {
         Map<String, Object> result = new HashMap<>();
         try {
             DormBatch updated = batchService.startBatch(id);
@@ -101,13 +104,13 @@ public class DormBatchController {
             result.put("code", 400);
             result.put("message", e.getMessage());
         }
-        return result;
+        return ApiResponses.json(result);
     }
 
     // 手动: running → cancelled（作废批次）
     @PutMapping("/{id}/cutoff")
     @PreAuthorize("hasRole('ADMIN')")
-    public Map<String, Object> cutoff(@PathVariable Long id) {
+    public ResponseEntity<Map<String, Object>> cutoff(@PathVariable Long id) {
         Map<String, Object> result = new HashMap<>();
         try {
             DormBatch updated = batchService.cancelBatch(id);
@@ -118,13 +121,13 @@ public class DormBatchController {
             result.put("code", 400);
             result.put("message", e.getMessage());
         }
-        return result;
+        return ApiResponses.json(result);
     }
 
     // 手动: confirming → finished
     @PutMapping("/{id}/finish")
     @PreAuthorize("hasRole('ADMIN')")
-    public Map<String, Object> finish(@PathVariable Long id) {
+    public ResponseEntity<Map<String, Object>> finish(@PathVariable Long id) {
         Map<String, Object> result = new HashMap<>();
         try {
             DormBatch updated = batchService.advanceToFinished(id);
@@ -135,12 +138,12 @@ public class DormBatchController {
             result.put("code", 400);
             result.put("message", e.getMessage());
         }
-        return result;
+        return ApiResponses.json(result);
     }
 
     @PutMapping("/{id}/reset")
     @PreAuthorize("hasRole('ADMIN')")
-    public Map<String, Object> reset(@PathVariable Long id) {
+    public ResponseEntity<Map<String, Object>> reset(@PathVariable Long id) {
         Map<String, Object> result = new HashMap<>();
         try {
             DormBatch updated = batchService.resetBatch(id);
@@ -151,12 +154,12 @@ public class DormBatchController {
             result.put("code", 400);
             result.put("message", e.getMessage());
         }
-        return result;
+        return ApiResponses.json(result);
     }
 
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
-    public Map<String, Object> delete(@PathVariable Long id) {
+    public ResponseEntity<Map<String, Object>> delete(@PathVariable Long id) {
         Map<String, Object> result = new HashMap<>();
         try {
             batchService.delete(id);
@@ -166,12 +169,12 @@ public class DormBatchController {
             result.put("code", 400);
             result.put("message", e.getMessage());
         }
-        return result;
+        return ApiResponses.json(result);
     }
 
     @PutMapping("/{id}/trigger-matching")
     @PreAuthorize("hasRole('ADMIN')")
-    public Map<String, Object> triggerMatching(@PathVariable Long id) {
+    public ResponseEntity<Map<String, Object>> triggerMatching(@PathVariable Long id) {
         Map<String, Object> result = new HashMap<>();
         try {
             matchingService.executeMatching(id);
@@ -179,8 +182,8 @@ public class DormBatchController {
             result.put("message", "匹配完成");
         } catch (Exception e) {
             result.put("code", 400);
-            result.put("message", "匹配失败: " + e.getMessage());
+            result.put("message", MatchingErrors.forClient(e.getMessage()));
         }
-        return result;
+        return ApiResponses.json(result);
     }
 }

@@ -9,21 +9,21 @@ import java.util.List;
 @Mapper
 public interface VisitorMapper {
     
-    @Select("SELECT v.*, r.room_number, b.name as building_name " +
+    @Select("SELECT v.*, r.room_number, r.building_id as buildingId, b.name as building_name " +
              "FROM visitors v " +
              "LEFT JOIN rooms r ON v.room_id = r.id " +
              "LEFT JOIN buildings b ON r.building_id = b.id " +
              "ORDER BY v.visit_time DESC")
     List<Visitor> findAll();
     
-    @Select("SELECT v.*, r.room_number, b.name as building_name " +
+    @Select("SELECT v.*, r.room_number, r.building_id as buildingId, b.name as building_name " +
              "FROM visitors v " +
              "LEFT JOIN rooms r ON v.room_id = r.id " +
              "LEFT JOIN buildings b ON r.building_id = b.id " +
              "WHERE v.id = #{id}")
     Visitor findById(Long id);
     
-    @Select("SELECT v.*, r.room_number, b.name as building_name " +
+    @Select("SELECT v.*, r.room_number, r.building_id as buildingId, b.name as building_name " +
              "FROM visitors v " +
              "LEFT JOIN rooms r ON v.room_id = r.id " +
              "LEFT JOIN buildings b ON r.building_id = b.id " +
@@ -31,7 +31,7 @@ public interface VisitorMapper {
              "ORDER BY v.visit_time DESC")
     List<Visitor> findByRoomId(Long roomId);
     
-    @Select("SELECT v.*, r.room_number, b.name as building_name " +
+    @Select("SELECT v.*, r.room_number, r.building_id as buildingId, b.name as building_name " +
              "FROM visitors v " +
              "LEFT JOIN rooms r ON v.room_id = r.id " +
              "LEFT JOIN buildings b ON r.building_id = b.id " +
@@ -39,7 +39,7 @@ public interface VisitorMapper {
              "ORDER BY v.visit_time DESC")
     List<Visitor> findByStatus(Integer status);
     
-    @Select("SELECT v.*, r.room_number, b.name as building_name " +
+    @Select("SELECT v.*, r.room_number, r.building_id as buildingId, b.name as building_name " +
              "FROM visitors v " +
              "LEFT JOIN rooms r ON v.room_id = r.id " +
              "LEFT JOIN buildings b ON r.building_id = b.id " +
@@ -47,7 +47,7 @@ public interface VisitorMapper {
              "ORDER BY v.visit_time DESC")
     List<Visitor> findByName(String name);
     
-    @Select("SELECT v.*, r.room_number, b.name as building_name " +
+    @Select("SELECT v.*, r.room_number, r.building_id as buildingId, b.name as building_name " +
              "FROM visitors v " +
              "LEFT JOIN rooms r ON v.room_id = r.id " +
              "LEFT JOIN buildings b ON r.building_id = b.id " +

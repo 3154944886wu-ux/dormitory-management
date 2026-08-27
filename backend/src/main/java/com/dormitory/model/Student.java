@@ -30,6 +30,11 @@ public class Student {
     // 关联字段（非数据库）
     private String buildingName;   // 楼栋名称
     private String roomNumber;     // 房间号
+    private Long buildingId;
+    private Integer floor;
+    private String roomType;
+    private Integer occupancy;
+    private Integer capacity;
     private List<Map<String, Object>> roommates; // 同房间其他学生
     private String roommateNames;  // 室友姓名展示（顿号分隔）
 }
