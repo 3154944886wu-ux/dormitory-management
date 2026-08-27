@@ -66,7 +66,7 @@ public class CheckExceptionService {
             throw new RuntimeException("异常记录不存在");
         }
         
-        if (exception.getHandled() == 1) {
+        if (exception.getHandled() != null && exception.getHandled() == 1) {
             throw new RuntimeException("该异常已处理");
         }
         

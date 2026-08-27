@@ -112,7 +112,7 @@ public class AuthController {
             return ResponseEntity.status(401).body(result);
         }
 
-        if (user.getStatus() == 0) {
+        if (user.getStatus() != null && user.getStatus() == 0) {
             result.put("code", 401);
             result.put("message", "账号已被禁用，请联系管理员");
             return ResponseEntity.status(401).body(result);

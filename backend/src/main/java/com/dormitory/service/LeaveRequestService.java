@@ -34,6 +34,9 @@ public class LeaveRequestService {
         }
         
         // 检查时间有效性
+        if (request.getStartTime() == null || request.getEndTime() == null) {
+            throw new RuntimeException("请假开始时间和结束时间不能为空");
+        }
         if (request.getStartTime().isAfter(request.getEndTime())) {
             throw new RuntimeException("开始时间不能晚于结束时间");
         }
