@@ -6,7 +6,7 @@
   "terminals": [
     {
       "name": "backend",
-      "command": "cd backend && mvn -B -DskipTests -Dspring-boot.run.profiles=local spring-boot:run"
+      "command": "cd backend && mvn -B -DskipTests spring-boot:run"
     },
     {
       "name": "frontend",
