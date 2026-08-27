@@ -36,16 +36,16 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                 var claims = jwtUtils.parseToken(token);
                 String username = claims.getSubject();
                 String role = claims.get("role", String.class);
-                if (role != null) {
+                // 仅当 token 携带有效角色时才设置认证，避免生成 ROLE_null 这类无效权限
+                if (role != null && !role.isBlank()) {
                     role = role.toUpperCase();
                     if (role.startsWith("ROLE_")) {
                         role = role.substring(5);
                     }
+                    var authorities = List.of(new SimpleGrantedAuthority("ROLE_" + role));
+                    var authentication = new UsernamePasswordAuthenticationToken(username, null, authorities);
+                    SecurityContextHolder.getContext().setAuthentication(authentication);
                 }
-                
-                var authorities = List.of(new SimpleGrantedAuthority("ROLE_" + role));
-                var authentication = new UsernamePasswordAuthenticationToken(username, null, authorities);
-                SecurityContextHolder.getContext().setAuthentication(authentication);
             } catch (Exception e) {
                 // Token无效，继续过滤器链
             }
