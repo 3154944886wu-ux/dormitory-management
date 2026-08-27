@@ -116,7 +116,7 @@ public interface InspectionRecordMapper {
     @Update("UPDATE inspection_records SET rectification_status = #{rectificationStatus}, " +
             "rectification_time = #{rectificationTime}, " +
             "rectification_photos = #{rectificationPhotos}, " +
-            "remark = #{rectifyRemark}, update_time = NOW() " +
+            "rectify_remark = #{rectifyRemark}, update_time = NOW() " +
             "WHERE id = #{id}")
     int updateRectify(InspectionRecord record);
 

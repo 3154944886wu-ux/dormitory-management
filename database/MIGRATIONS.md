@@ -16,6 +16,7 @@ mysql -u root -p dormitory < database/migration_add_location.sql
 mysql -u root -p dormitory < database/migration_smart_dorm.sql
 mysql -u root -p dormitory < database/migration_rename_teachers_to_managers.sql
 mysql -u root -p dormitory < database/visitors.sql
+mysql -u root -p dormitory < database/migration_rectify_remark.sql
 ```
 
 `schema.sql` 已包含 `inspection_items` 表及种子数据；若从更旧版本升级，可单独执行 `migration_inspection_items.sql`。
@@ -33,6 +34,7 @@ mysql -u root -p dormitory < database/visitors.sql
 | `migration_smart_dorm.sql` | 智能选宿模块 |
 | `migration_rename_teachers_to_managers.sql` | teachers → managers 重命名 |
 | `visitors.sql` | 访客模块补充 |
+| `migration_rectify_remark.sql` | 检查整改说明独立列 |
 | `migration_inspection_items.sql` | 仅缺检查项表时执行 |
 
 ## 不推荐

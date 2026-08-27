@@ -53,10 +53,10 @@ public class CheckExceptionService {
     }
 
     public List<CheckException> searchScoped(LocalDate startDate, LocalDate endDate,
-                                             String buildingIdsCsv, String classNamesCsv,
+                                             String buildingIdsCsv, String classNamesJson,
                                              Integer exceptionType, Integer handled) {
         LocalDate[] range = normalizeRange(startDate, endDate);
-        return checkExceptionMapper.searchScoped(range[0], range[1], blankToNull(buildingIdsCsv), blankToNull(classNamesCsv), exceptionType, handled);
+        return checkExceptionMapper.searchScoped(range[0], range[1], blankToNull(buildingIdsCsv), blankToNull(classNamesJson), exceptionType, handled);
     }
 
     @Transactional
@@ -127,9 +127,9 @@ public class CheckExceptionService {
     }
 
     public Map<String, Object> getScopedTrendStatistics(LocalDate startDate, LocalDate endDate,
-                                                        String buildingIdsCsv, String classNamesCsv) {
+                                                        String buildingIdsCsv, String classNamesJson) {
         LocalDate[] range = normalizeRange(startDate, endDate);
-        List<CheckException> exceptions = searchScoped(startDate, endDate, buildingIdsCsv, classNamesCsv, null, null);
+        List<CheckException> exceptions = searchScoped(startDate, endDate, buildingIdsCsv, classNamesJson, null, null);
         Map<String, Map<String, Integer>> building = new HashMap<>();
         Map<String, Map<String, Integer>> className = new HashMap<>();
 
@@ -141,18 +141,18 @@ public class CheckExceptionService {
         Map<String, Object> stats = new HashMap<>();
         stats.put("byBuilding", flattenCounts(building));
         stats.put("byClass", flattenCounts(className));
-        stats.put("summary", buildExceptionSummary(range[0], range[1], buildingIdsCsv, classNamesCsv));
+        stats.put("summary", buildExceptionSummary(range[0], range[1], buildingIdsCsv, classNamesJson));
         return stats;
     }
 
     private Map<String, Object> buildExceptionSummary(LocalDate start, LocalDate end,
-                                                       String buildingIdsCsv, String classNamesCsv) {
+                                                       String buildingIdsCsv, String classNamesJson) {
         Map<String, Object> summary = new HashMap<>();
         int lateCount = 0, absentCount = 0, missingCount = 0;
         int absentHandledCount = 0, absentUnhandledCount = 0;
 
         for (Map<String, Object> item : checkExceptionMapper.countRangeGroupByTypeAndHandled(
-                start, end, blankToNull(buildingIdsCsv), blankToNull(classNamesCsv))) {
+                start, end, blankToNull(buildingIdsCsv), blankToNull(classNamesJson))) {
             int type = MapValueUtils.intValue(item, "type", "exception_type", "TYPE");
             int handled = MapValueUtils.intValue(item, "handled", "HANDLED");
             int count = MapValueUtils.intValue(item, "count", "COUNT");
@@ -177,7 +177,7 @@ public class CheckExceptionService {
         summary.put("missingCount", missingCount);
         summary.put("totalCount", lateCount + absentCount + missingCount);
         summary.put("unhandledCount", checkExceptionMapper.countUnhandledInRange(
-                start, end, blankToNull(buildingIdsCsv), blankToNull(classNamesCsv)));
+                start, end, blankToNull(buildingIdsCsv), blankToNull(classNamesJson)));
         return summary;
     }
 

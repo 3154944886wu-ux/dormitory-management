@@ -151,7 +151,7 @@ public class CheckInController {
             Map<String, Object> result = checkInService.searchScopedPaged(
                     startDate, endDate,
                     managerScopeService.buildingIdsCsv(userId),
-                    managerScopeService.classNamesCsv(userId),
+                    managerScopeService.classNamesJson(userId),
                     status, page, size);
             return ResponseEntity.ok(Map.of("code", 200, "data", result));
         }
@@ -184,7 +184,7 @@ public class CheckInController {
                     data = checkInService.getTrendStatistics(
                             startDate, endDate,
                             managerScopeService.buildingIdsCsv(userId),
-                            managerScopeService.classNamesCsv(userId));
+                            managerScopeService.classNamesJson(userId));
                 }
             } else {
                 data = checkInService.getTrendStatistics(startDate, endDate, null, null);
@@ -219,7 +219,7 @@ public class CheckInController {
             return ResponseEntity.ok(Map.of("code", 200, "data", checkInService.getTrendStatistics(
                     startDate, endDate,
                     managerScopeService.buildingIdsCsv(userId),
-                    managerScopeService.classNamesCsv(userId)
+                    managerScopeService.classNamesJson(userId)
             )));
         }
         return ResponseEntity.ok(Map.of("code", 200, "data", checkInService.getTrendStatistics(
@@ -269,7 +269,7 @@ public class CheckInController {
             } else {
             result = checkInService.searchScopedPaged(startDate, endDate,
                     managerScopeService.buildingIdsCsv(userId),
-                    managerScopeService.classNamesCsv(userId),
+                    managerScopeService.classNamesJson(userId),
                     status, 1, 10000);
             }
         } else {

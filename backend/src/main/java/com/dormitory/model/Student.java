@@ -2,6 +2,8 @@ package com.dormitory.model;
 
 import lombok.Data;
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Map;
 
 @Data
 public class Student {
@@ -28,4 +30,6 @@ public class Student {
     // 关联字段（非数据库）
     private String buildingName;   // 楼栋名称
     private String roomNumber;     // 房间号
+    private List<Map<String, Object>> roommates; // 同房间其他学生
+    private String roommateNames;  // 室友姓名展示（顿号分隔）
 }

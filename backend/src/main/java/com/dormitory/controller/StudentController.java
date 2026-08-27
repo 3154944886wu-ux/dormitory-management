@@ -86,7 +86,7 @@ public class StudentController {
             return ResponseEntity.status(403).body(result);
         }
 
-        Student student = studentService.findByStudentNo(studentNo);
+        Student student = studentService.findByStudentNoWithRoommates(studentNo);
 
         if (student == null) {
             result.put("code", 404);

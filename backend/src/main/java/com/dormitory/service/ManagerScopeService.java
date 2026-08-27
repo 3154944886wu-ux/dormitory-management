@@ -2,6 +2,7 @@ package com.dormitory.service;
 
 import com.dormitory.mapper.ManagerScopeMapper;
 import com.dormitory.model.ManagerScope;
+import com.dormitory.utils.ScopeLists;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -54,13 +55,13 @@ public class ManagerScopeService {
         return csv.isBlank() ? null : csv;
     }
 
-    public String classNamesCsv(Long userId) {
-        String csv = findActiveByUserId(userId).stream()
+    public String classNamesJson(Long userId) {
+        String json = ScopeLists.toJsonArray(findActiveByUserId(userId).stream()
                 .map(ManagerScope::getClassName)
                 .filter(v -> v != null && !v.isBlank())
                 .distinct()
-                .collect(Collectors.joining(","));
-        return csv.isBlank() ? null : csv;
+                .toList());
+        return json;
     }
 
     public boolean hasScope(Long userId) {

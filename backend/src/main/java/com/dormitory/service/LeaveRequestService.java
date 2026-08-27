@@ -5,6 +5,7 @@ import com.dormitory.mapper.StudentMapper;
 import com.dormitory.model.LeaveRequest;
 import com.dormitory.model.ManagerScope;
 import com.dormitory.model.Student;
+import com.dormitory.utils.LeaveReturn;
 import com.dormitory.utils.ManagerScopeMatcher;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -131,11 +132,15 @@ public class LeaveRequestService {
             throw new RuntimeException("无权操作");
         }
         
-        if (request.getStatus() != 1) {
-            throw new RuntimeException("请假申请未批准");
+        if (!LeaveReturn.canConfirm(request.getStatus())) {
+            throw new RuntimeException(request.getStatus() != null && request.getStatus() == 4
+                    ? "已经销假" : "请假申请未批准");
         }
-        
-        leaveRequestMapper.confirmReturn(id, LocalDateTime.now());
+
+        int updated = leaveRequestMapper.confirmReturn(id, LocalDateTime.now());
+        if (updated == 0) {
+            throw new RuntimeException("销假失败，记录状态已变化");
+        }
     }
     
     public LeaveRequest findById(Long id) {

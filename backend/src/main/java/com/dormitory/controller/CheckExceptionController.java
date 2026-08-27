@@ -56,7 +56,7 @@ public class CheckExceptionController {
             List<CheckException> scoped = checkExceptionService.searchScoped(
                     null, null,
                     managerScopeService.buildingIdsCsv(userId),
-                    managerScopeService.classNamesCsv(userId),
+                    managerScopeService.classNamesJson(userId),
                     null, null);
             return ResponseEntity.ok(Map.of("data", scoped, "total", scoped.size(), "page", page, "size", size));
         }
@@ -135,7 +135,7 @@ public class CheckExceptionController {
             List<CheckException> exceptions = checkExceptionService.searchScoped(
                     startDate, endDate,
                     managerScopeService.buildingIdsCsv(userId),
-                    managerScopeService.classNamesCsv(userId),
+                    managerScopeService.classNamesJson(userId),
                     exceptionType, handled);
             return ResponseEntity.ok(Map.of("data", exceptions));
         }
@@ -221,7 +221,7 @@ public class CheckExceptionController {
             return ResponseEntity.ok(Map.of("code", 200, "data", checkExceptionService.getScopedTrendStatistics(
                     startDate, endDate,
                     managerScopeService.buildingIdsCsv(userId),
-                    managerScopeService.classNamesCsv(userId)
+                    managerScopeService.classNamesJson(userId)
             )));
         }
         return ResponseEntity.ok(Map.of("code", 200, "data", checkExceptionService.getTrendStatistics(startDate, endDate)));
@@ -244,7 +244,7 @@ public class CheckExceptionController {
             } else {
             exceptions = checkExceptionService.searchScoped(startDate, endDate,
                     managerScopeService.buildingIdsCsv(userId),
-                    managerScopeService.classNamesCsv(userId),
+                    managerScopeService.classNamesJson(userId),
                     exceptionType, handled);
             }
         } else {

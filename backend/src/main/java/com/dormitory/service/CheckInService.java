@@ -325,14 +325,14 @@ public class CheckInService {
     }
 
     public Map<String, Object> searchScopedPaged(LocalDate startDate, LocalDate endDate,
-                                                 String buildingIdsCsv, String classNamesCsv,
+                                                 String buildingIdsCsv, String classNamesJson,
                                                  Integer status, int page, int size) {
         LocalDate[] range = normalizeRange(startDate, endDate);
         int offset = Math.max(page - 1, 0) * size;
         List<CheckInRecord> records = checkInMapper.searchScopedPaged(
-                range[0], range[1], blankToNull(buildingIdsCsv), blankToNull(classNamesCsv), status, offset, size);
+                range[0], range[1], blankToNull(buildingIdsCsv), blankToNull(classNamesJson), status, offset, size);
         int total = checkInMapper.countScopedSearch(
-                range[0], range[1], blankToNull(buildingIdsCsv), blankToNull(classNamesCsv), status);
+                range[0], range[1], blankToNull(buildingIdsCsv), blankToNull(classNamesJson), status);
 
         Map<String, Object> result = new HashMap<>();
         result.put("records", records);
@@ -393,21 +393,21 @@ public class CheckInService {
     }
 
     public Map<String, Object> getTrendStatistics(LocalDate startDate, LocalDate endDate,
-                                                   String buildingIdsCsv, String classNamesCsv) {
+                                                   String buildingIdsCsv, String classNamesJson) {
         LocalDate[] range = normalizeRange(startDate, endDate);
         Map<String, Object> stats = new HashMap<>();
-        stats.put("summary", buildCheckInSummary(range[0], range[1], buildingIdsCsv, classNamesCsv));
+        stats.put("summary", buildCheckInSummary(range[0], range[1], buildingIdsCsv, classNamesJson));
         stats.put("dailyTrend", normalizeDailyTrend(checkInMapper.countDailyGroupByStatus(
-                range[0], range[1], blankToNull(buildingIdsCsv), blankToNull(classNamesCsv))));
+                range[0], range[1], blankToNull(buildingIdsCsv), blankToNull(classNamesJson))));
         return stats;
     }
 
     private Map<String, Object> buildCheckInSummary(LocalDate start, LocalDate end,
-                                                     String buildingIdsCsv, String classNamesCsv) {
+                                                     String buildingIdsCsv, String classNamesJson) {
         Map<String, Object> summary = new HashMap<>();
         int normalCount = 0, lateCount = 0, absentCount = 0, leaveCount = 0;
         for (Map<String, Object> item : checkInMapper.countRangeGroupByStatus(
-                start, end, blankToNull(buildingIdsCsv), blankToNull(classNamesCsv))) {
+                start, end, blankToNull(buildingIdsCsv), blankToNull(classNamesJson))) {
             int status = MapValueUtils.intValue(item, "status", "STATUS");
             int count = MapValueUtils.intValue(item, "count", "COUNT");
             switch (status) {

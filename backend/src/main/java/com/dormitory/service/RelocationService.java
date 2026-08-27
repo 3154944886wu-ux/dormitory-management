@@ -2,6 +2,7 @@ package com.dormitory.service;
 
 import com.dormitory.mapper.*;
 import com.dormitory.model.*;
+import com.dormitory.utils.GenderMatcher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -151,7 +152,7 @@ public class RelocationService {
             throw new RuntimeException("目标房间已满");
 
         Building building = buildingMapper.findById(newRoom.getBuildingId());
-        if (!isGenderMatch(student.getGender(), building.getGenderType()))
+        if (!GenderMatcher.isCompatible(student.getGender(), building.getGenderType()))
             throw new RuntimeException("学生性别与目标楼栋类型不匹配");
 
         Bed newBed = bedMapper.findById(newBedId);
@@ -268,15 +269,6 @@ public class RelocationService {
         if (currentBedId != null) {
             bedMapper.updateOccupied(currentBedId, 0);
         }
-    }
-
-    private boolean isGenderMatch(String studentGender, String buildingType) {
-        if (buildingType == null) return true;
-        String lower = buildingType.toLowerCase();
-        if ("男".equals(studentGender) && "male".equals(lower)) return true;
-        if ("女".equals(studentGender) && "female".equals(lower)) return true;
-        if ("mixed".equals(lower)) return true;
-        return false;
     }
 
     private void writeLog(Long studentId, String operatorType, String operatorId,

@@ -134,13 +134,13 @@ public interface CheckInMapper {
             "WHERE c.check_date BETWEEN #{startDate} AND #{endDate} " +
             "AND (#{status} IS NULL OR c.status = #{status}) " +
             "AND (#{buildingIdsCsv} IS NULL OR FIND_IN_SET(CAST(r.building_id AS CHAR), #{buildingIdsCsv}) > 0) " +
-            "AND (#{classNamesCsv} IS NULL OR FIND_IN_SET(s.class_name, #{classNamesCsv}) > 0) " +
+            "AND (#{classNamesJson} IS NULL OR JSON_CONTAINS(CAST(#{classNamesJson} AS JSON), JSON_QUOTE(IFNULL(s.class_name,'')))) " +
             "ORDER BY c.check_date DESC, c.check_time DESC " +
             "LIMIT #{offset}, #{limit}")
     List<CheckInRecord> searchScopedPaged(@Param("startDate") LocalDate startDate,
                                           @Param("endDate") LocalDate endDate,
                                           @Param("buildingIdsCsv") String buildingIdsCsv,
-                                          @Param("classNamesCsv") String classNamesCsv,
+                                          @Param("classNamesJson") String classNamesJson,
                                           @Param("status") Integer status,
                                           @Param("offset") int offset,
                                           @Param("limit") int limit);
@@ -152,11 +152,11 @@ public interface CheckInMapper {
             "WHERE c.check_date BETWEEN #{startDate} AND #{endDate} " +
             "AND (#{status} IS NULL OR c.status = #{status}) " +
             "AND (#{buildingIdsCsv} IS NULL OR FIND_IN_SET(CAST(r.building_id AS CHAR), #{buildingIdsCsv}) > 0) " +
-            "AND (#{classNamesCsv} IS NULL OR FIND_IN_SET(s.class_name, #{classNamesCsv}) > 0)")
+            "AND (#{classNamesJson} IS NULL OR JSON_CONTAINS(CAST(#{classNamesJson} AS JSON), JSON_QUOTE(IFNULL(s.class_name,''))))")
     int countScopedSearch(@Param("startDate") LocalDate startDate,
                           @Param("endDate") LocalDate endDate,
                           @Param("buildingIdsCsv") String buildingIdsCsv,
-                          @Param("classNamesCsv") String classNamesCsv,
+                          @Param("classNamesJson") String classNamesJson,
                           @Param("status") Integer status);
 
     @Select("SELECT c.status, COUNT(*) AS count FROM check_in_records c " +
@@ -164,22 +164,22 @@ public interface CheckInMapper {
             "LEFT JOIN rooms r ON c.room_id = r.id " +
             "WHERE c.check_date BETWEEN #{startDate} AND #{endDate} " +
             "AND (#{buildingIdsCsv} IS NULL OR FIND_IN_SET(CAST(r.building_id AS CHAR), #{buildingIdsCsv}) > 0) " +
-            "AND (#{classNamesCsv} IS NULL OR FIND_IN_SET(s.class_name, #{classNamesCsv}) > 0) " +
+            "AND (#{classNamesJson} IS NULL OR JSON_CONTAINS(CAST(#{classNamesJson} AS JSON), JSON_QUOTE(IFNULL(s.class_name,'')))) " +
             "GROUP BY c.status")
     List<Map<String, Object>> countRangeGroupByStatus(@Param("startDate") LocalDate startDate,
                                                       @Param("endDate") LocalDate endDate,
                                                       @Param("buildingIdsCsv") String buildingIdsCsv,
-                                                      @Param("classNamesCsv") String classNamesCsv);
+                                                      @Param("classNamesJson") String classNamesJson);
 
     @Select("SELECT c.check_date AS checkDate, c.status, COUNT(*) AS count FROM check_in_records c " +
             "LEFT JOIN students s ON c.student_id = s.id " +
             "LEFT JOIN rooms r ON c.room_id = r.id " +
             "WHERE c.check_date BETWEEN #{startDate} AND #{endDate} " +
             "AND (#{buildingIdsCsv} IS NULL OR FIND_IN_SET(CAST(r.building_id AS CHAR), #{buildingIdsCsv}) > 0) " +
-            "AND (#{classNamesCsv} IS NULL OR FIND_IN_SET(s.class_name, #{classNamesCsv}) > 0) " +
+            "AND (#{classNamesJson} IS NULL OR JSON_CONTAINS(CAST(#{classNamesJson} AS JSON), JSON_QUOTE(IFNULL(s.class_name,'')))) " +
             "GROUP BY c.check_date, c.status ORDER BY c.check_date")
     List<Map<String, Object>> countDailyGroupByStatus(@Param("startDate") LocalDate startDate,
                                                        @Param("endDate") LocalDate endDate,
                                                        @Param("buildingIdsCsv") String buildingIdsCsv,
-                                                       @Param("classNamesCsv") String classNamesCsv);
+                                                       @Param("classNamesJson") String classNamesJson);
 }

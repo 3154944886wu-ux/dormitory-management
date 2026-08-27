@@ -78,7 +78,7 @@ public interface LeaveRequestMapper {
     int cancel(@Param("id") Long id);
     
     @Update("UPDATE leave_requests SET status = 4, actual_return_time = #{actualReturnTime} " +
-            "WHERE id = #{id}")
+            "WHERE id = #{id} AND status = 1")
     int confirmReturn(@Param("id") Long id, @Param("actualReturnTime") LocalDateTime actualReturnTime);
     
     @Select("SELECT COUNT(*) FROM leave_requests WHERE student_id = #{studentId} AND status IN (0, 1)")

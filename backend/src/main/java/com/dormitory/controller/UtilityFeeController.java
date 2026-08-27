@@ -4,6 +4,7 @@ import com.dormitory.mapper.StudentMapper;
 import com.dormitory.model.Student;
 import com.dormitory.model.UtilityFee;
 import com.dormitory.service.UtilityFeeService;
+import com.dormitory.utils.FeeTotal;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
@@ -164,7 +165,7 @@ public class UtilityFeeController {
             Object waterFeeObj = body.get("waterFee");
             if (electricFeeObj != null) fee.setElectricityFee(new BigDecimal(electricFeeObj.toString()));
             if (waterFeeObj != null) fee.setWaterFee(new BigDecimal(waterFeeObj.toString()));
-            fee.setTotalFee(fee.getElectricityFee().add(fee.getWaterFee()));
+            fee.setTotalFee(FeeTotal.of(fee.getElectricityFee(), fee.getWaterFee()));
 
             // 状态
             Object statusObj = body.get("status");

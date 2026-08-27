@@ -116,12 +116,12 @@ public interface CheckExceptionMapper {
             "AND (#{exceptionType} IS NULL OR e.exception_type = #{exceptionType}) " +
             "AND (#{handled} IS NULL OR e.handled = #{handled}) " +
             "AND (#{buildingIdsCsv} IS NULL OR FIND_IN_SET(CAST(r.building_id AS CHAR), #{buildingIdsCsv}) > 0) " +
-            "AND (#{classNamesCsv} IS NULL OR FIND_IN_SET(s.class_name, #{classNamesCsv}) > 0) " +
+            "AND (#{classNamesJson} IS NULL OR JSON_CONTAINS(CAST(#{classNamesJson} AS JSON), JSON_QUOTE(IFNULL(s.class_name,'')))) " +
             "ORDER BY e.exception_date DESC, e.create_time DESC")
     List<CheckException> searchScoped(@Param("startDate") LocalDate startDate,
                                       @Param("endDate") LocalDate endDate,
                                       @Param("buildingIdsCsv") String buildingIdsCsv,
-                                      @Param("classNamesCsv") String classNamesCsv,
+                                      @Param("classNamesJson") String classNamesJson,
                                       @Param("exceptionType") Integer exceptionType,
                                       @Param("handled") Integer handled);
 
@@ -148,33 +148,33 @@ public interface CheckExceptionMapper {
             "LEFT JOIN rooms r ON s.room_id = r.id " +
             "WHERE e.exception_date BETWEEN #{startDate} AND #{endDate} " +
             "AND (#{buildingIdsCsv} IS NULL OR FIND_IN_SET(CAST(r.building_id AS CHAR), #{buildingIdsCsv}) > 0) " +
-            "AND (#{classNamesCsv} IS NULL OR FIND_IN_SET(s.class_name, #{classNamesCsv}) > 0) " +
+            "AND (#{classNamesJson} IS NULL OR JSON_CONTAINS(CAST(#{classNamesJson} AS JSON), JSON_QUOTE(IFNULL(s.class_name,'')))) " +
             "GROUP BY e.exception_type, e.handled")
     List<java.util.Map<String, Object>> countRangeGroupByTypeAndHandled(@Param("startDate") LocalDate startDate,
                                                                        @Param("endDate") LocalDate endDate,
                                                                        @Param("buildingIdsCsv") String buildingIdsCsv,
-                                                                       @Param("classNamesCsv") String classNamesCsv);
+                                                                       @Param("classNamesJson") String classNamesJson);
 
     @Select("SELECT e.exception_type AS type, COUNT(*) AS count FROM check_exceptions e " +
             "LEFT JOIN students s ON e.student_id = s.id " +
             "LEFT JOIN rooms r ON s.room_id = r.id " +
             "WHERE e.exception_date BETWEEN #{startDate} AND #{endDate} " +
             "AND (#{buildingIdsCsv} IS NULL OR FIND_IN_SET(CAST(r.building_id AS CHAR), #{buildingIdsCsv}) > 0) " +
-            "AND (#{classNamesCsv} IS NULL OR FIND_IN_SET(s.class_name, #{classNamesCsv}) > 0) " +
+            "AND (#{classNamesJson} IS NULL OR JSON_CONTAINS(CAST(#{classNamesJson} AS JSON), JSON_QUOTE(IFNULL(s.class_name,'')))) " +
             "GROUP BY e.exception_type")
     List<java.util.Map<String, Object>> countRangeGroupByType(@Param("startDate") LocalDate startDate,
                                                               @Param("endDate") LocalDate endDate,
                                                               @Param("buildingIdsCsv") String buildingIdsCsv,
-                                                              @Param("classNamesCsv") String classNamesCsv);
+                                                              @Param("classNamesJson") String classNamesJson);
 
     @Select("SELECT COUNT(*) FROM check_exceptions e " +
             "LEFT JOIN students s ON e.student_id = s.id " +
             "LEFT JOIN rooms r ON s.room_id = r.id " +
             "WHERE e.handled = 0 AND e.exception_date BETWEEN #{startDate} AND #{endDate} " +
             "AND (#{buildingIdsCsv} IS NULL OR FIND_IN_SET(CAST(r.building_id AS CHAR), #{buildingIdsCsv}) > 0) " +
-            "AND (#{classNamesCsv} IS NULL OR FIND_IN_SET(s.class_name, #{classNamesCsv}) > 0)")
+            "AND (#{classNamesJson} IS NULL OR JSON_CONTAINS(CAST(#{classNamesJson} AS JSON), JSON_QUOTE(IFNULL(s.class_name,''))))")
     int countUnhandledInRange(@Param("startDate") LocalDate startDate,
                               @Param("endDate") LocalDate endDate,
                               @Param("buildingIdsCsv") String buildingIdsCsv,
-                              @Param("classNamesCsv") String classNamesCsv);
+                              @Param("classNamesJson") String classNamesJson);
 }

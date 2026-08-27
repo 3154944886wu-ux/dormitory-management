@@ -3,7 +3,7 @@ package com.dormitory.service;
 import com.dormitory.mapper.*;
 import com.dormitory.model.*;
 import com.dormitory.utils.BedSelection;
-import org.springframework.scheduling.annotation.Async;
+import com.dormitory.utils.GenderMatcher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -51,7 +51,6 @@ public class MatchingService {
         this.notificationMapper = notificationMapper;
     }
 
-    @Async("matchingExecutor")
     @Transactional
     public void executeMatching(Long batchId) {
         DormBatch batch = batchMapper.findById(batchId);
@@ -691,13 +690,7 @@ public class MatchingService {
     }
 
     private boolean isGenderCompatible(Building building, String gender) {
-        if (building.getGenderType() == null) return true;
-        return switch (building.getGenderType()) {
-            case "MALE" -> "男".equals(gender);
-            case "FEMALE" -> "女".equals(gender);
-            case "MIXED" -> true;
-            default -> true;
-        };
+        return GenderMatcher.isCompatible(gender, building == null ? null : building.getGenderType());
     }
 
     // ---- 内部数据结构 ----

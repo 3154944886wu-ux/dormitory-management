@@ -340,6 +340,7 @@ CREATE TABLE IF NOT EXISTS inspection_records (
     rectification_deadline DATE COMMENT '整改截止日期',
     rectification_photos VARCHAR(1000) COMMENT '整改后照片URL列表',
     rectification_time DATETIME COMMENT '整改完成时间',
+    rectify_remark TEXT COMMENT '整改说明（与检查备注分离）',
     verified_by VARCHAR(50) COMMENT '核实人',
     verified_time DATETIME COMMENT '核实时间',
     create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
