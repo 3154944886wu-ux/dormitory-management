@@ -171,8 +171,13 @@ public class LeaveRequestController {
      */
     @GetMapping("/status/{status}")
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
-    public ResponseEntity<?> getByStatus(@PathVariable Integer status) {
+    public ResponseEntity<?> getByStatus(@PathVariable Integer status, Authentication auth,
+                                         @RequestHeader("Authorization") String token) {
         List<LeaveRequest> requests = leaveRequestService.findByStatus(status);
+        Long managerId = managerScopeUserId(auth, token);
+        if (managerId != null) {
+            requests = leaveRequestService.filterByManagerScope(requests, managerId);
+        }
         return ResponseEntity.ok(Map.of("data", requests));
     }
 
@@ -182,8 +187,14 @@ public class LeaveRequestController {
     @GetMapping("/pending")
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
     public ResponseEntity<?> getPending(@RequestParam(defaultValue = "1") int page,
-                                        @RequestParam(defaultValue = "10") int size) {
+                                        @RequestParam(defaultValue = "10") int size,
+                                        Authentication auth,
+                                        @RequestHeader("Authorization") String token) {
         List<LeaveRequest> requests = leaveRequestService.findByStatus(0); // 0=待审批
+        Long managerId = managerScopeUserId(auth, token);
+        if (managerId != null) {
+            requests = leaveRequestService.filterByManagerScope(requests, managerId);
+        }
         int total = requests.size();
         
         // 简单分页
@@ -236,9 +247,24 @@ public class LeaveRequestController {
     @GetMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
     public ResponseEntity<?> getAll(@RequestParam(defaultValue = "1") int page,
-                                    @RequestParam(defaultValue = "10") int size) {
-        List<LeaveRequest> requests = leaveRequestService.findAll(page, size);
-        int total = leaveRequestService.count();
+                                    @RequestParam(defaultValue = "10") int size,
+                                    Authentication auth,
+                                    @RequestHeader("Authorization") String token) {
+        List<LeaveRequest> requests;
+        int total;
+        Long managerId = managerScopeUserId(auth, token);
+        if (managerId != null) {
+            // manager 仅能查看其管理范围内的请假：先按范围过滤再内存分页
+            List<LeaveRequest> all = leaveRequestService.filterByManagerScope(
+                    leaveRequestService.findAllList(), managerId);
+            total = all.size();
+            int start = (page - 1) * size;
+            int end = Math.min(start + size, total);
+            requests = start < total ? all.subList(start, end) : List.of();
+        } else {
+            requests = leaveRequestService.findAll(page, size);
+            total = leaveRequestService.count();
+        }
         
         Map<String, Object> result = new HashMap<>();
         result.put("data", requests);
@@ -273,6 +299,23 @@ public class LeaveRequestController {
             throw new RuntimeException("当前账号未关联学生信息");
         }
         return student.getId();
+    }
+
+    /**
+     * 若当前调用者是 manager（且非 admin），返回其 userId 以便按范围过滤；admin 或其它返回 null（不过滤）。
+     */
+    private Long managerScopeUserId(Authentication auth, String token) {
+        if (auth == null) {
+            return null;
+        }
+        boolean admin = auth.getAuthorities().stream()
+                .anyMatch(a -> "ROLE_ADMIN".equals(a.getAuthority()));
+        boolean manager = auth.getAuthorities().stream()
+                .anyMatch(a -> "ROLE_MANAGER".equals(a.getAuthority()));
+        if (manager && !admin) {
+            return jwtUtils.getUserIdFromToken(stripBearer(token));
+        }
+        return null;
     }
 
     private String stripBearer(String token) {

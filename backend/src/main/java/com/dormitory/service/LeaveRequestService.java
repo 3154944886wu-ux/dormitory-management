@@ -3,12 +3,15 @@ package com.dormitory.service;
 import com.dormitory.mapper.LeaveRequestMapper;
 import com.dormitory.mapper.StudentMapper;
 import com.dormitory.model.LeaveRequest;
+import com.dormitory.model.ManagerScope;
 import com.dormitory.model.Student;
+import com.dormitory.utils.ManagerScopeMatcher;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -21,6 +24,26 @@ public class LeaveRequestService {
     
     @Autowired
     private StudentMapper studentMapper;
+
+    @Autowired
+    private ManagerScopeService managerScopeService;
+
+    /** 不分页返回全部请假申请（供 manager 范围过滤后再分页） */
+    public List<LeaveRequest> findAllList() {
+        return leaveRequestMapper.findAll(0, Integer.MAX_VALUE);
+    }
+
+    /** 按宿管/辅导员的管理范围过滤请假申请列表 */
+    public List<LeaveRequest> filterByManagerScope(List<LeaveRequest> list, Long managerUserId) {
+        List<ManagerScope> scopes = managerScopeService.findActiveByUserId(managerUserId);
+        List<LeaveRequest> result = new ArrayList<>();
+        for (LeaveRequest r : list) {
+            if (ManagerScopeMatcher.isVisible(scopes, r.getBuildingId(), r.getClassName())) {
+                result.add(r);
+            }
+        }
+        return result;
+    }
 
     /**
      * 提交请假申请

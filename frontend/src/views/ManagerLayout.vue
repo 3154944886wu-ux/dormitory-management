@@ -16,6 +16,7 @@
       >
         <el-menu-item index="/manager/exceptions"><el-icon><Warning /></el-icon><span>异常处理</span></el-menu-item>
         <el-menu-item index="/manager/check-records"><el-icon><List /></el-icon><span>归寝记录</span></el-menu-item>
+        <el-menu-item index="/manager/leave-approval"><el-icon><Document /></el-icon><span>请假审批</span></el-menu-item>
         <el-menu-item index="/manager/statistics"><el-icon><TrendCharts /></el-icon><span>统计分析</span></el-menu-item>
         <el-menu-item index="/manager/profile"><el-icon><User /></el-icon><span>个人信息</span></el-menu-item>
       </el-menu>
@@ -56,7 +57,7 @@
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { School, Warning, List, TrendCharts, User, UserFilled, ArrowDown, SwitchButton } from '@element-plus/icons-vue'
+import { School, Warning, List, Document, TrendCharts, User, UserFilled, ArrowDown, SwitchButton } from '@element-plus/icons-vue'
 import { useAuth } from '@/composables/useAuth'
 
 const route = useRoute()

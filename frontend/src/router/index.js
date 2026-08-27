@@ -225,6 +225,12 @@ const routes = [
         meta: { title: '归寝记录', roles: ['manager'] }
       },
       {
+        path: 'leave-approval',
+        name: 'ManagerLeaveApproval',
+        component: () => import('../views/LeaveApproval.vue'),
+        meta: { title: '请假审批', roles: ['manager'] }
+      },
+      {
         path: 'statistics',
         name: 'ManagerStatistics',
         component: () => import('../views/ManagerStatistics.vue'),
