@@ -2,6 +2,7 @@ package com.dormitory.service;
 
 import com.dormitory.mapper.*;
 import com.dormitory.model.*;
+import com.dormitory.utils.BedSelection;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -640,15 +641,19 @@ public class MatchingService {
             throw new RuntimeException("房间[" + targetRoom.getRoomNumber() + "]无可用床位");
         }
 
-        String preference = getStudentBedPreference(student);
-        Bed assigned = null;
-        for (Bed b : availableBeds) {
-            if (preference != null && preference.equals(b.getBedType())) {
-                assigned = b;
-                break;
+        // 排除本批次内已被其他学生推荐/分配的床位，避免重复推荐同一床位
+        Set<Long> reservedBedIds = new HashSet<>();
+        for (AllocationResult ar : allocationResultMapper.findByRoomIdAndBatchId(targetRoom.getId(), batchId)) {
+            if (ar.getBedId() != null && !ar.getStudentId().equals(studentId)) {
+                reservedBedIds.add(ar.getBedId());
             }
         }
-        if (assigned == null) assigned = availableBeds.get(0);
+
+        String preference = getStudentBedPreference(student);
+        Bed assigned = BedSelection.pick(availableBeds, reservedBedIds, preference);
+        if (assigned == null) {
+            throw new RuntimeException("房间[" + targetRoom.getRoomNumber() + "]无可用床位（本批次床位已被占用）");
+        }
 
         // 匹配阶段仅更新逻辑推荐，不占用物理资源（床位/房间在确认时占用）
 
