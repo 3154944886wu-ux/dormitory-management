@@ -1,9 +1,12 @@
 package com.dormitory.service;
 
+import com.dormitory.mapper.BedMapper;
 import com.dormitory.mapper.BuildingMapper;
 import com.dormitory.mapper.RoomMapper;
+import com.dormitory.model.Bed;
 import com.dormitory.model.Building;
 import com.dormitory.model.Room;
+import com.dormitory.utils.BedLayout;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -14,10 +17,20 @@ public class RoomService {
     
     private final RoomMapper roomMapper;
     private final BuildingMapper buildingMapper;
+    private final BedMapper bedMapper;
     
-    public RoomService(RoomMapper roomMapper, BuildingMapper buildingMapper) {
+    public RoomService(RoomMapper roomMapper, BuildingMapper buildingMapper, BedMapper bedMapper) {
         this.roomMapper = roomMapper;
         this.buildingMapper = buildingMapper;
+        this.bedMapper = bedMapper;
+    }
+
+    /** 按房间配置生成对应床位记录，供智能选宿匹配使用 */
+    private void seedBeds(Room room) {
+        for (Bed bed : BedLayout.forRoom(room)) {
+            bed.setRoomId(room.getId());
+            bedMapper.insert(bed);
+        }
     }
     
     public List<Room> findAll() {
@@ -72,6 +85,7 @@ public class RoomService {
         }
         
         roomMapper.insert(room);
+        seedBeds(room);
         return room.getId();
     }
     
@@ -141,6 +155,7 @@ public class RoomService {
                     newRoom.setCurrentCount(0);
                     newRoom.setStatus(1);
                     roomMapper.insert(newRoom);
+                    seedBeds(newRoom);
                     created++;
                 }
             }
