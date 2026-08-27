@@ -180,7 +180,7 @@ const handleCheckIn = async () => {
 
 const loadTodayStatus = async () => {
   const res = await getTodayStatus()
-  todayStatus.value = res.data || { checkedIn: false, status: 2 }
+  todayStatus.value = res.data || { checkedIn: false, status: 0 }
 }
 
 const loadRecords = async () => {

@@ -195,6 +195,12 @@ const routes = [
         meta: { title: '教师管理', roles: ['admin'] }
       },
       {
+        path: 'manager-scopes',
+        name: 'AdminManagerScopes',
+        component: () => import('../views/ManagerScopeManagement.vue'),
+        meta: { title: '管理范围', roles: ['admin'] }
+      },
+      {
         path: 'audit-logs',
         name: 'AdminAuditLogs',
         component: () => import('../views/AuditLog.vue'),

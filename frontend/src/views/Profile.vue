@@ -23,6 +23,15 @@
         </el-form-item>
         
         <el-divider>修改密码</el-divider>
+
+        <el-form-item label="原密码" prop="oldPassword">
+          <el-input
+            v-model="form.oldPassword"
+            type="password"
+            placeholder="修改密码时必填"
+            show-password
+          />
+        </el-form-item>
         
         <el-form-item label="新密码" prop="newPassword">
           <el-input 
@@ -137,6 +146,7 @@
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import api from '@/utils/api'
+import { authAPI } from '@/api/auth'
 
 const user = ref(null)
 const users = ref([])
@@ -150,6 +160,7 @@ const form = reactive({
   nickname: '',
   phone: '',
   email: '',
+  oldPassword: '',
   newPassword: '',
   confirmPassword: ''
 })
@@ -173,8 +184,17 @@ const validatePass = (rule, value, callback) => {
   }
 }
 
+const validateOldPassword = (rule, value, callback) => {
+  if (form.newPassword && !value) {
+    callback(new Error('修改密码请输入原密码'))
+  } else {
+    callback()
+  }
+}
+
 const rules = {
   nickname: [{ required: true, message: '请输入姓名', trigger: 'blur' }],
+  oldPassword: [{ validator: validateOldPassword, trigger: 'blur' }],
   newPassword: [
     { min: 6, message: '密码长度至少6位', trigger: 'blur' }
   ],
@@ -205,6 +225,7 @@ const loadProfile = async () => {
   try {
     const res = await api.get('/users/me')
     Object.assign(form, res.data || {})
+    form.oldPassword = ''
     form.newPassword = ''
     form.confirmPassword = ''
   } catch (error) {
@@ -238,11 +259,13 @@ const handleSave = async () => {
         email: form.email
       }
       
-      if (form.newPassword) {
-        data.password = form.newPassword
-      }
-      
       await api.put('/users/me', data)
+      if (form.newPassword) {
+        await authAPI.changePassword({
+          oldPassword: form.oldPassword,
+          newPassword: form.newPassword
+        })
+      }
       ElMessage.success('保存成功')
       
       // 更新本地存储
@@ -250,6 +273,7 @@ const handleSave = async () => {
       storedUser.nickname = form.nickname
       localStorage.setItem('user', JSON.stringify(storedUser))
       
+      form.oldPassword = ''
       form.newPassword = ''
       form.confirmPassword = ''
     } catch (error) {

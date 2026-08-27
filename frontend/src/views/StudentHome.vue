@@ -162,6 +162,8 @@ import { ElMessage } from 'element-plus'
 import { Clock, CircleCheckFilled, WarningFilled, Calendar, Bell, Notification, House } from '@element-plus/icons-vue'
 import { studentAPI } from '@/api/student'
 import { dormSelectionAPI } from '@/api/dormSelection'
+import { getMyLeaveRequests } from '@/api/leaveRequest'
+import { getRepairs } from '@/api/repair'
 
 const router = useRouter()
 
@@ -218,7 +220,9 @@ const loadData = async () => {
       studentAPI.getTodayCheckIn(),
       studentAPI.getMonthStats(),
       studentAPI.getMyRoom(),
-      studentAPI.getAnnouncements(3)
+      studentAPI.getAnnouncements(3),
+      getMyLeaveRequests(),
+      getRepairs()
     ])
     const ok = (i) => results[i].status === 'fulfilled' ? results[i].value?.data : null
 
@@ -238,6 +242,10 @@ const loadData = async () => {
     }
     roomInfo.value = ok(3)
     announcements.value = ok(4) || []
+    const leaves = Array.isArray(ok(5)) ? ok(5) : []
+    pendingLeave.value = leaves.filter(item => Number(item.status) === 0).length
+    const repairs = Array.isArray(ok(6)) ? ok(6) : []
+    pendingRepair.value = repairs.filter(item => Number(item.status) === 0).length
   } catch (error) {
     console.error('加载数据失败', error)
   }

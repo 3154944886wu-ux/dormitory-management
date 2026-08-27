@@ -5,7 +5,12 @@ export const authAPI = {
   register: (data) => api.post('/auth/register', data),
   getUserInfo: () => api.get('/auth/me'),
   updateProfile: (data) => api.put('/auth/profile', data),
-  changePassword: (data) => api.put('/auth/password', data)
+  changePassword: (oldPasswordOrData, newPassword) => {
+    const payload = oldPasswordOrData && typeof oldPasswordOrData === 'object'
+      ? oldPasswordOrData
+      : { oldPassword: oldPasswordOrData, newPassword }
+    return api.put('/auth/password', payload)
+  }
 }
 
 export default api

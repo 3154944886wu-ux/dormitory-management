@@ -71,6 +71,7 @@
 
         <el-menu-item index="/admin/announcements"><el-icon><Bell /></el-icon><span>公告管理</span></el-menu-item>
         <el-menu-item index="/admin/teachers"><el-icon><UserFilled /></el-icon><span>教师管理</span></el-menu-item>
+        <el-menu-item index="/admin/manager-scopes"><el-icon><SetUp /></el-icon><span>管理范围</span></el-menu-item>
         <el-menu-item index="/admin/audit-logs"><el-icon><Tickets /></el-icon><span>审计日志</span></el-menu-item>
       </el-menu>
     </el-aside>
@@ -140,7 +141,7 @@ import {
   School, DataLine, OfficeBuilding, House, User, Avatar, Tools, Coin, Bell,
   UserFilled, ArrowDown, Lock, SwitchButton, Checked, Clock, Document,
   EditPen, Stamp, Setting, Warning, List, Monitor, Calendar, Connection,
-  Grid, Tickets, TrendCharts
+  Grid, Tickets, TrendCharts, SetUp
 } from '@element-plus/icons-vue'
 
 const router = useRouter()

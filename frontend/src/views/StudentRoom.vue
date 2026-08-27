@@ -182,6 +182,17 @@
         </el-table-column>
         <el-table-column prop="inspectorName" label="检查人" width="100" />
         <el-table-column prop="remark" label="备注" min-width="120" show-overflow-tooltip />
+        <el-table-column label="操作" width="110">
+          <template #default="{ row }">
+            <el-button
+              v-if="row.rectificationStatus === 'PENDING'"
+              type="primary"
+              link
+              size="small"
+              @click="openRectify(row)"
+            >提交整改</el-button>
+          </template>
+        </el-table-column>
       </el-table>
       <el-empty v-if="!loadingInspections && inspectionRecords.length === 0" description="暂无检查记录" :image-size="80" />
     </el-card>
@@ -211,6 +222,18 @@
         <el-button type="primary" @click="handleRelocationApply" :loading="relocationApplying">提交申请</el-button>
       </template>
     </el-dialog>
+
+    <el-dialog v-model="showRectifyDialog" title="提交整改" width="480px">
+      <el-form :model="rectifyForm" label-width="90px">
+        <el-form-item label="整改说明" required>
+          <el-input v-model="rectifyForm.rectifyRemark" type="textarea" :rows="4" placeholder="请填写整改说明" maxlength="300" show-word-limit />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="showRectifyDialog = false">取消</el-button>
+        <el-button type="primary" :loading="rectifySubmitting" @click="handleRectify">提交</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -221,7 +244,7 @@ import { Loading, Clock } from '@element-plus/icons-vue'
 import { studentAPI } from '@/api/student'
 import { dormSelectionAPI } from '@/api/dormSelection'
 import { relocationAPI } from '@/api/relocation'
-import { getRecordsByRoom } from '@/api/inspection'
+import { getRecordsByRoom, submitRectification } from '@/api/inspection'
 
 // --- 选宿状态 ---
 const loading = ref(true)
@@ -246,6 +269,9 @@ const loadingInspections = ref(false)
 const showRelocationDialog = ref(false)
 const relocationApplying = ref(false)
 const relocationForm = reactive({ reason: '' })
+const showRectifyDialog = ref(false)
+const rectifySubmitting = ref(false)
+const rectifyForm = reactive({ id: null, rectifyRemark: '' })
 
 const batchRunning = computed(() => batch.matchStatus === 'running')
 const batchConfirming = computed(() => batch.matchStatus === 'confirming')
@@ -389,6 +415,32 @@ const loadInspections = async (roomId) => {
     inspectionRecords.value = res.data || []
   } catch { /* ignore */ }
   finally { loadingInspections.value = false }
+}
+
+const openRectify = (row) => {
+  rectifyForm.id = row.id
+  rectifyForm.rectifyRemark = ''
+  showRectifyDialog.value = true
+}
+
+const handleRectify = async () => {
+  if (!rectifyForm.rectifyRemark.trim()) {
+    ElMessage.warning('请填写整改说明')
+    return
+  }
+  rectifySubmitting.value = true
+  try {
+    await submitRectification(rectifyForm.id, { rectifyRemark: rectifyForm.rectifyRemark })
+    ElMessage.success('整改已提交')
+    showRectifyDialog.value = false
+    if (roomInfo.value?.roomId) {
+      loadInspections(roomInfo.value.roomId)
+    }
+  } catch (error) {
+    ElMessage.error(error.message || '提交整改失败')
+  } finally {
+    rectifySubmitting.value = false
+  }
 }
 
 onMounted(() => {
