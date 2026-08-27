@@ -90,10 +90,10 @@
           </el-descriptions-item>
         </el-descriptions>
 
-        <div v-if="roommates.length > 0" class="roommate-section">
+        <div v-if="dormRoommates.length > 0" class="roommate-section">
           <h4 class="roommate-title">室友信息</h4>
           <div class="roommate-grid">
-            <div v-for="(rm, idx) in roommates" :key="idx" class="roommate-card">
+            <div v-for="(rm, idx) in dormRoommates" :key="idx" class="roommate-card">
               <div class="roommate-card-header">
                 <span class="roommate-index">室友 {{ idx + 1 }}</span>
                 <span class="roommate-major">{{ rm.majorName }}</span>
@@ -373,8 +373,7 @@ const loadRoomData = async () => {
   try {
     const roomRes = await studentAPI.getMyRoom()
     roomInfo.value = roomRes.data
-    roommates.value = []
-    // roommates endpoint not available; loaded via other means if needed
+    roommates.value = roomRes.data?.roommates || []
 
     // 加载该房间的检查记录
     if (roomInfo.value?.roomId) {

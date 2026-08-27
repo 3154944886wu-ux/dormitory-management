@@ -30,8 +30,9 @@ api.interceptors.response.use(
     const status = error.response?.status
     // 仅 401（未认证）时跳转登录；403 可能是业务权限问题，仅 console 警告
     if (status === 401) {
+      const isLoginRequest = error.config?.url?.includes('/auth/login')
       const isLoginPage = window.location.href.includes('/login')
-      if (!isLoginPage && !sessionStorage.getItem('_redirecting')) {
+      if (!isLoginRequest && !isLoginPage && !sessionStorage.getItem('_redirecting')) {
         sessionStorage.setItem('_redirecting', '1')
         localStorage.removeItem('token')
         localStorage.removeItem('user')

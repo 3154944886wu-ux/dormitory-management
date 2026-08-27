@@ -92,7 +92,7 @@ const locating = ref(false)
 const loading = ref(false)
 const currentLocation = ref(null)
 const locationError = ref('')
-const todayStatus = ref({ checkedIn: false, status: 2 })
+const todayStatus = ref({ checkedIn: false, status: 0 })
 const records = ref([])
 const rule = ref(null)
 

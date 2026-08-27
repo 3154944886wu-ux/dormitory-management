@@ -145,7 +145,7 @@
               <el-descriptions-item label="楼栋">{{ roomInfo.buildingName }}</el-descriptions-item>
               <el-descriptions-item label="房间号">{{ roomInfo.roomNumber }}</el-descriptions-item>
               <el-descriptions-item label="床位">{{ roomInfo.bedNumber }}</el-descriptions-item>
-              <el-descriptions-item label="室友">{{ roomInfo.roommates }}</el-descriptions-item>
+              <el-descriptions-item label="室友">{{ roomInfo.roommateNames || '-' }}</el-descriptions-item>
             </el-descriptions>
           </div>
           <el-empty v-else description="暂未分配宿舍" />

@@ -11,9 +11,9 @@
               clearable
               style="width: 120px; margin-right: 10px;"
             >
-              <el-option label="迟到" value="1" />
-              <el-option label="缺卡" value="2" />
-              <el-option label="早退" value="3" />
+              <el-option label="晚归" value="1" />
+              <el-option label="未归" value="2" />
+              <el-option label="缺卡" value="3" />
             </el-select>
             <el-select 
               v-model="filters.status" 
@@ -33,8 +33,8 @@
         <el-table-column prop="studentName" label="学生姓名" width="100" />
         <el-table-column prop="studentNo" label="学号" width="120" />
         <el-table-column prop="buildingName" label="楼栋" width="100" />
-        <el-table-column prop="roomNo" label="房间" width="80" />
-        <el-table-column prop="checkDate" label="日期" width="120" />
+        <el-table-column prop="roomNumber" label="房间" width="80" />
+        <el-table-column prop="exceptionDate" label="日期" width="120" />
         <el-table-column prop="exceptionType" label="异常类型" width="80">
           <template #default="{ row }">
             <el-tag :type="getExceptionTypeTag(row.exceptionType)">
@@ -48,10 +48,10 @@
           </template>
         </el-table-column>
         <el-table-column prop="exceptionReason" label="异常原因" show-overflow-tooltip />
-        <el-table-column prop="status" label="状态" width="80">
+        <el-table-column prop="handled" label="状态" width="80">
           <template #default="{ row }">
-            <el-tag :type="row.status === 1 ? 'success' : 'warning'">
-              {{ row.status === 1 ? '已处理' : '待处理' }}
+            <el-tag :type="row.handled === 1 ? 'success' : 'warning'">
+              {{ row.handled === 1 ? '已处理' : '待处理' }}
             </el-tag>
           </template>
         </el-table-column>
@@ -59,7 +59,7 @@
         <el-table-column label="操作" width="150" fixed="right">
           <template #default="{ row }">
             <el-button 
-              v-if="row.status === 0"
+              v-if="row.handled !== 1"
               type="primary" 
               size="small" 
               link 
@@ -89,8 +89,8 @@
     <el-dialog v-model="processDialogVisible" title="处理异常" width="500px">
       <el-descriptions :column="1" border>
         <el-descriptions-item label="学生">{{ currentException.studentName }} ({{ currentException.studentNo }})</el-descriptions-item>
-        <el-descriptions-item label="房间">{{ currentException.buildingName }} - {{ currentException.roomNo }}</el-descriptions-item>
-        <el-descriptions-item label="日期">{{ currentException.checkDate }}</el-descriptions-item>
+        <el-descriptions-item label="房间">{{ currentException.buildingName }} - {{ currentException.roomNumber }}</el-descriptions-item>
+        <el-descriptions-item label="日期">{{ currentException.exceptionDate }}</el-descriptions-item>
         <el-descriptions-item label="异常类型">
           <el-tag :type="getExceptionTypeTag(currentException.exceptionType)">
             {{ getExceptionTypeText(currentException.exceptionType) }}
@@ -107,11 +107,12 @@
         label-width="100px"
         style="margin-top: 20px;"
       >
-        <el-form-item label="处理结果" prop="result">
-          <el-radio-group v-model="processForm.result">
-            <el-radio value="normal">标记正常</el-radio>
-            <el-radio value="warning">口头警告</el-radio>
-            <el-radio value="record">记过处分</el-radio>
+        <el-form-item label="处理结果" prop="handleResult">
+          <el-radio-group v-model="processForm.handleResult">
+            <el-radio value="safe_return">已安全归寝</el-radio>
+            <el-radio value="reported_stay_out">外宿已报备</el-radio>
+            <el-radio value="unreachable">联系不上待跟进</el-radio>
+            <el-radio value="other">其他</el-radio>
           </el-radio-group>
         </el-form-item>
         <el-form-item label="处理意见">
@@ -136,8 +137,8 @@
     <el-dialog v-model="viewDialogVisible" title="异常详情" width="500px">
       <el-descriptions :column="1" border>
         <el-descriptions-item label="学生">{{ currentException.studentName }} ({{ currentException.studentNo }})</el-descriptions-item>
-        <el-descriptions-item label="房间">{{ currentException.buildingName }} - {{ currentException.roomNo }}</el-descriptions-item>
-        <el-descriptions-item label="日期">{{ currentException.checkDate }}</el-descriptions-item>
+        <el-descriptions-item label="房间">{{ currentException.buildingName }} - {{ currentException.roomNumber }}</el-descriptions-item>
+        <el-descriptions-item label="日期">{{ currentException.exceptionDate }}</el-descriptions-item>
         <el-descriptions-item label="异常类型">
           <el-tag :type="getExceptionTypeTag(currentException.exceptionType)">
             {{ getExceptionTypeText(currentException.exceptionType) }}
@@ -146,8 +147,8 @@
         <el-descriptions-item label="打卡时间">{{ currentException.exceptionTime || '未打卡' }}</el-descriptions-item>
         <el-descriptions-item label="异常原因">{{ currentException.exceptionReason || '-' }}</el-descriptions-item>
         <el-descriptions-item label="状态">
-          <el-tag :type="currentException.status === 1 ? 'success' : 'warning'">
-            {{ currentException.status === 1 ? '已处理' : '待处理' }}
+          <el-tag :type="currentException.handled === 1 ? 'success' : 'warning'">
+            {{ currentException.handled === 1 ? '已处理' : '待处理' }}
           </el-tag>
         </el-descriptions-item>
         <el-descriptions-item label="处理人">{{ currentException.handlerName || '-' }}</el-descriptions-item>
@@ -162,7 +163,7 @@
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { 
-  getExceptions, 
+  searchExceptions, 
   handleException 
 } from '@/api/checkException'
 
@@ -184,12 +185,12 @@ const currentException = ref({})
 const processFormRef = ref(null)
 
 const processForm = ref({
-  result: 'normal',
+  handleResult: 'safe_return',
   handleNote: ''
 })
 
 const processRules = {
-  result: [
+  handleResult: [
     { required: true, message: '请选择处理结果', trigger: 'change' }
   ]
 }
@@ -198,11 +199,9 @@ const processRules = {
 const loadExceptions = async () => {
   loading.value = true
   try {
-    const res = await getExceptions({
-      page: page.value,
-      size: size.value,
-      type: filters.type,
-      status: filters.status
+    const res = await searchExceptions({
+      exceptionType: filters.type || undefined,
+      handled: filters.status === '' ? undefined : filters.status
     })
     exceptions.value = res.data?.records || res.data || []
     total.value = res.data?.total || exceptions.value.length
@@ -217,7 +216,7 @@ const loadExceptions = async () => {
 const handleProcess = (row) => {
   currentException.value = row
   processForm.value = {
-    result: 'normal',
+    handleResult: 'safe_return',
     handleNote: ''
   }
   processDialogVisible.value = true
@@ -231,10 +230,10 @@ const submitProcess = async () => {
   processing.value = true
   try {
     const res = await handleException(currentException.value.id, {
-      result: processForm.value.result,
+      handleResult: processForm.value.handleResult,
       handleNote: processForm.value.handleNote
     })
-    if (res.success) {
+    if (res.success || res.code === 200) {
       ElMessage.success('处理成功')
       processDialogVisible.value = false
       loadExceptions()
@@ -256,7 +255,7 @@ const handleView = (row) => {
 
 // 获取异常类型文本
 const getExceptionTypeText = (type) => {
-  const texts = { 1: '迟到', 2: '缺卡', 3: '早退' }
+  const texts = { 1: '晚归', 2: '未归', 3: '缺卡' }
   return texts[type] || '未知'
 }
 

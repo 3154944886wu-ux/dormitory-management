@@ -356,11 +356,27 @@ const router = createRouter({
   routes
 })
 
+function isTokenExpired(token) {
+  try {
+    const payloadPart = token.split('.')[1]
+    const normalized = payloadPart.replace(/-/g, '+').replace(/_/g, '/')
+    const payload = JSON.parse(atob(normalized))
+    return !payload.exp || payload.exp * 1000 <= Date.now()
+  } catch {
+    return true
+  }
+}
+
 // 路由守卫
 router.beforeEach((to, from, next) => {
   document.title = to.meta.title ? `${to.meta.title} - 宿舍管理系统` : '宿舍管理系统'
-  
-  const token = localStorage.getItem('token')
+
+  let token = localStorage.getItem('token')
+  if (token && isTokenExpired(token)) {
+    localStorage.removeItem('token')
+    localStorage.removeItem('user')
+    token = null
+  }
   let userRole = 'student'
   
   try {
