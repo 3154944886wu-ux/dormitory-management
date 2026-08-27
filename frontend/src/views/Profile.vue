@@ -246,7 +246,7 @@ const handleSave = async () => {
       ElMessage.success('保存成功')
       
       // 更新本地存储
-      const storedUser = JSON.parse(localStorage.getItem('user'))
+      const storedUser = JSON.parse(localStorage.getItem('user') || '{}')
       storedUser.nickname = form.nickname
       localStorage.setItem('user', JSON.stringify(storedUser))
       
