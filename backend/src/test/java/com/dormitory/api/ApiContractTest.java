@@ -14,6 +14,7 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
+import java.nio.charset.StandardCharsets;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -108,13 +109,13 @@ class ApiContractTest {
                 .andExpect(jsonPath("$.code").value(200))
                 .andExpect(jsonPath("$.data.occupancy").value(2))
                 .andReturn();
-        JsonNode data = objectMapper.readTree(result.getResponse().getContentAsString()).get("data");
+        JsonNode data = objectMapper.readTree(result.getResponse().getContentAsString(StandardCharsets.UTF_8)).get("data");
         assertEquals(2, data.get("occupancy").asInt());
 
         MvcResult rooms = mockMvc.perform(get("/api/rooms").header("Authorization", bearer(adminToken)))
                 .andExpect(status().isOk())
                 .andReturn();
-        JsonNode list = objectMapper.readTree(rooms.getResponse().getContentAsString())
+        JsonNode list = objectMapper.readTree(rooms.getResponse().getContentAsString(StandardCharsets.UTF_8))
                 .at("/data/list");
         JsonNode room1 = null;
         for (JsonNode node : list) {
@@ -173,8 +174,8 @@ class ApiContractTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value(400))
                 .andReturn();
-        String message = objectMapper.readTree(result.getResponse().getContentAsString())
-                .path("message").asText();
+        String json = result.getResponse().getContentAsString(StandardCharsets.UTF_8);
+        String message = objectMapper.readTree(json).path("message").asText();
         assertTrue(message.contains("匹配失败"), message);
         assertFalse(message.contains("匹配失败: 匹配失败"), message);
         assertEquals("running", jdbcTemplate.queryForObject(
@@ -196,7 +197,7 @@ class ApiContractTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
                 .andReturn();
-        return objectMapper.readTree(result.getResponse().getContentAsString())
+        return objectMapper.readTree(result.getResponse().getContentAsString(StandardCharsets.UTF_8))
                 .at("/data/token").asText();
     }
 
@@ -205,7 +206,7 @@ class ApiContractTest {
                 .andExpect(status().isOk())
                 .andReturn()
                 .getResponse()
-                .getContentAsString();
+                .getContentAsString(StandardCharsets.UTF_8);
     }
 
     private JsonNode readData(String json) throws Exception {
