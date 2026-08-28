@@ -131,7 +131,7 @@ public class UtilityFeeController {
 
             fee.setElectricityFee(electricFee);
             fee.setWaterFee(waterFee);
-            fee.setTotalFee(electricFee.add(waterFee));
+            fee.setTotalFee(FeeTotal.of(electricFee, waterFee));
 
             // 设置默认读数（避免计算错误）
             fee.setElectricityStart(BigDecimal.ZERO);
@@ -283,7 +283,8 @@ public class UtilityFeeController {
         if (managerId == null) {
             return fees;
         }
-        return managerScopeService.filterVisibleByBuilding(managerId, fees, UtilityFee::getBuildingId);
+        return managerScopeService.filterVisibleByRoom(managerId, fees,
+                UtilityFee::getBuildingId, UtilityFee::getRoomId);
     }
 
     private ResponseEntity<Map<String, Object>> denyIfOutOfScope(Authentication auth, UtilityFee fee) {
@@ -291,7 +292,7 @@ public class UtilityFeeController {
         if (managerId == null) {
             return null;
         }
-        if (!managerScopeService.canSeeBuilding(managerId, fee.getBuildingId())) {
+        if (!managerScopeService.canSeeRoom(managerId, fee.getBuildingId(), fee.getRoomId())) {
             return ApiResponses.forbidden("无权查看该范围外的水电费");
         }
         return null;

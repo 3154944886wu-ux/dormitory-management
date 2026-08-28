@@ -250,7 +250,17 @@ public class CheckExceptionController {
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
     public ResponseEntity<?> countBetweenDates(
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+            HttpServletRequest request) {
+        if (isManager(request)) {
+            Long userId = getUserId(request);
+            if (!managerScopeService.hasScope(userId)) {
+                return ResponseEntity.ok(Map.of("count", 0));
+            }
+            int count = checkExceptionService.searchScoped(
+                    startDate, endDate, managerScopeService.scopesJson(userId), null, null).size();
+            return ResponseEntity.ok(Map.of("count", count));
+        }
         int count = checkExceptionService.countBetweenDates(startDate, endDate);
         return ResponseEntity.ok(Map.of("count", count));
     }

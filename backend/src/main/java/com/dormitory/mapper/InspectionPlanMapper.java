@@ -63,6 +63,9 @@ public interface InspectionPlanMapper {
     @Update("UPDATE inspection_plans SET completed_rooms = completed_rooms + 1, update_time = NOW() WHERE id = #{id}")
     int incrementCompletedRooms(@Param("id") Long id);
 
+    @Update("UPDATE inspection_plans SET completed_rooms = GREATEST(completed_rooms - 1, 0), update_time = NOW() WHERE id = #{id}")
+    int decrementCompletedRooms(@Param("id") Long id);
+
     @Delete("DELETE FROM inspection_plans WHERE id = #{id}")
     int delete(Long id);
 }

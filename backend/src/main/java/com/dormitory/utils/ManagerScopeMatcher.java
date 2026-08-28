@@ -56,4 +56,28 @@ public final class ManagerScopeMatcher {
         }
         return false;
     }
+
+    /**
+     * 房间级数据（水电/检查/访客）是否可见。
+     * 有在住学生时按班级命中；空房仅当范围不限制班级时可见。
+     */
+    public static boolean isRoomVisible(List<ManagerScope> scopes, Long buildingId,
+                                        Iterable<String> occupantClassNames) {
+        if (scopes == null || scopes.isEmpty()) {
+            return false;
+        }
+        boolean anyOccupant = false;
+        if (occupantClassNames != null) {
+            for (String className : occupantClassNames) {
+                anyOccupant = true;
+                if (isVisible(scopes, buildingId, className)) {
+                    return true;
+                }
+            }
+        }
+        if (!anyOccupant) {
+            return isVisible(scopes, buildingId, null);
+        }
+        return false;
+    }
 }

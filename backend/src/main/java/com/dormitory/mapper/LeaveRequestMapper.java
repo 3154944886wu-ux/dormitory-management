@@ -59,6 +59,16 @@ public interface LeaveRequestMapper {
             "WHERE l.student_id = #{studentId} AND l.status = 1 " +
             "AND #{now} BETWEEN l.start_time AND l.end_time")
     LeaveRequest findActiveLeaveByStudent(@Param("studentId") Long studentId, @Param("now") LocalDateTime now);
+
+    @Select("SELECT l.*, s.name as student_name, s.student_no, s.department, s.class_name, " +
+            "r.room_number, b.name as building_name " +
+            "FROM leave_requests l " +
+            "LEFT JOIN students s ON l.student_id = s.id " +
+            "LEFT JOIN rooms r ON s.room_id = r.id " +
+            "LEFT JOIN buildings b ON r.building_id = b.id " +
+            "WHERE l.student_id = #{studentId} AND l.status IN (0, 1) " +
+            "AND #{now} BETWEEN l.start_time AND l.end_time LIMIT 1")
+    LeaveRequest findCoveringLeaveByStudent(@Param("studentId") Long studentId, @Param("now") LocalDateTime now);
     
     @Insert("INSERT INTO leave_requests (student_id, leave_type, reason, start_time, end_time, " +
             "contact_phone, destination, attachment, status) " +
@@ -81,6 +91,7 @@ public interface LeaveRequestMapper {
             "WHERE id = #{id} AND status = 1")
     int confirmReturn(@Param("id") Long id, @Param("actualReturnTime") LocalDateTime actualReturnTime);
     
-    @Select("SELECT COUNT(*) FROM leave_requests WHERE student_id = #{studentId} AND status IN (0, 1)")
-    int countPendingOrApprovedByStudent(@Param("studentId") Long studentId);
+    @Select("SELECT COUNT(*) FROM leave_requests WHERE student_id = #{studentId} " +
+            "AND (status = 0 OR (status = 1 AND end_time > #{now}))")
+    int countPendingOrApprovedByStudent(@Param("studentId") Long studentId, @Param("now") LocalDateTime now);
 }

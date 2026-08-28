@@ -5,6 +5,7 @@ import com.dormitory.mapper.StudentMapper;
 import com.dormitory.model.LeaveRequest;
 import com.dormitory.model.ManagerScope;
 import com.dormitory.model.Student;
+import com.dormitory.utils.CheckWindow;
 import com.dormitory.utils.LeaveReturn;
 import com.dormitory.utils.LeaveStatistics;
 import com.dormitory.utils.ManagerScopeMatcher;
@@ -29,6 +30,9 @@ public class LeaveRequestService {
 
     @Autowired
     private ManagerScopeService managerScopeService;
+
+    @Autowired
+    private CheckInService checkInService;
 
     /** 不分页返回全部请假申请（供 manager 范围过滤后再分页） */
     public List<LeaveRequest> findAllList() {
@@ -67,7 +71,7 @@ public class LeaveRequestService {
         }
         
         // 检查是否有未结束的请假
-        int pendingCount = leaveRequestMapper.countPendingOrApprovedByStudent(request.getStudentId());
+        int pendingCount = leaveRequestMapper.countPendingOrApprovedByStudent(request.getStudentId(), CheckWindow.now());
         if (pendingCount > 0) {
             throw new RuntimeException("已有待审批或进行中的请假申请");
         }
@@ -94,8 +98,12 @@ public class LeaveRequestService {
             throw new RuntimeException("无效的审批状态");
         }
         
-        leaveRequestMapper.approve(id, status, approverId, approverName, LocalDateTime.now(), note);
-        return leaveRequestMapper.findById(id);
+        leaveRequestMapper.approve(id, status, approverId, approverName, CheckWindow.now(), note);
+        LeaveRequest updated = leaveRequestMapper.findById(id);
+        if (status == 1 && updated != null) {
+            checkInService.applyApprovedLeave(updated.getStudentId(), updated.getStartTime(), updated.getEndTime());
+        }
+        return updated;
     }
     
     /**

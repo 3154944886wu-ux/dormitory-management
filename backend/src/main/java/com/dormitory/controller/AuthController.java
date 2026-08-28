@@ -6,6 +6,7 @@ import com.dormitory.model.User;
 import com.dormitory.service.UserService;
 import com.dormitory.utils.AuthMessages;
 import com.dormitory.utils.JwtUtils;
+import com.dormitory.utils.LoginRateLimiter;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -22,11 +23,14 @@ public class AuthController {
     private final UserService userService;
     private final JwtUtils jwtUtils;
     private final StudentMapper studentMapper;
+    private final LoginRateLimiter loginRateLimiter;
 
-    public AuthController(UserService userService, JwtUtils jwtUtils, StudentMapper studentMapper) {
+    public AuthController(UserService userService, JwtUtils jwtUtils, StudentMapper studentMapper,
+                          LoginRateLimiter loginRateLimiter) {
         this.userService = userService;
         this.jwtUtils = jwtUtils;
         this.studentMapper = studentMapper;
+        this.loginRateLimiter = loginRateLimiter;
     }
 
     @PostMapping("/register")
@@ -91,9 +95,16 @@ public class AuthController {
         String username = loginData.get("username");
         String password = loginData.get("password");
 
+        if (loginRateLimiter.isBlocked(username)) {
+            result.put("code", 429);
+            result.put("message", "登录失败次数过多，请10分钟后再试");
+            return ResponseEntity.status(429).body(result);
+        }
+
         User user = userService.findByUsername(username);
 
         if (user == null) {
+            loginRateLimiter.recordFailure(username);
             result.put("code", 401);
             result.put("message", "用户名或密码错误");
             return ResponseEntity.status(401).body(result);
@@ -106,11 +117,13 @@ public class AuthController {
         }
 
         if (!userService.verifyPassword(password, user.getPassword())) {
+            loginRateLimiter.recordFailure(username);
             result.put("code", 401);
             result.put("message", "用户名或密码错误");
             return ResponseEntity.status(401).body(result);
         }
 
+        loginRateLimiter.recordSuccess(username);
         String token = jwtUtils.generateToken(user);
 
         result.put("code", 200);

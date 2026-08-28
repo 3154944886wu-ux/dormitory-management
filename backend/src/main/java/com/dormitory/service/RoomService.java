@@ -3,6 +3,7 @@ package com.dormitory.service;
 import com.dormitory.mapper.BedMapper;
 import com.dormitory.mapper.BuildingMapper;
 import com.dormitory.mapper.RoomMapper;
+import com.dormitory.mapper.StudentMapper;
 import com.dormitory.model.Bed;
 import com.dormitory.model.Building;
 import com.dormitory.model.Room;
@@ -10,7 +11,9 @@ import com.dormitory.utils.BedLayout;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 @Service
 public class RoomService {
@@ -18,11 +21,14 @@ public class RoomService {
     private final RoomMapper roomMapper;
     private final BuildingMapper buildingMapper;
     private final BedMapper bedMapper;
+    private final StudentMapper studentMapper;
     
-    public RoomService(RoomMapper roomMapper, BuildingMapper buildingMapper, BedMapper bedMapper) {
+    public RoomService(RoomMapper roomMapper, BuildingMapper buildingMapper, BedMapper bedMapper,
+                       StudentMapper studentMapper) {
         this.roomMapper = roomMapper;
         this.buildingMapper = buildingMapper;
         this.bedMapper = bedMapper;
+        this.studentMapper = studentMapper;
     }
 
     /** 按房间配置生成对应床位记录，供智能选宿匹配使用 */
@@ -102,8 +108,13 @@ public class RoomService {
         if (duplicate != null && !duplicate.getId().equals(room.getId())) {
             throw new RuntimeException("该楼栋已存在相同房间号");
         }
-        
+
+        int oldCapacity = existing.getCapacity() == null ? 0 : existing.getCapacity();
         roomMapper.update(room);
+        int newCapacity = room.getCapacity() != null ? room.getCapacity() : oldCapacity;
+        if (newCapacity > oldCapacity) {
+            seedMissingBeds(room);
+        }
     }
     
     @Transactional
@@ -125,6 +136,12 @@ public class RoomService {
         Room room = roomMapper.findById(id);
         if (room == null) {
             throw new RuntimeException("房间不存在");
+        }
+        if (status != null && status == 0) {
+            int live = studentMapper.countByRoomId(id);
+            if (live > 0) {
+                throw new RuntimeException("房间内有学生入住，无法停用");
+            }
         }
         room.setStatus(status);
         room.setIsActive(status);
@@ -165,5 +182,21 @@ public class RoomService {
         }
         
         return created;
+    }
+
+    private void seedMissingBeds(Room room) {
+        List<Bed> existing = bedMapper.findByRoomId(room.getId());
+        Set<String> numbers = new HashSet<>();
+        for (Bed bed : existing) {
+            if (bed.getBedNumber() != null) {
+                numbers.add(bed.getBedNumber());
+            }
+        }
+        for (Bed bed : BedLayout.forRoom(room)) {
+            if (!numbers.contains(bed.getBedNumber())) {
+                bed.setRoomId(room.getId());
+                bedMapper.insert(bed);
+            }
+        }
     }
 }

@@ -47,8 +47,13 @@ public class FileDownloadController {
 
         String publicUrl = "/uploads/" + relative.replace('\\', '/');
         String role = roleOf(auth);
-        boolean owns = fileAccessService.studentOwns(auth.getName(), publicUrl);
-        if (!FileAccessPolicy.canRead(role, owns)) {
+        boolean allowed = false;
+        if ("STUDENT".equalsIgnoreCase(role)) {
+            allowed = fileAccessService.studentOwns(auth.getName(), publicUrl);
+        } else if ("MANAGER".equalsIgnoreCase(role)) {
+            allowed = fileAccessService.managerInScope(auth.getName(), publicUrl);
+        }
+        if (!FileAccessPolicy.canRead(role, allowed)) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
 

@@ -88,4 +88,18 @@ class ManagerScopeMatcherTest {
         assertFalse(ManagerScopeMatcher.isBuildingVisible(List.of(), 5L));
         assertFalse(ManagerScopeMatcher.isBuildingVisible(null, 5L));
     }
+
+    @Test
+    void roomLevelUsesOccupantClassWhenPresent() {
+        List<ManagerScope> scopes = List.of(scope(5L, "计科2301"));
+        assertTrue(ManagerScopeMatcher.isRoomVisible(scopes, 5L, List.of("计科2301")));
+        assertFalse(ManagerScopeMatcher.isRoomVisible(scopes, 5L, List.of("软工2302")));
+        assertFalse(ManagerScopeMatcher.isRoomVisible(scopes, 5L, List.of()));
+    }
+
+    @Test
+    void emptyRoomVisibleOnlyWhenClassUnrestricted() {
+        assertTrue(ManagerScopeMatcher.isRoomVisible(List.of(scope(5L, null)), 5L, List.of()));
+        assertFalse(ManagerScopeMatcher.isRoomVisible(List.of(scope(null, "计科2301")), 5L, List.of()));
+    }
 }

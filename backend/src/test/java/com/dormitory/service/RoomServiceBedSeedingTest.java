@@ -3,6 +3,7 @@ package com.dormitory.service;
 import com.dormitory.mapper.BedMapper;
 import com.dormitory.mapper.BuildingMapper;
 import com.dormitory.mapper.RoomMapper;
+import com.dormitory.mapper.StudentMapper;
 import com.dormitory.model.Bed;
 import com.dormitory.model.Building;
 import com.dormitory.model.Room;
@@ -26,6 +27,7 @@ class RoomServiceBedSeedingTest {
     @Mock RoomMapper roomMapper;
     @Mock BuildingMapper buildingMapper;
     @Mock BedMapper bedMapper;
+    @Mock StudentMapper studentMapper;
     @InjectMocks RoomService roomService;
 
     @Test

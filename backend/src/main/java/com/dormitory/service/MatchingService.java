@@ -138,6 +138,7 @@ public class MatchingService {
             for (Map.Entry<String, List<Student>> entry : byGender.entrySet()) {
                 String gender = entry.getKey();
                 List<Student> genderStudents = entry.getValue();
+                Set<Long> reservedBedIds = new HashSet<>();
 
                 // 获取适用于该性别的空房和未满房
                 List<Room> compatibleEmptyRooms = allEmptyRooms.stream()
@@ -171,7 +172,7 @@ public class MatchingService {
                 if (!submitted.isEmpty()) {
                     List<StudentGroup> groups = matchSubmitted(submitted, matchQuestions, optionMap,
                             questionMap, studentAnswers, batch);
-                    assignRoomsAndBeds(groups, compatibleEmptyRooms, compatiblePartialRooms, batch, buildingMap);
+                    assignRoomsAndBeds(groups, compatibleEmptyRooms, compatiblePartialRooms, batch, buildingMap, reservedBedIds);
                     for (StudentGroup g : groups) {
                         RoommateGroup rg = createRoommateGroup(g, batch.getId());
                         allGroups.add(rg);
@@ -185,7 +186,7 @@ public class MatchingService {
                 if (!unsubmitted.isEmpty()) {
                     List<StudentGroup> groups = matchUnsubmitted(unsubmitted, batch,
                             compatibleEmptyRooms, buildingMap);
-                    assignRoomsAndBeds(groups, compatibleEmptyRooms, compatiblePartialRooms, batch, buildingMap);
+                    assignRoomsAndBeds(groups, compatibleEmptyRooms, compatiblePartialRooms, batch, buildingMap, reservedBedIds);
                     for (StudentGroup g : groups) {
                         RoommateGroup rg = createRoommateGroup(g, batch.getId());
                         allGroups.add(rg);
@@ -306,14 +307,7 @@ public class MatchingService {
             if (!grouped[i]) leftover.add(students.get(i));
         }
         if (!leftover.isEmpty()) {
-            StudentGroup lastGroup;
-            if (groups.isEmpty()) {
-                lastGroup = new StudentGroup();
-                groups.add(lastGroup);
-            } else {
-                lastGroup = groups.get(groups.size() - 1);
-            }
-            lastGroup.students.addAll(leftover);
+            groups.addAll(splitIntoCapacityGroups(leftover, capacity));
         }
 
         // 计算每个学生在组内的平均匹配度得分
@@ -396,9 +390,21 @@ public class MatchingService {
         return groups;
     }
 
+    private List<StudentGroup> splitIntoCapacityGroups(List<Student> students, int capacity) {
+        int size = capacity > 0 ? capacity : 4;
+        List<StudentGroup> groups = new ArrayList<>();
+        for (int i = 0; i < students.size(); i += size) {
+            StudentGroup group = new StudentGroup();
+            group.students.addAll(students.subList(i, Math.min(i + size, students.size())));
+            groups.add(group);
+        }
+        return groups;
+    }
+
     private void assignRoomsAndBeds(List<StudentGroup> groups, List<Room> emptyRooms,
                                      List<Room> partialRooms, DormBatch batch,
-                                     Map<Long, Building> buildingMap) {
+                                     Map<Long, Building> buildingMap,
+                                     Set<Long> reservedBedIds) {
         // 跟踪每个房间在本次匹配中已分配的额外人数（不修改数据库 current_count）
         Map<Long, Integer> roomExtraOccupants = new HashMap<>();
         boolean preferSameFloor = batch.getPreferSameFloor() != null
@@ -446,8 +452,7 @@ public class MatchingService {
             group.room = assigned;
             roomExtraOccupants.merge(assigned.getId(), needed, Integer::sum);
 
-            // 分配床位
-            assignBeds(group, assigned);
+            assignBeds(group, assigned, reservedBedIds);
         }
     }
 
@@ -461,45 +466,19 @@ public class MatchingService {
         return null;
     }
 
-    private void assignBeds(StudentGroup group, Room room) {
+    private void assignBeds(StudentGroup group, Room room, Set<Long> reservedBedIds) {
         List<Bed> availableBeds = bedMapper.findAvailableByRoomId(room.getId());
-        // 分类床位
-        List<Bed> windowBeds = availableBeds.stream()
-                .filter(b -> "window".equals(b.getBedType()))
-                .collect(Collectors.toList());
-        List<Bed> corridorBeds = availableBeds.stream()
-                .filter(b -> "corridor".equals(b.getBedType()))
-                .collect(Collectors.toList());
-
         group.beds = new ArrayList<>();
-
-        // 读学生床位偏好（从 student_answer 的 bed 类题目）
         for (Student student : group.students) {
             String preference = getStudentBedPreference(student);
-            Bed assigned = null;
-
-            if ("window".equals(preference) && !windowBeds.isEmpty()) {
-                assigned = windowBeds.remove(0);
-            } else if ("corridor".equals(preference) && !corridorBeds.isEmpty()) {
-                assigned = corridorBeds.remove(0);
-            }
-
-            if (assigned == null) {
-                // 偏好不满足或无偏好，先取 window 再取 corridor
-                if (!windowBeds.isEmpty()) {
-                    assigned = windowBeds.remove(0);
-                } else if (!corridorBeds.isEmpty()) {
-                    assigned = corridorBeds.remove(0);
-                }
-            }
-
+            Bed assigned = BedSelection.pick(availableBeds, reservedBedIds, preference);
             if (assigned == null) {
                 throw new RuntimeException("房间[" + room.getRoomNumber() + "]无可用床位");
             }
-
             group.beds.add(assigned);
-            // 匹配阶段仅做逻辑推荐，不占用床位、不更新学生记录、不增加房间人数
-            // 实际占用在 confirmAllocation() 或 confirmAllRecommendations() 时执行
+            if (assigned.getId() != null) {
+                reservedBedIds.add(assigned.getId());
+            }
         }
     }
 

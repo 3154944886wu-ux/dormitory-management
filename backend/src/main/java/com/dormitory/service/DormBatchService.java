@@ -221,6 +221,10 @@ public class DormBatchService {
             throw new RuntimeException("只有confirming状态的批次才能结束，当前状态: " + batch.getMatchStatus());
         }
         confirmAllRecommendations(batch.getId());
+        int remaining = allocationResultMapper.findByBatchIdAndStatus(batch.getId(), "recommended").size();
+        if (remaining > 0) {
+            throw new RuntimeException("仍有 " + remaining + " 条推荐结果未能确认（房间或床位不足），无法完结批次");
+        }
         batchMapper.updateStatus(id, "finished");
         return batchMapper.findById(id);
     }
@@ -255,7 +259,15 @@ public class DormBatchService {
             com.dormitory.model.Student student = studentMapper.findById(ar.getStudentId());
             if (student != null && ar.getRoomId() != null) {
                 student.setRoomId(ar.getRoomId());
-                student.setBedNumber(ar.getBedNumber());
+                String bedNumber = ar.getBedNumber();
+                if (bedNumber == null && ar.getBedId() != null) {
+                    com.dormitory.model.Bed bed = bedMapper.findById(ar.getBedId());
+                    if (bed != null) {
+                        bedNumber = bed.getBedNumber();
+                    }
+                }
+                student.setBedNumber(bedNumber);
+                student.setStatus(1);
                 student.setCheckInDate(java.time.LocalDateTime.now());
                 studentMapper.update(student);
             }
@@ -294,6 +306,7 @@ public class DormBatchService {
             if (student != null) {
                 student.setRoomId(null);
                 student.setBedNumber(null);
+                student.setStatus(0);
                 studentMapper.update(student);
             }
         }
@@ -360,6 +373,7 @@ public class DormBatchService {
             if (student != null) {
                 student.setRoomId(null);
                 student.setBedNumber(null);
+                student.setStatus(0);
                 studentMapper.update(student);
             }
         }

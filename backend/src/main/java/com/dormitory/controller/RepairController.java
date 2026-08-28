@@ -9,6 +9,7 @@ import com.dormitory.service.ManagerScopeService;
 import com.dormitory.service.RepairService;
 import com.dormitory.utils.ApiResponses;
 import com.dormitory.utils.AuthRoles;
+import com.dormitory.utils.RepairCounts;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
@@ -100,12 +101,15 @@ public class RepairController {
 
     @GetMapping("/stats")
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
-    public ResponseEntity<Map<String, Object>> getStats() {
+    public ResponseEntity<Map<String, Object>> getStats(Authentication auth) {
+        List<Repair> repairs = repairService.findAll();
+        repairs = filterForManager(auth, repairs);
+        Map<String, Object> panel = RepairCounts.panel(repairs);
         Map<String, Object> result = new HashMap<>();
         result.put("code", 200);
         result.put("data", Map.of(
-            "pending", repairService.getPendingCount(),
-            "processing", repairService.getProcessingCount()
+            "pending", panel.get("pending"),
+            "processing", panel.get("processing")
         ));
         return ResponseEntity.ok(result);
     }

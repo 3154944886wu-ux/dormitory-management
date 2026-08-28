@@ -1,13 +1,16 @@
 package com.dormitory.service;
 
 import com.dormitory.mapper.ManagerScopeMapper;
+import com.dormitory.mapper.StudentMapper;
 import com.dormitory.model.ManagerScope;
+import com.dormitory.model.Student;
 import com.dormitory.utils.ManagerScopeJson;
 import com.dormitory.utils.ManagerScopeMatcher;
 import com.dormitory.utils.ScopeLists;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
@@ -16,9 +19,11 @@ import java.util.stream.Collectors;
 public class ManagerScopeService {
 
     private final ManagerScopeMapper managerScopeMapper;
+    private final StudentMapper studentMapper;
 
-    public ManagerScopeService(ManagerScopeMapper managerScopeMapper) {
+    public ManagerScopeService(ManagerScopeMapper managerScopeMapper, StudentMapper studentMapper) {
         this.managerScopeMapper = managerScopeMapper;
+        this.studentMapper = studentMapper;
     }
 
     public List<ManagerScope> findAllActive() {
@@ -76,6 +81,41 @@ public class ManagerScopeService {
 
     public boolean canSeeBuilding(Long userId, Long buildingId) {
         return ManagerScopeMatcher.isBuildingVisible(findActiveByUserId(userId), buildingId);
+    }
+
+    public List<String> occupantClassNames(Long roomId) {
+        if (roomId == null) {
+            return List.of();
+        }
+        List<String> classes = new ArrayList<>();
+        for (Student student : studentMapper.findByRoomId(roomId)) {
+            if (student.getStatus() != null && student.getStatus() == 1) {
+                classes.add(student.getClassName());
+            }
+        }
+        return classes;
+    }
+
+    public boolean canSeeRoom(Long userId, Long buildingId, Long roomId) {
+        return ManagerScopeMatcher.isRoomVisible(
+                findActiveByUserId(userId), buildingId, occupantClassNames(roomId));
+    }
+
+    public <T> java.util.List<T> filterVisibleByRoom(Long userId, java.util.List<T> items,
+                                                     java.util.function.Function<T, Long> buildingId,
+                                                     java.util.function.Function<T, Long> roomId) {
+        if (items == null || items.isEmpty()) {
+            return java.util.List.of();
+        }
+        java.util.List<ManagerScope> scopes = findActiveByUserId(userId);
+        java.util.List<T> visible = new java.util.ArrayList<>();
+        for (T item : items) {
+            if (ManagerScopeMatcher.isRoomVisible(
+                    scopes, buildingId.apply(item), occupantClassNames(roomId.apply(item)))) {
+                visible.add(item);
+            }
+        }
+        return visible;
     }
 
     public <T> java.util.List<T> filterVisible(Long userId, java.util.List<T> items,

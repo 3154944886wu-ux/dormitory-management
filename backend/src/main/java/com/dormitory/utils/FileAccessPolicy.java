@@ -10,16 +10,16 @@ public final class FileAccessPolicy {
     private FileAccessPolicy() {
     }
 
-    public static boolean canRead(String role, boolean ownsFile) {
+    public static boolean canRead(String role, boolean allowed) {
         if (role == null || role.isBlank()) {
             return false;
         }
         String normalized = role.trim().toUpperCase(Locale.ROOT);
-        if ("ADMIN".equals(normalized) || "MANAGER".equals(normalized)) {
+        if ("ADMIN".equals(normalized)) {
             return true;
         }
-        if ("STUDENT".equals(normalized)) {
-            return ownsFile;
+        if ("MANAGER".equals(normalized) || "STUDENT".equals(normalized)) {
+            return allowed;
         }
         return false;
     }

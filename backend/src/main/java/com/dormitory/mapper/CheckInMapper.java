@@ -85,8 +85,8 @@ public interface CheckInMapper {
     @Select("SELECT COUNT(*) FROM check_in_records WHERE check_date = #{checkDate} AND status = #{status}")
     int countByDateAndStatus(@Param("checkDate") LocalDate checkDate, @Param("status") Integer status);
     
-    @Select("SELECT c.status, COUNT(*) as count FROM check_in_records " +
-            "WHERE check_date = #{checkDate} GROUP BY status")
+    @Select("SELECT c.status, COUNT(*) as count FROM check_in_records c " +
+            "WHERE c.check_date = #{checkDate} GROUP BY c.status")
     List<Map<String, Object>> countByDateGroupByStatus(@Param("checkDate") LocalDate checkDate);
 
     @Select("SELECT c.*, s.name as student_name, s.student_no, s.class_name as className, r.room_number, r.building_id as buildingId, b.name as building_name " +

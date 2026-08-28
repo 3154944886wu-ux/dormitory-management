@@ -52,6 +52,9 @@ public interface RoomMapper {
     
     @Update("UPDATE rooms SET current_count = current_count - 1 WHERE id = #{id} AND current_count > 0")
     int decrementCount(Long id);
+
+    @Update("UPDATE rooms SET current_count = #{count} WHERE id = #{id}")
+    int setCurrentCount(@Param("id") Long id, @Param("count") int count);
     
     @Select("SELECT COUNT(*) FROM rooms WHERE building_id = #{buildingId}")
     int countByBuildingId(Long buildingId);
