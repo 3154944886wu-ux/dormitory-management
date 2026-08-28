@@ -1,7 +1,6 @@
 package com.dormitory.controller;
 
 import com.dormitory.service.FileAccessService;
-import com.dormitory.utils.FileAccessPolicy;
 import com.dormitory.utils.UploadPath;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
@@ -22,7 +21,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 
 /**
- * 上传文件下载：需登录；学生只能读取自己有归属的附件。
+ * 上传文件下载：需登录；管理员可看全部，宿管仅看范围内附件，学生仅看自己有归属的附件。
  */
 @RestController
 public class FileDownloadController {
@@ -47,8 +46,7 @@ public class FileDownloadController {
 
         String publicUrl = "/uploads/" + relative.replace('\\', '/');
         String role = roleOf(auth);
-        boolean owns = fileAccessService.studentOwns(auth.getName(), publicUrl);
-        if (!FileAccessPolicy.canRead(role, owns)) {
+        if (!fileAccessService.canAccess(auth.getName(), role, publicUrl)) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
 

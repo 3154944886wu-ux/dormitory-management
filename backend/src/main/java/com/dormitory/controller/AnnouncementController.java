@@ -72,6 +72,7 @@ public class AnnouncementController {
     }
     
     @GetMapping("/published")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<Map<String, Object>> getPublished() {
         List<Announcement> announcements = announcementService.getPublishedAnnouncements();
         Map<String, Object> result = new HashMap<>();

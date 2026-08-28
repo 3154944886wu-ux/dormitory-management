@@ -84,6 +84,13 @@ class ApiContractTest {
     }
 
     @Test
+    void unauthenticatedPublishedAnnouncementsIs401() throws Exception {
+        mockMvc.perform(get("/api/announcements/published"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value(401));
+    }
+
+    @Test
     void studentCannotEnumerateCampusBuildings() throws Exception {
         MvcResult result = mockMvc.perform(get("/api/buildings").header("Authorization", bearer(studentToken)))
                 .andExpect(status().isOk())

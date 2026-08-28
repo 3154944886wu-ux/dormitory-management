@@ -8,9 +8,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class FileAccessPolicyTest {
 
     @Test
-    void adminAndManagerCanReadAnyFile() {
+    void adminCanReadAnyFileManagerNeedsOwnership() {
         assertTrue(FileAccessPolicy.canRead("ADMIN", false));
-        assertTrue(FileAccessPolicy.canRead("MANAGER", false));
+        assertFalse(FileAccessPolicy.canRead("MANAGER", false));
+        assertTrue(FileAccessPolicy.canRead("MANAGER", true));
         assertTrue(FileAccessPolicy.canRead("admin", true));
     }
 
