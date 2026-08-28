@@ -1,5 +1,6 @@
 package com.dormitory.service;
 
+import com.dormitory.utils.CheckWindow;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
@@ -25,7 +26,7 @@ public class CheckInSchedulerService {
         int count = checkInService.generateAbsentAfterDeadline();
         if (count > 0) {
             operationLogService.log(null, "system", "scheduler", "checkin.generate_absent", Map.of(
-                    "date", LocalDate.now().toString(),
+                    "date", CheckWindow.today().toString(),
                     "count", count
             ));
         }
@@ -36,7 +37,7 @@ public class CheckInSchedulerService {
      */
     @Scheduled(cron = "0 5 0 * * ?")
     public void generateDailyMissingExceptions() {
-        LocalDate targetDate = LocalDate.now().minusDays(1);
+        LocalDate targetDate = CheckWindow.today().minusDays(1);
         int count = checkInService.generateMissingCheckIns(targetDate);
         operationLogService.log(null, "system", "scheduler", "checkin.generate_missing", Map.of(
                 "date", targetDate.toString(),

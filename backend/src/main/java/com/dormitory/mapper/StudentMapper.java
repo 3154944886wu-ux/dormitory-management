@@ -111,7 +111,7 @@ public interface StudentMapper {
     int count();
 
     @Update("UPDATE students SET dorm_batch_id = #{batchId} " +
-            "WHERE college_id = #{collegeId} AND status = 1 AND room_id IS NULL AND dorm_batch_id IS NULL")
+            "WHERE college_id = #{collegeId} AND room_id IS NULL AND dorm_batch_id IS NULL")
     int updateDormBatchIdByCollege(@Param("collegeId") Integer collegeId, @Param("batchId") Long batchId);
 
     @Update("UPDATE students SET dorm_batch_id = NULL WHERE dorm_batch_id = #{batchId}")

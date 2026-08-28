@@ -2,6 +2,8 @@ server:
   port: 8080
 
 spring:
+  jackson:
+    time-zone: Asia/Shanghai
   # 自动加载同目录下的 application-local.yml（本地开发配置，已被 .gitignore 忽略）；
   # 文件不存在时忽略，无需激活 local profile。
   config:
@@ -30,3 +32,5 @@ jwt:
 app:
   init-admin:
     enabled: ${INIT_ADMIN:false}
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://127.0.0.1:5173,http://localhost:5174,http://localhost:5175,http://localhost:3000}

@@ -1,5 +1,7 @@
 package com.dormitory.config;
 
+import com.dormitory.mapper.UserMapper;
+import com.dormitory.model.User;
 import com.dormitory.utils.JwtUtils;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -18,9 +20,11 @@ import java.util.List;
 public class JwtAuthFilter extends OncePerRequestFilter {
     
     private final JwtUtils jwtUtils;
+    private final UserMapper userMapper;
     
-    public JwtAuthFilter(JwtUtils jwtUtils) {
+    public JwtAuthFilter(JwtUtils jwtUtils, UserMapper userMapper) {
         this.jwtUtils = jwtUtils;
+        this.userMapper = userMapper;
     }
     
     @Override
@@ -35,10 +39,10 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             try {
                 var claims = jwtUtils.parseToken(token);
                 String username = claims.getSubject();
-                String role = claims.get("role", String.class);
-                // 仅当 token 携带有效角色时才设置认证，避免生成 ROLE_null 这类无效权限
-                if (role != null && !role.isBlank()) {
-                    role = role.toUpperCase();
+                User user = username == null ? null : userMapper.findByUsername(username);
+                if (user != null && user.getStatus() != null && user.getStatus() == 1
+                        && user.getRole() != null && !user.getRole().isBlank()) {
+                    String role = user.getRole().toUpperCase();
                     if (role.startsWith("ROLE_")) {
                         role = role.substring(5);
                     }

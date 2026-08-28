@@ -14,6 +14,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Pattern;
@@ -88,10 +89,18 @@ public class TeacherService {
         }
 
         String name = request.getName().trim();
+        String rawPassword = request.getPassword();
+        boolean generated = false;
+        if (rawPassword == null || rawPassword.isBlank()) {
+            rawPassword = randomPassword();
+            generated = true;
+        } else if (rawPassword.length() < 6) {
+            throw new RuntimeException("密码长度至少6位");
+        }
 
         User user = new User();
         user.setUsername(employeeNo);
-        user.setPassword(passwordEncoder.encode(employeeNo));
+        user.setPassword(passwordEncoder.encode(rawPassword));
         user.setNickname(name);
         user.setPhone(request.getPhone());
         user.setEmail(request.getEmail());
@@ -114,7 +123,11 @@ public class TeacherService {
             }
         }
 
-        return findById(user.getId());
+        TeacherVO vo = findById(user.getId());
+        if (generated) {
+            vo.setInitialPassword(rawPassword);
+        }
+        return vo;
     }
 
     @Transactional
@@ -176,6 +189,7 @@ public class TeacherService {
         CreateTeacherRequest request = new CreateTeacherRequest();
         request.setEmployeeNo(normalized);
         request.setName(name);
+        request.setPassword(normalized);
         return createTeacher(request);
     }
 
@@ -274,6 +288,16 @@ public class TeacherService {
             return null;
         }
         return className.trim();
+    }
+
+    private String randomPassword() {
+        String chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
+        SecureRandom random = new SecureRandom();
+        StringBuilder sb = new StringBuilder(10);
+        for (int i = 0; i < 10; i++) {
+            sb.append(chars.charAt(random.nextInt(chars.length())));
+        }
+        return sb.toString();
     }
 
     private TeacherVO toTeacherVO(Teacher teacher) {

@@ -355,6 +355,12 @@ const routes = [
   {
     path: '/leave-request',
     redirect: '/student/leave-request'
+  },
+  {
+    path: '/:pathMatch(.*)*',
+    name: 'NotFound',
+    component: () => import('../views/NotFound.vue'),
+    meta: { title: '页面不存在' }
   }
 ]
 

@@ -2,8 +2,10 @@ package com.dormitory.controller;
 
 import com.dormitory.model.Building;
 import com.dormitory.service.BuildingService;
+import com.dormitory.utils.AuthRoles;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
@@ -22,8 +24,11 @@ public class BuildingController {
     
     @GetMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'STUDENT')")
-    public ResponseEntity<Map<String, Object>> list() {
+    public ResponseEntity<Map<String, Object>> list(Authentication auth) {
         List<Building> buildings = buildingService.findAll();
+        if (AuthRoles.has(auth, "STUDENT")) {
+            stripManagerContact(buildings);
+        }
         
         Map<String, Object> result = new HashMap<>();
         result.put("code", 200);
@@ -33,7 +38,7 @@ public class BuildingController {
     
     @GetMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'STUDENT')")
-    public ResponseEntity<Map<String, Object>> getById(@PathVariable Long id) {
+    public ResponseEntity<Map<String, Object>> getById(@PathVariable Long id, Authentication auth) {
         Building building = buildingService.findById(id);
         
         Map<String, Object> result = new HashMap<>();
@@ -41,6 +46,10 @@ public class BuildingController {
             result.put("code", 404);
             result.put("message", "楼栋不存在");
             return ResponseEntity.status(404).body(result);
+        }
+        if (AuthRoles.has(auth, "STUDENT")) {
+            building.setManager(null);
+            building.setManagerPhone(null);
         }
         
         result.put("code", 200);
@@ -116,6 +125,16 @@ public class BuildingController {
             result.put("code", 400);
             result.put("message", e.getMessage());
             return ResponseEntity.badRequest().body(result);
+        }
+    }
+
+    private void stripManagerContact(List<Building> buildings) {
+        if (buildings == null) {
+            return;
+        }
+        for (Building building : buildings) {
+            building.setManager(null);
+            building.setManagerPhone(null);
         }
     }
 }

@@ -11,7 +11,7 @@ import java.time.LocalDateTime;
 public class LeaveRequest {
     private Long id;
     private Long studentId;
-    private Integer leaveType;  // 0事假 1病假 2其他
+    private Integer leaveType;  // 1事假 2病假 3其他
     private String reason;
     
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")

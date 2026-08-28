@@ -125,6 +125,13 @@ public class InspectionRecordService {
 
     @Transactional
     public void delete(Long id) {
+        InspectionRecord record = recordMapper.findById(id);
+        if (record == null) {
+            throw new RuntimeException("检查记录不存在");
+        }
         recordMapper.delete(id);
+        if (record.getPlanId() != null) {
+            planMapper.decrementCompletedRooms(record.getPlanId());
+        }
     }
 }

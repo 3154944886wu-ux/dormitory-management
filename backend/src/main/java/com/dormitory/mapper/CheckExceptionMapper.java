@@ -81,11 +81,20 @@ public interface CheckExceptionMapper {
     int insert(CheckException exception);
     
     @Update("UPDATE check_exceptions SET handled = 1, handler_id = #{handlerId}, " +
-            "handle_result = #{handleResult}, handle_time = NOW(), handle_note = #{handleNote} WHERE id = #{id}")
+            "handle_result = #{handleResult}, handle_time = NOW(), handle_note = #{handleNote} " +
+            "WHERE id = #{id} AND handled = 0")
     int handle(@Param("id") Long id,
                @Param("handlerId") Long handlerId,
                @Param("handleResult") String handleResult,
                @Param("handleNote") String handleNote);
+
+    @Update("UPDATE check_exceptions SET handled = 1, handle_result = #{handleResult}, " +
+            "handle_note = #{handleNote}, handle_time = NOW() " +
+            "WHERE student_id = #{studentId} AND exception_date = #{date} AND handled = 0")
+    int markHandledByStudentAndDate(@Param("studentId") Long studentId,
+                                    @Param("date") LocalDate date,
+                                    @Param("handleResult") String handleResult,
+                                    @Param("handleNote") String handleNote);
 
     @Select("SELECT COUNT(*) FROM check_exceptions WHERE student_id = #{studentId} " +
             "AND exception_date = #{date} AND exception_type = #{type}")
@@ -99,6 +108,9 @@ public interface CheckExceptionMapper {
     @Select("SELECT COUNT(*) FROM check_exceptions WHERE exception_date = #{date} AND exception_type = #{type}")
     int countByDateAndType(@Param("date") LocalDate date, @Param("type") Integer type);
     
+    @Select("SELECT COUNT(*) FROM check_exceptions WHERE handled = 0 AND exception_date = #{date}")
+    int countUnhandledByDate(@Param("date") LocalDate date);
+
     @Select("SELECT COUNT(*) FROM check_exceptions WHERE exception_date BETWEEN #{startDate} AND #{endDate}")
     int countBetweenDates(@Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
     

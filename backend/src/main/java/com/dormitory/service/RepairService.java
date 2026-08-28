@@ -143,6 +143,10 @@ public class RepairService {
             throw new RuntimeException("报修记录不存在");
         }
         
+        if (!RepairCompletion.canClose(repair.getStatus())) {
+            throw new RuntimeException("该报修已完成或已关闭，无法再关闭");
+        }
+        
         repair.setStatus(3); // 已关闭
         if (note != null && !note.isEmpty()) {
             repair.setHandlerNote(
