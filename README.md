@@ -90,7 +90,7 @@ mysql -u root -p dormitory < database/migration_rename_teachers_to_managers.sql
 mysql -u root -p dormitory < database/visitors.sql
 ```
 
-> 不推荐仅导入 `dormitory.sql`（可能缺少 `managers` 等表）。从旧库升级请按 `MIGRATIONS.md` 执行尚未应用的 `migration_*.sql`。
+> `dormitory.sql` 现为 schema-only 便利快照（无业务数据）。首次部署仍走 `schema.sql` + `test_data.sql`；从旧库升级请按 `MIGRATIONS.md` 执行尚未应用的 `migration_*.sql`。
 
 ### 3. 配置后端
 

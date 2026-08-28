@@ -28,6 +28,7 @@ mysql -u root -p dormitory < database/migration_sync_room_occupancy.sql
 | 文件 | 用途 |
 |------|------|
 | `schema.sql` | 基础表结构 + 检查项种子数据（黄金路径起点） |
+| `dormitory.sql` | 与当前 schema 对齐的 schema-only 便利快照，不含业务数据 |
 | `test_data.sql` | 测试楼栋/房间/学生 |
 | `migration_teachers.sql` | 教师/管理人员相关 |
 | `migration_checkin_manager.sql` | 归寝与管理人员范围 |
@@ -41,10 +42,16 @@ mysql -u root -p dormitory < database/migration_sync_room_occupancy.sql
 | `migration_sync_room_occupancy.sql` | 用实际在住学生数回写 `rooms.current_count` |
 | `migration_inspection_items.sql` | 仅缺检查项表时执行 |
 
+## `dormitory.sql` 便利快照
+
+`database/dormitory.sql` 是当前黄金 schema 的 **schema-only 快照**（无业务 INSERT，不含废弃列 `payment_status`）。它**不是**第二套真相源：表结构仍以 `schema.sql` 为准，数据仍以 `test_data.sql` / 应用种子为准。
+
+需要一份可单独导入的空库结构时，可以导入该快照；日常开发与首次部署仍走上方黄金路径。
+
 ## 不推荐
 
-- **仅导入 `dormitory.sql`**：这是历史 dump，可能缺少后续迁移表，且含有应用不读取的 `payment_status` 等列。黄金路径仍是 `schema.sql` + 下方 migration，不要单独导入 dump。
-- **仅导入 `schema.sql` 不加 migration**：缺少智能选宿、归寝扩展等表。
+- **把 `dormitory.sql` 当数据源**：快照不含测试/演示数据。
+- **仅导入旧版 `schema.sql` 不加 migration**：从更旧仓库升级时仍可能缺少智能选宿、归寝扩展等表；本仓库当前 `schema.sql` 已是超集。
 
 ## 演示数据
 
