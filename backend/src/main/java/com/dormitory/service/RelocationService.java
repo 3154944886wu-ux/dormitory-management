@@ -152,6 +152,9 @@ public class RelocationService {
             throw new RuntimeException("目标房间已满");
 
         Building building = buildingMapper.findById(newRoom.getBuildingId());
+        if (building == null) {
+            throw new RuntimeException("目标楼栋不存在");
+        }
         if (!GenderMatcher.isCompatible(student.getGender(), building.getGenderType()))
             throw new RuntimeException("学生性别与目标楼栋类型不匹配");
 
@@ -161,8 +164,8 @@ public class RelocationService {
         if (newBed.getIsOccupied() == 1)
             throw new RuntimeException("该床位已被占用");
 
-        // 释放旧资源
-        releaseOldResources(student, app.getCurrentBedId());
+        Long currentBedId = studentCurrentBedId(student);
+        releaseOldResources(student, currentBedId);
 
         // 占用新资源：先条件占床，防止并发下重复占用同一床位
         int occupied = bedMapper.tryOccupy(newBedId);
@@ -257,6 +260,18 @@ public class RelocationService {
 
     public RelocationApplication findById(Long id) {
         return relocationAppMapper.findById(id);
+    }
+
+    private Long studentCurrentBedId(Student student) {
+        if (student.getRoomId() == null || student.getBedNumber() == null) {
+            return null;
+        }
+        for (Bed bed : bedMapper.findByRoomId(student.getRoomId())) {
+            if (student.getBedNumber().equals(bed.getBedNumber())) {
+                return bed.getId();
+            }
+        }
+        return null;
     }
 
     private void releaseOldResources(Student student, Long currentBedId) {

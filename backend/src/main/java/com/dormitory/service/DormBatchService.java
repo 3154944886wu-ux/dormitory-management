@@ -4,6 +4,7 @@ import com.dormitory.mapper.*;
 import com.dormitory.model.College;
 import com.dormitory.model.DormBatch;
 import com.dormitory.utils.BatchFinishPolicy;
+import com.dormitory.utils.OccupancyRelease;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -221,6 +222,10 @@ public class DormBatchService {
             throw new RuntimeException("只有confirming状态的批次才能结束，当前状态: " + batch.getMatchStatus());
         }
         confirmAllRecommendations(batch.getId());
+        int remaining = allocationResultMapper.findByBatchIdAndStatus(batch.getId(), "recommended").size();
+        if (!BatchFinishPolicy.shouldMarkFinished(remaining)) {
+            throw new RuntimeException("仍有 " + remaining + " 条未确认分配，无法结束批次");
+        }
         batchMapper.updateStatus(id, "finished");
         return batchMapper.findById(id);
     }
@@ -230,18 +235,28 @@ public class DormBatchService {
                 allocationResultMapper.findByBatchIdAndStatus(batchId, "recommended");
         for (com.dormitory.model.AllocationResult ar : unconfirmed) {
             // 先增房间人数，再占床位（防止满员后床位幽灵占用）
-            if (ar.getRoomId() != null) {
+            com.dormitory.model.Student student = studentMapper.findById(ar.getStudentId());
+            if (student != null && OccupancyRelease.needsRoomIncrement(student.getRoomId(), ar.getRoomId())) {
+                if (student.getRoomId() != null) {
+                    releaseStudentOccupation(student);
+                    student.setRoomId(null);
+                    student.setBedNumber(null);
+                }
+            }
+            if (OccupancyRelease.needsRoomIncrement(student == null ? null : student.getRoomId(), ar.getRoomId())
+                    && ar.getRoomId() != null) {
                 int inc = roomMapper.incrementCount(ar.getRoomId());
                 if (inc == 0) {
                     System.err.println("警告: 自动确认时房间[" + ar.getRoomId() + "]人数更新失败，跳过学生[" + ar.getStudentId() + "]");
                     continue;
                 }
             }
-            if (ar.getBedId() != null) {
+            if (ar.getBedId() != null && (student == null || student.getBedNumber() == null
+                    || !OccupancyRelease.stillInAllocatedRoom(student.getRoomId(), ar.getRoomId()))) {
                 int rows = bedMapper.tryOccupy(ar.getBedId());
                 if (rows == 0) {
-                    // 床位占用失败，回滚房间人数
-                    if (ar.getRoomId() != null) {
+                    if (ar.getRoomId() != null && (student == null
+                            || OccupancyRelease.needsRoomIncrement(student.getRoomId(), ar.getRoomId()))) {
                         roomMapper.decrementCount(ar.getRoomId());
                     }
                     System.err.println("警告: 自动确认时床位[" + ar.getBedId() + "]已被占用，跳过学生[" + ar.getStudentId() + "]");
@@ -251,13 +266,45 @@ public class DormBatchService {
             allocationResultMapper.updateStatus(ar.getId(), "auto_confirmed");
             notificationService.createNotification(ar.getStudentId(), batchId,
                     "auto_confirm", "你的选宿分配结果已自动确认，请查看「我的宿舍」");
-            // 更新学生房间和床位信息
-            com.dormitory.model.Student student = studentMapper.findById(ar.getStudentId());
             if (student != null && ar.getRoomId() != null) {
                 student.setRoomId(ar.getRoomId());
                 student.setBedNumber(ar.getBedNumber());
                 student.setCheckInDate(java.time.LocalDateTime.now());
                 studentMapper.update(student);
+            }
+        }
+    }
+
+    private void releaseConfirmedAllocation(com.dormitory.model.AllocationResult ar) {
+        if (ar == null || "recommended".equals(ar.getStatus())) {
+            return;
+        }
+        com.dormitory.model.Student student = studentMapper.findById(ar.getStudentId());
+        if (student == null || !OccupancyRelease.stillInAllocatedRoom(student.getRoomId(), ar.getRoomId())) {
+            return;
+        }
+        if (ar.getBedId() != null) {
+            bedMapper.updateOccupied(ar.getBedId(), 0);
+        }
+        if (ar.getRoomId() != null) {
+            roomMapper.decrementCount(ar.getRoomId());
+        }
+        student.setRoomId(null);
+        student.setBedNumber(null);
+        studentMapper.update(student);
+    }
+
+    private void releaseStudentOccupation(com.dormitory.model.Student student) {
+        if (student.getRoomId() == null) {
+            return;
+        }
+        roomMapper.decrementCount(student.getRoomId());
+        if (student.getBedNumber() != null) {
+            for (com.dormitory.model.Bed bed : bedMapper.findByRoomId(student.getRoomId())) {
+                if (student.getBedNumber().equals(bed.getBedNumber())) {
+                    bedMapper.updateOccupied(bed.getId(), 0);
+                    break;
+                }
             }
         }
     }
@@ -278,24 +325,7 @@ public class DormBatchService {
         List<com.dormitory.model.AllocationResult> results =
                 allocationResultMapper.findByBatchId(batch.getId());
         for (com.dormitory.model.AllocationResult ar : results) {
-            if (!"recommended".equals(ar.getStatus())) {
-                if (ar.getBedId() != null) {
-                    bedMapper.updateOccupied(ar.getBedId(), 0);
-                }
-                if (ar.getRoomId() != null) {
-                    int dec = roomMapper.decrementCount(ar.getRoomId());
-                    if (dec == 0) {
-                        System.err.println("警告: 重置批次时房间[" + ar.getRoomId() + "]人数减减失败");
-                    }
-                }
-            }
-            // 清空学生记录
-            com.dormitory.model.Student student = studentMapper.findById(ar.getStudentId());
-            if (student != null) {
-                student.setRoomId(null);
-                student.setBedNumber(null);
-                studentMapper.update(student);
-            }
+            releaseConfirmedAllocation(ar);
         }
 
         // 清空该批次学生的 dorm_batch_id
@@ -345,23 +375,7 @@ public class DormBatchService {
         List<com.dormitory.model.AllocationResult> results =
                 allocationResultMapper.findByBatchId(batch.getId());
         for (com.dormitory.model.AllocationResult ar : results) {
-            if (!"recommended".equals(ar.getStatus())) {
-                if (ar.getBedId() != null) {
-                    bedMapper.updateOccupied(ar.getBedId(), 0);
-                }
-                if (ar.getRoomId() != null) {
-                    int dec = roomMapper.decrementCount(ar.getRoomId());
-                    if (dec == 0) {
-                        System.err.println("警告: 删除批次时房间[" + ar.getRoomId() + "]人数减减失败");
-                    }
-                }
-            }
-            com.dormitory.model.Student student = studentMapper.findById(ar.getStudentId());
-            if (student != null) {
-                student.setRoomId(null);
-                student.setBedNumber(null);
-                studentMapper.update(student);
-            }
+            releaseConfirmedAllocation(ar);
         }
 
         // 清空该批次学生的 dorm_batch_id

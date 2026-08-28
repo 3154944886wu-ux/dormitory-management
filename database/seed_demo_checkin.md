@@ -8,6 +8,7 @@
 app:
   seed-demo:
     enabled: true
+    allow-data-wipe: true   # 必须同时打开；生产/预发即使误开会被拒绝
 ```
 
 然后**重启后端**。生成完成后建议改回 `false`，避免重复清空演示日期的打卡数据。

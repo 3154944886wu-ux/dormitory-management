@@ -81,11 +81,16 @@ public interface CheckExceptionMapper {
     int insert(CheckException exception);
     
     @Update("UPDATE check_exceptions SET handled = 1, handler_id = #{handlerId}, " +
-            "handle_result = #{handleResult}, handle_time = NOW(), handle_note = #{handleNote} WHERE id = #{id}")
+            "handle_result = #{handleResult}, handle_time = NOW(), handle_note = #{handleNote} " +
+            "WHERE id = #{id} AND handled = 0")
     int handle(@Param("id") Long id,
                @Param("handlerId") Long handlerId,
                @Param("handleResult") String handleResult,
                @Param("handleNote") String handleNote);
+
+    @Update("UPDATE check_exceptions SET handled = 1, handle_result = '请假已批准', handle_time = NOW() " +
+            "WHERE student_id = #{studentId} AND exception_date = #{date} AND exception_type IN (1, 2) AND handled = 0")
+    int resolveByApprovedLeave(@Param("studentId") Long studentId, @Param("date") LocalDate date);
 
     @Select("SELECT COUNT(*) FROM check_exceptions WHERE student_id = #{studentId} " +
             "AND exception_date = #{date} AND exception_type = #{type}")

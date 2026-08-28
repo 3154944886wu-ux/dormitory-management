@@ -11,6 +11,8 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
@@ -34,6 +36,16 @@ class ApiContractTest {
 
     static {
         ApiSchemaBootstrap.ensurePrepared();
+    }
+
+    @DynamicPropertySource
+    static void isolateTestDatabase(DynamicPropertyRegistry registry) {
+        registry.add("spring.datasource.url", () -> ApiSchemaBootstrap.JDBC_DB);
+        registry.add("spring.datasource.username", () -> "root");
+        registry.add("spring.datasource.password", () -> "");
+        registry.add("app.init-admin.enabled", () -> "false");
+        registry.add("app.seed-demo.enabled", () -> "false");
+        registry.add("spring.task.scheduling.enabled", () -> "false");
     }
 
     @Autowired
@@ -69,6 +81,27 @@ class ApiContractTest {
         mockMvc.perform(get("/uploads/leave/secret.png"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value(401));
+    }
+
+    @Test
+    void studentCannotEnumerateCampusBuildings() throws Exception {
+        MvcResult result = mockMvc.perform(get("/api/buildings").header("Authorization", bearer(studentToken)))
+                .andExpect(status().isOk())
+                .andReturn();
+        JsonNode list = objectMapper.readTree(result.getResponse().getContentAsString(StandardCharsets.UTF_8)).get("data");
+        assertTrue(list.isArray());
+        assertTrue(list.size() <= 1);
+    }
+
+    @Test
+    void disabledUserTokenIsRejected() throws Exception {
+        jdbcTemplate.update("UPDATE users SET status = 0 WHERE username = '20230003'");
+        try {
+            mockMvc.perform(get("/api/auth/me").header("Authorization", bearer(otherStudentToken)))
+                    .andExpect(status().isUnauthorized());
+        } finally {
+            jdbcTemplate.update("UPDATE users SET status = 1 WHERE username = '20230003'");
+        }
     }
 
     @Test

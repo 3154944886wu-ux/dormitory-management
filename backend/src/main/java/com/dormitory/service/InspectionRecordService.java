@@ -29,8 +29,8 @@ public class InspectionRecordService {
     }
 
     public List<InspectionRecord> findAll(int page, int size) {
-        int offset = (page - 1) * size;
-        return recordMapper.findAllPaginated(offset, size);
+        return recordMapper.findAllPaginated(com.dormitory.utils.Pagination.offset(page, size),
+                com.dormitory.utils.Pagination.size(size));
     }
 
     public int count() {
@@ -125,6 +125,10 @@ public class InspectionRecordService {
 
     @Transactional
     public void delete(Long id) {
+        InspectionRecord existing = recordMapper.findById(id);
         recordMapper.delete(id);
+        if (existing != null && existing.getPlanId() != null) {
+            planMapper.decrementCompletedRooms(existing.getPlanId());
+        }
     }
 }

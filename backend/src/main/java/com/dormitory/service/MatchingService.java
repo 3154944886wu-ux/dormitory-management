@@ -4,6 +4,8 @@ import com.dormitory.mapper.*;
 import com.dormitory.model.*;
 import com.dormitory.utils.BedSelection;
 import com.dormitory.utils.GenderMatcher;
+import com.dormitory.utils.MatchingCapacity;
+import com.dormitory.utils.MatchingGroups;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -169,8 +171,11 @@ public class MatchingService {
 
                 // 处理已提交学生
                 if (!submitted.isEmpty()) {
+                    List<Room> capacityRooms = new ArrayList<>();
+                    capacityRooms.addAll(compatibleEmptyRooms);
+                    capacityRooms.addAll(compatiblePartialRooms);
                     List<StudentGroup> groups = matchSubmitted(submitted, matchQuestions, optionMap,
-                            questionMap, studentAnswers, batch);
+                            questionMap, studentAnswers, batch, capacityRooms);
                     assignRoomsAndBeds(groups, compatibleEmptyRooms, compatiblePartialRooms, batch, buildingMap);
                     for (StudentGroup g : groups) {
                         RoommateGroup rg = createRoommateGroup(g, batch.getId());
@@ -231,10 +236,10 @@ public class MatchingService {
                                               Map<Long, QuestionOption> optionMap,
                                               Map<Long, Questionnaire> questionMap,
                                               Map<Long, Map<Long, Long>> studentAnswers,
-                                              DormBatch batch) {
+                                              DormBatch batch,
+                                              List<Room> rooms) {
 
-        // 确定房间容量（取房源池中最常见的容量）
-        int capacity = 4; // 默认4人间
+        int capacity = MatchingCapacity.mostCommon(rooms, 4);
 
         // 计算两两匹配度
         int n = students.size();
@@ -306,14 +311,16 @@ public class MatchingService {
             if (!grouped[i]) leftover.add(students.get(i));
         }
         if (!leftover.isEmpty()) {
-            StudentGroup lastGroup;
-            if (groups.isEmpty()) {
-                lastGroup = new StudentGroup();
-                groups.add(lastGroup);
-            } else {
-                lastGroup = groups.get(groups.size() - 1);
+            List<List<Student>> asLists = new ArrayList<>();
+            for (StudentGroup group : groups) {
+                asLists.add(group.students);
             }
-            lastGroup.students.addAll(leftover);
+            MatchingGroups.appendLeftovers(asLists, leftover, capacity);
+            while (groups.size() < asLists.size()) {
+                StudentGroup extra = new StudentGroup();
+                extra.students.addAll(asLists.get(groups.size()));
+                groups.add(extra);
+            }
         }
 
         // 计算每个学生在组内的平均匹配度得分
@@ -368,7 +375,7 @@ public class MatchingService {
     private List<StudentGroup> matchUnsubmitted(List<Student> students, DormBatch batch,
                                                  List<Room> rooms,
                                                  Map<Long, Building> buildingMap) {
-        int capacity = 4;
+        int capacity = MatchingCapacity.mostCommon(rooms, 4);
         List<StudentGroup> groups = new ArrayList<>();
 
         if (batch.getAllowMixMajor() != null && batch.getAllowMixMajor() == 0) {
@@ -401,6 +408,7 @@ public class MatchingService {
                                      Map<Long, Building> buildingMap) {
         // 跟踪每个房间在本次匹配中已分配的额外人数（不修改数据库 current_count）
         Map<Long, Integer> roomExtraOccupants = new HashMap<>();
+        Set<Long> reservedBedIds = new HashSet<>();
         boolean preferSameFloor = batch.getPreferSameFloor() != null
                 && batch.getPreferSameFloor() == 1;
 
@@ -447,7 +455,7 @@ public class MatchingService {
             roomExtraOccupants.merge(assigned.getId(), needed, Integer::sum);
 
             // 分配床位
-            assignBeds(group, assigned);
+            assignBeds(group, assigned, reservedBedIds);
         }
     }
 
@@ -461,45 +469,19 @@ public class MatchingService {
         return null;
     }
 
-    private void assignBeds(StudentGroup group, Room room) {
+    private void assignBeds(StudentGroup group, Room room, Set<Long> reservedBedIds) {
         List<Bed> availableBeds = bedMapper.findAvailableByRoomId(room.getId());
-        // 分类床位
-        List<Bed> windowBeds = availableBeds.stream()
-                .filter(b -> "window".equals(b.getBedType()))
-                .collect(Collectors.toList());
-        List<Bed> corridorBeds = availableBeds.stream()
-                .filter(b -> "corridor".equals(b.getBedType()))
-                .collect(Collectors.toList());
-
         group.beds = new ArrayList<>();
-
-        // 读学生床位偏好（从 student_answer 的 bed 类题目）
         for (Student student : group.students) {
             String preference = getStudentBedPreference(student);
-            Bed assigned = null;
-
-            if ("window".equals(preference) && !windowBeds.isEmpty()) {
-                assigned = windowBeds.remove(0);
-            } else if ("corridor".equals(preference) && !corridorBeds.isEmpty()) {
-                assigned = corridorBeds.remove(0);
-            }
-
-            if (assigned == null) {
-                // 偏好不满足或无偏好，先取 window 再取 corridor
-                if (!windowBeds.isEmpty()) {
-                    assigned = windowBeds.remove(0);
-                } else if (!corridorBeds.isEmpty()) {
-                    assigned = corridorBeds.remove(0);
-                }
-            }
-
+            Bed assigned = BedSelection.pick(availableBeds, reservedBedIds, preference);
             if (assigned == null) {
                 throw new RuntimeException("房间[" + room.getRoomNumber() + "]无可用床位");
             }
-
             group.beds.add(assigned);
-            // 匹配阶段仅做逻辑推荐，不占用床位、不更新学生记录、不增加房间人数
-            // 实际占用在 confirmAllocation() 或 confirmAllRecommendations() 时执行
+            if (assigned.getId() != null) {
+                reservedBedIds.add(assigned.getId());
+            }
         }
     }
 

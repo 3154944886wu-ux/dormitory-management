@@ -183,6 +183,12 @@ public class AuthController {
         String oldPassword = passwordData.get("oldPassword");
         String newPassword = passwordData.get("newPassword");
 
+        if (oldPassword == null || oldPassword.isBlank()) {
+            result.put("code", 400);
+            result.put("message", "请输入原密码");
+            return ResponseEntity.badRequest().body(result);
+        }
+
         if (newPassword == null || newPassword.length() < 6) {
             result.put("code", 400);
             result.put("message", "密码长度至少6位");

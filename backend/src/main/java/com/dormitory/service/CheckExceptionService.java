@@ -69,7 +69,10 @@ public class CheckExceptionService {
             throw new RuntimeException("该异常已处理");
         }
         
-        checkExceptionMapper.handle(id, handlerId, handleResult, handleNote);
+        int updated = checkExceptionMapper.handle(id, handlerId, handleResult, handleNote);
+        if (updated == 0) {
+            throw new RuntimeException("该异常已处理");
+        }
         operationLogService.log(exception.getStudentId(), "manager", handlerName, "check_exception.handle", Map.of(
                 "exceptionId", id,
                 "result", handleResult == null ? "" : handleResult,

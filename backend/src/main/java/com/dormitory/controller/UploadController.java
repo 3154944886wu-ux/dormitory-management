@@ -2,8 +2,12 @@ package com.dormitory.controller;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+
+import com.dormitory.mapper.UserMapper;
+import com.dormitory.model.User;
 
 import java.io.File;
 import java.io.IOException;
@@ -27,12 +31,18 @@ public class UploadController {
         ".jpg", ".jpeg", ".png", ".gif", ".webp", ".pdf"
     );
 
+    private final UserMapper userMapper;
+
+    public UploadController(UserMapper userMapper) {
+        this.userMapper = userMapper;
+    }
+
     /**
      * 单文件上传
      */
     @PostMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'STUDENT')")
-    public ResponseEntity<?> upload(@RequestParam("file") MultipartFile file) {
+    public ResponseEntity<?> upload(@RequestParam("file") MultipartFile file, Authentication auth) {
         if (file.isEmpty()) {
             return ResponseEntity.badRequest().body(Map.of(
                 "success", false,
@@ -42,7 +52,7 @@ public class UploadController {
 
         try {
             validateFile(file);
-            String url = saveFile(file);
+            String url = saveFile(file, userId(auth));
             return ResponseEntity.ok(Map.of(
                 "success", true,
                 "message", "上传成功",
@@ -66,13 +76,13 @@ public class UploadController {
      */
     @PostMapping("/batch")
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'STUDENT')")
-    public ResponseEntity<?> uploadBatch(@RequestParam("files") MultipartFile[] files) {
+    public ResponseEntity<?> uploadBatch(@RequestParam("files") MultipartFile[] files, Authentication auth) {
         List<String> urls = new ArrayList<>();
         for (MultipartFile file : files) {
             if (!file.isEmpty()) {
                 try {
                     validateFile(file);
-                    urls.add(saveFile(file));
+                    urls.add(saveFile(file, userId(auth)));
                 } catch (IllegalArgumentException e) {
                     return ResponseEntity.badRequest().body(Map.of(
                         "success", false,
@@ -110,7 +120,7 @@ public class UploadController {
         }
     }
 
-    private String saveFile(MultipartFile file) throws IOException {
+    private String saveFile(MultipartFile file, Long userId) throws IOException {
         // 按日期分目录
         String dateDir = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy-MM"));
         Path uploadPath = Paths.get(UPLOAD_DIR, dateDir);
@@ -122,7 +132,8 @@ public class UploadController {
         if (originalName != null && originalName.contains(".")) {
             suffix = originalName.substring(originalName.lastIndexOf("."));
         }
-        String newFileName = UUID.randomUUID().toString() + suffix;
+        String ownerPrefix = userId == null ? "" : "u" + userId + "_";
+        String newFileName = ownerPrefix + UUID.randomUUID() + suffix;
 
         // 保存文件
         Path filePath = uploadPath.resolve(newFileName);
@@ -130,5 +141,13 @@ public class UploadController {
 
         // 返回访问URL
         return "/uploads/" + dateDir + "/" + newFileName;
+    }
+
+    private Long userId(Authentication auth) {
+        if (auth == null || auth.getName() == null) {
+            return null;
+        }
+        User user = userMapper.findByUsername(auth.getName());
+        return user == null ? null : user.getId();
     }
 }

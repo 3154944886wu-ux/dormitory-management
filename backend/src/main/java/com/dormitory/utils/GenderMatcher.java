@@ -21,7 +21,7 @@ public final class GenderMatcher {
             case "MALE", "男" -> "MALE".equals(student);
             case "FEMALE", "女" -> "FEMALE".equals(student);
             case "MIXED" -> true;
-            default -> true;
+            default -> false;
         };
     }
 

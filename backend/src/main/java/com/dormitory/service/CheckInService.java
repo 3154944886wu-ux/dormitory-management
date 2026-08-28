@@ -13,6 +13,7 @@ import com.dormitory.model.LeaveRequest;
 import com.dormitory.model.Room;
 import com.dormitory.model.Student;
 import com.dormitory.util.MapValueUtils;
+import com.dormitory.utils.CheckAbsentWindow;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
@@ -95,8 +96,12 @@ public class CheckInService {
         record.setDeviceInfo(deviceInfo);
         record.setIpAddress(ipAddress);
         record.setStatus(status);
-        
-        checkInMapper.insert(record);
+
+        try {
+            checkInMapper.insert(record);
+        } catch (DuplicateKeyException e) {
+            throw new RuntimeException("今日已打卡");
+        }
         Map<String, Object> logDetail = new HashMap<>();
         logDetail.put("status", status);
         logDetail.put("latitude", latitude);
@@ -260,7 +265,7 @@ public class CheckInService {
     /**
      * 批量生成未归异常（定时任务调用）
      */
-    @Transactional
+    @Transactional(noRollbackFor = DuplicateKeyException.class)
     public int generateMissingCheckIns(LocalDate date) {
         List<Student> allStudents = studentMapper.findAll();
         int count = 0;
@@ -279,17 +284,9 @@ public class CheckInService {
                 );
                 
                 if (leave == null) {
-                    if (checkExceptionMapper.countByStudentDateAndType(student.getId(), date, 2) == 0) {
-                        CheckException exception = new CheckException();
-                        exception.setStudentId(student.getId());
-                        exception.setExceptionDate(date);
-                        exception.setExceptionType(2); // 未归
-                        try {
-                            checkExceptionMapper.insert(exception);
-                            count++;
-                        } catch (DuplicateKeyException ignored) {
-                            // 唯一键并发下忽略重复插入
-                        }
+                    if (insertAbsentRecord(student, date, rule.getAbsentDeadline() != null
+                            ? rule.getAbsentDeadline() : LocalTime.MIDNIGHT)) {
+                        count++;
                     }
                 }
             }
@@ -454,12 +451,11 @@ public class CheckInService {
     }
 
     /**
-     * 超过未归截止后，为当日未打卡且未请假的学生自动生成未归记录。
+     * 超过未归截止后，为「当晚」未打卡且未请假的学生自动生成未归记录。
      */
-    @Transactional
+    @Transactional(noRollbackFor = DuplicateKeyException.class)
     public int generateAbsentAfterDeadline() {
-        LocalDate today = LocalDate.now();
-        LocalTime now = LocalTime.now();
+        LocalDateTime now = LocalDateTime.now();
         int count = 0;
 
         for (Student student : studentMapper.findAll()) {
@@ -467,41 +463,96 @@ public class CheckInService {
                 continue;
             }
             CheckRule rule = getCheckRule(student);
-            if (rule == null || !appliesOn(today, rule)) {
+            if (rule == null) {
                 continue;
             }
 
             LocalTime start = rule.getCheckStartTime() != null ? rule.getCheckStartTime() : rule.getCheckEndTime();
             LocalTime absent = rule.getAbsentDeadline();
-            if (start == null || absent == null) {
-                continue;
-            }
-            if (toWindowMinutes(now, start) <= toWindowMinutes(absent, start)) {
-                continue;
-            }
-
-            if (checkInMapper.findByStudentAndDate(student.getId(), today) != null) {
+            LocalDate checkDate = CheckAbsentWindow.targetCheckDate(now, start, absent);
+            if (checkDate == null || !appliesOn(checkDate, rule)) {
                 continue;
             }
 
-            LeaveRequest leave = leaveRequestMapper.findActiveLeaveByStudent(student.getId(), LocalDateTime.now());
+            if (checkInMapper.findByStudentAndDate(student.getId(), checkDate) != null) {
+                continue;
+            }
+
+            LocalDateTime leaveProbe = CheckAbsentWindow.crossesMidnight(start, absent)
+                    ? checkDate.plusDays(1).atTime(absent)
+                    : checkDate.atTime(absent);
+            LeaveRequest leave = leaveRequestMapper.findActiveLeaveByStudent(student.getId(), leaveProbe);
             if (leave != null) {
+                insertLeaveCheckIn(student, checkDate, absent);
                 continue;
             }
 
-            CheckInRecord absentRecord = new CheckInRecord();
-            absentRecord.setStudentId(student.getId());
-            absentRecord.setRoomId(student.getRoomId());
-            absentRecord.setCheckDate(today);
-            absentRecord.setCheckTime(today.atTime(absent));
-            absentRecord.setCheckType(2);
-            absentRecord.setStatus(2);
-            checkInMapper.insert(absentRecord);
-            createException(student.getId(), today, 2, absentRecord.getId());
-            count++;
+            if (insertAbsentRecord(student, checkDate, absent)) {
+                count++;
+            }
         }
 
         return count;
+    }
+
+    /**
+     * 请假批准后：覆盖日期内的未归/晚归打卡改为请假，并关闭对应异常；无打卡则补请假记录。
+     */
+    @Transactional(noRollbackFor = DuplicateKeyException.class)
+    public void reconcileApprovedLeave(Long studentId, LocalDateTime startTime, LocalDateTime endTime) {
+        if (studentId == null || startTime == null || endTime == null) {
+            return;
+        }
+        Student student = studentMapper.findById(studentId);
+        if (student == null) {
+            return;
+        }
+        LocalDate start = startTime.toLocalDate();
+        LocalDate end = endTime.toLocalDate();
+        for (LocalDate date = start; !date.isAfter(end); date = date.plusDays(1)) {
+            CheckInRecord existing = checkInMapper.findByStudentAndDate(studentId, date);
+            if (existing == null) {
+                insertLeaveCheckIn(student, date, startTime.toLocalTime());
+            } else if (existing.getStatus() != null && (existing.getStatus() == 1 || existing.getStatus() == 2)) {
+                checkInMapper.updateStatus(existing.getId(), 3, "请假已批准，自动纠偏");
+            }
+            checkExceptionMapper.resolveByApprovedLeave(studentId, date);
+        }
+    }
+
+    private boolean insertAbsentRecord(Student student, LocalDate checkDate, LocalTime absent) {
+        CheckInRecord absentRecord = new CheckInRecord();
+        absentRecord.setStudentId(student.getId());
+        absentRecord.setRoomId(student.getRoomId());
+        absentRecord.setCheckDate(checkDate);
+        absentRecord.setCheckTime(checkDate.atTime(absent));
+        absentRecord.setCheckType(2);
+        absentRecord.setStatus(2);
+        try {
+            checkInMapper.insert(absentRecord);
+            createException(student.getId(), checkDate, 2, absentRecord.getId());
+            return true;
+        } catch (DuplicateKeyException ignored) {
+            return false;
+        }
+    }
+
+    private void insertLeaveCheckIn(Student student, LocalDate checkDate, LocalTime time) {
+        if (checkInMapper.findByStudentAndDate(student.getId(), checkDate) != null) {
+            return;
+        }
+        CheckInRecord leaveRecord = new CheckInRecord();
+        leaveRecord.setStudentId(student.getId());
+        leaveRecord.setRoomId(student.getRoomId());
+        leaveRecord.setCheckDate(checkDate);
+        leaveRecord.setCheckTime(checkDate.atTime(time != null ? time : LocalTime.MIDNIGHT));
+        leaveRecord.setCheckType(3);
+        leaveRecord.setStatus(3);
+        try {
+            checkInMapper.insert(leaveRecord);
+        } catch (DuplicateKeyException ignored) {
+            // 并发打卡已写入
+        }
     }
 
     private int toWindowMinutes(LocalTime time, LocalTime windowStart) {

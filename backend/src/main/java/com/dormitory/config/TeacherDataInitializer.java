@@ -3,9 +3,11 @@ package com.dormitory.config;
 import com.dormitory.mapper.TeacherMapper;
 import com.dormitory.service.TeacherService;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
 @Component
+@Profile("!test")
 public class TeacherDataInitializer implements CommandLineRunner {
 
     private final TeacherMapper teacherMapper;

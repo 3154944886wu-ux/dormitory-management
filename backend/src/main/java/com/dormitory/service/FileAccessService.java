@@ -34,6 +34,17 @@ public class FileAccessService {
         if (student == null) {
             return false;
         }
+        if (student.getRoomId() != null) {
+            for (InspectionRecord record : inspectionRecordMapper.findByRoomId(student.getRoomId())) {
+                if (FileOwnership.containsUrl(record.getPhotos(), publicUrl)
+                        || FileOwnership.containsUrl(record.getRectificationPhotos(), publicUrl)) {
+                    return true;
+                }
+            }
+        }
+        if (FileOwnership.ownerUserId(publicUrl) != null) {
+            return FileOwnership.uploadedBy(publicUrl, student.getUserId());
+        }
         for (LeaveRequest leave : leaveRequestMapper.findByStudentId(student.getId())) {
             if (FileOwnership.containsUrl(leave.getAttachment(), publicUrl)) {
                 return true;
@@ -42,14 +53,6 @@ public class FileAccessService {
         for (Repair repair : repairMapper.findByStudentId(student.getId())) {
             if (FileOwnership.containsUrl(repair.getImages(), publicUrl)) {
                 return true;
-            }
-        }
-        if (student.getRoomId() != null) {
-            for (InspectionRecord record : inspectionRecordMapper.findByRoomId(student.getRoomId())) {
-                if (FileOwnership.containsUrl(record.getPhotos(), publicUrl)
-                        || FileOwnership.containsUrl(record.getRectificationPhotos(), publicUrl)) {
-                    return true;
-                }
             }
         }
         return false;

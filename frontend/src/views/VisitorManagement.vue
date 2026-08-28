@@ -190,8 +190,8 @@ const formatDateTime = (datetime) => {
 const loadVisitors = async () => {
   try {
     const res = await api.get('/visitors')
-    if (res.data.code === 200) {
-      visitors.value = res.data.data
+    if (res.code === 200) {
+      visitors.value = res.data
     }
   } catch (error) {
     ElMessage.error('加载访客列表失败')
@@ -202,8 +202,8 @@ const loadVisitors = async () => {
 const loadActiveCount = async () => {
   try {
     const res = await api.get('/visitors/active/count')
-    if (res.data.code === 200) {
-      activeCount.value = res.data.data.count
+    if (res.code === 200) {
+      activeCount.value = res.data.count
     }
   } catch (error) {
     console.error('加载在访数量失败')
@@ -248,8 +248,8 @@ const handleSearch = async () => {
   }
   try {
     const res = await api.get(`/visitors?name=${searchText.value}`)
-    if (res.data.code === 200) {
-      visitors.value = res.data.data
+    if (res.code === 200) {
+      visitors.value = res.data
     }
   } catch (error) {
     ElMessage.error('搜索失败')
@@ -264,8 +264,8 @@ const handleFilter = async () => {
   }
   try {
     const res = await api.get(`/visitors?status=${filterStatus.value}`)
-    if (res.data.code === 200) {
-      visitors.value = res.data.data
+    if (res.code === 200) {
+      visitors.value = res.data
     }
   } catch (error) {
     ElMessage.error('筛选失败')

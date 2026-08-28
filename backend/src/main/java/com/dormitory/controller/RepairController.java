@@ -100,13 +100,10 @@ public class RepairController {
 
     @GetMapping("/stats")
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
-    public ResponseEntity<Map<String, Object>> getStats() {
+    public ResponseEntity<Map<String, Object>> getStats(Authentication auth) {
         Map<String, Object> result = new HashMap<>();
         result.put("code", 200);
-        result.put("data", Map.of(
-            "pending", repairService.getPendingCount(),
-            "processing", repairService.getProcessingCount()
-        ));
+        result.put("data", com.dormitory.utils.RepairCounts.panel(filterForManager(auth, repairService.findAll())));
         return ResponseEntity.ok(result);
     }
 

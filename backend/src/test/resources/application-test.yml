@@ -19,3 +19,4 @@ app:
     enabled: false
   seed-demo:
     enabled: false
+    allow-data-wipe: false

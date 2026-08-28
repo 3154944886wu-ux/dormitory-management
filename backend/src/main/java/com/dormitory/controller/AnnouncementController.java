@@ -31,6 +31,9 @@ public class AnnouncementController {
     public ResponseEntity<Map<String, Object>> getAll(
             @RequestParam(required = false) Integer status,
             @RequestParam(required = false) Integer type,
+            @RequestParam(required = false) Integer pageNum,
+            @RequestParam(required = false) Integer pageSize,
+            @RequestParam(required = false) String title,
             Authentication auth) {
         List<Announcement> announcements;
         if (isStudent(auth)) {
@@ -49,10 +52,22 @@ public class AnnouncementController {
                     .filter(a -> a.getType().equals(type))
                     .toList();
         }
+        if (title != null && !title.isBlank()) {
+            String keyword = title.trim();
+            announcements = announcements.stream()
+                    .filter(a -> a.getTitle() != null && a.getTitle().contains(keyword))
+                    .toList();
+        }
 
         Map<String, Object> result = new HashMap<>();
         result.put("code", 200);
-        result.put("data", announcements);
+        if (isStudent(auth) && pageNum != null) {
+            int total = announcements.size();
+            List<Announcement> page = com.dormitory.utils.Pagination.slice(announcements, pageNum, pageSize == null ? 10 : pageSize);
+            result.put("data", Map.of("list", page, "total", total));
+        } else {
+            result.put("data", announcements);
+        }
         return ResponseEntity.ok(result);
     }
     

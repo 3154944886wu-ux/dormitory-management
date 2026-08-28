@@ -69,7 +69,7 @@ public interface LeaveRequestMapper {
     
     @Update("UPDATE leave_requests SET status = #{status}, approver_id = #{approverId}, " +
             "approver_name = #{approverName}, approve_time = #{approveTime}, approve_note = #{approveNote} " +
-            "WHERE id = #{id}")
+            "WHERE id = #{id} AND status = 0")
     int approve(@Param("id") Long id, @Param("status") Integer status, 
                 @Param("approverId") Long approverId, @Param("approverName") String approverName,
                 @Param("approveTime") LocalDateTime approveTime, @Param("approveNote") String approveNote);
@@ -81,6 +81,7 @@ public interface LeaveRequestMapper {
             "WHERE id = #{id} AND status = 1")
     int confirmReturn(@Param("id") Long id, @Param("actualReturnTime") LocalDateTime actualReturnTime);
     
-    @Select("SELECT COUNT(*) FROM leave_requests WHERE student_id = #{studentId} AND status IN (0, 1)")
+    @Select("SELECT COUNT(*) FROM leave_requests WHERE student_id = #{studentId} " +
+            "AND (status = 0 OR (status = 1 AND end_time > NOW()))")
     int countPendingOrApprovedByStudent(@Param("studentId") Long studentId);
 }

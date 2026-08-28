@@ -23,8 +23,8 @@ public class InspectionPlanService {
     }
 
     public List<InspectionPlan> findAll(int page, int size) {
-        int offset = (page - 1) * size;
-        return planMapper.findAllPaginated(offset, size);
+        return planMapper.findAllPaginated(com.dormitory.utils.Pagination.offset(page, size),
+                com.dormitory.utils.Pagination.size(size));
     }
 
     public int count() {

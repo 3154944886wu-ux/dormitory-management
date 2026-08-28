@@ -37,6 +37,7 @@ public class JwtUtils {
         claims.put("id", user.getId());
         claims.put("username", user.getUsername());
         claims.put("role", user.getRole());
+        claims.put("pv", PasswordVersions.from(user.getPassword()));
 
         return Jwts.builder()
                 .claims(claims)
