@@ -176,7 +176,6 @@ public class MatchingService {
                     capacityRooms.addAll(compatibleEmptyRooms);
                     capacityRooms.addAll(compatiblePartialRooms);
                     List<StudentGroup> groups = matchSubmitted(submitted, matchQuestions, optionMap,
-                    List<StudentGroup> groups = matchSubmitted(submitted, matchQuestions, optionMap,
                             questionMap, studentAnswers, batch, capacityRooms);
                     assignRoomsAndBeds(groups, compatibleEmptyRooms, compatiblePartialRooms, batch, buildingMap, reservedBedIds);
                     for (StudentGroup g : groups) {
