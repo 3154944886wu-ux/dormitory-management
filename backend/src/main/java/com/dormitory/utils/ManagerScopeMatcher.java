@@ -33,4 +33,27 @@ public final class ManagerScopeMatcher {
         }
         return false;
     }
+
+    /**
+     * 房间级数据（检查/水电/房间列表）是否可见。
+     * 仅班级、无楼栋的范围不开放全校房间；buildingId 与 className 都空视为全校。
+     */
+    public static boolean isBuildingVisible(List<ManagerScope> scopes, Long buildingId) {
+        if (scopes == null || scopes.isEmpty() || buildingId == null) {
+            return false;
+        }
+        for (ManagerScope scope : scopes) {
+            if (scope.getBuildingId() == null) {
+                boolean classUnrestricted = scope.getClassName() == null || scope.getClassName().isBlank();
+                if (classUnrestricted) {
+                    return true;
+                }
+                continue;
+            }
+            if (scope.getBuildingId().equals(buildingId)) {
+                return true;
+            }
+        }
+        return false;
+    }
 }

@@ -61,4 +61,31 @@ class ManagerScopeMatcherTest {
         assertFalse(ManagerScopeMatcher.isVisible(List.of(), 5L, "计科2301"));
         assertFalse(ManagerScopeMatcher.isVisible(null, 5L, "计科2301"));
     }
+
+    @Test
+    void buildingLevelDoesNotGrantCampusRoomsToClassOnlyScope() {
+        List<ManagerScope> classOnly = List.of(scope(null, "计科2301"));
+        assertFalse(ManagerScopeMatcher.isBuildingVisible(classOnly, 5L));
+        assertFalse(ManagerScopeMatcher.isBuildingVisible(classOnly, null));
+    }
+
+    @Test
+    void buildingLevelSeesListedBuildingEvenIfClassRestricted() {
+        List<ManagerScope> scopes = List.of(scope(5L, "计科2301"));
+        assertTrue(ManagerScopeMatcher.isBuildingVisible(scopes, 5L));
+        assertFalse(ManagerScopeMatcher.isBuildingVisible(scopes, 6L));
+    }
+
+    @Test
+    void unrestrictedBuildingAndClassSeesAllBuildings() {
+        List<ManagerScope> scopes = List.of(scope(null, null));
+        assertTrue(ManagerScopeMatcher.isBuildingVisible(scopes, 5L));
+        assertTrue(ManagerScopeMatcher.isBuildingVisible(scopes, 99L));
+    }
+
+    @Test
+    void emptyScopeSeesNoBuilding() {
+        assertFalse(ManagerScopeMatcher.isBuildingVisible(List.of(), 5L));
+        assertFalse(ManagerScopeMatcher.isBuildingVisible(null, 5L));
+    }
 }
