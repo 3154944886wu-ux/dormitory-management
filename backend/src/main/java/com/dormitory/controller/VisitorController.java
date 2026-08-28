@@ -88,11 +88,11 @@ public class VisitorController {
     @GetMapping("/active/count")
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
     public ResponseEntity<Map<String, Object>> getActiveCount(Authentication auth) {
-        List<Visitor> visitors = filterForManager(auth, visitorService.findAll());
-        long count = visitors.stream().filter(v -> v.getStatus() != null && v.getStatus() == 1).count();
+        List<Visitor> active = visitorService.findByStatus(1);
+        active = filterForManager(auth, active);
         Map<String, Object> result = new HashMap<>();
         result.put("code", 200);
-        result.put("data", Map.of("count", count));
+        result.put("data", Map.of("count", active.size()));
         return ResponseEntity.ok(result);
     }
     
@@ -180,7 +180,8 @@ public class VisitorController {
         if (managerId == null) {
             return visitors;
         }
-        return managerScopeService.filterVisibleByBuilding(managerId, visitors, Visitor::getBuildingId);
+        return managerScopeService.filterVisibleByRoom(managerId, visitors,
+                Visitor::getBuildingId, Visitor::getRoomId);
     }
 
     private ResponseEntity<Map<String, Object>> denyIfOutOfScope(Authentication auth, Visitor visitor) {
@@ -188,7 +189,7 @@ public class VisitorController {
         if (managerId == null) {
             return null;
         }
-        if (!managerScopeService.canSeeBuilding(managerId, visitor.getBuildingId())) {
+        if (!managerScopeService.canSeeRoom(managerId, visitor.getBuildingId(), visitor.getRoomId())) {
             return ApiResponses.forbidden("无权查看该范围外的访客");
         }
         return null;

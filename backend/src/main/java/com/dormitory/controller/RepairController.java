@@ -9,6 +9,7 @@ import com.dormitory.service.ManagerScopeService;
 import com.dormitory.service.RepairService;
 import com.dormitory.utils.ApiResponses;
 import com.dormitory.utils.AuthRoles;
+import com.dormitory.utils.RepairCounts;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
@@ -103,7 +104,7 @@ public class RepairController {
     public ResponseEntity<Map<String, Object>> getStats(Authentication auth) {
         Map<String, Object> result = new HashMap<>();
         result.put("code", 200);
-        result.put("data", com.dormitory.utils.RepairCounts.panel(filterForManager(auth, repairService.findAll())));
+        result.put("data", RepairCounts.panel(filterForManager(auth, repairService.findAll())));
         return ResponseEntity.ok(result);
     }
 

@@ -5,6 +5,7 @@ import com.dormitory.mapper.StudentMapper;
 import com.dormitory.model.LeaveRequest;
 import com.dormitory.model.ManagerScope;
 import com.dormitory.model.Student;
+import com.dormitory.utils.CheckWindow;
 import com.dormitory.utils.LeaveReturn;
 import com.dormitory.utils.LeaveStatistics;
 import com.dormitory.utils.ManagerScopeMatcher;
@@ -70,7 +71,7 @@ public class LeaveRequestService {
         }
         
         // 检查是否有未结束的请假
-        int pendingCount = leaveRequestMapper.countPendingOrApprovedByStudent(request.getStudentId());
+        int pendingCount = leaveRequestMapper.countPendingOrApprovedByStudent(request.getStudentId(), CheckWindow.now());
         if (pendingCount > 0) {
             throw new RuntimeException("已有待审批或进行中的请假申请");
         }
@@ -105,13 +106,13 @@ public class LeaveRequestService {
             throw new RuntimeException("无效的审批状态");
         }
         
-        int updated = leaveRequestMapper.approve(id, status, approverId, approverName, LocalDateTime.now(), note);
+        int updated = leaveRequestMapper.approve(id, status, approverId, approverName, CheckWindow.now(), note);
         if (updated == 0) {
             throw new RuntimeException("该申请已处理");
         }
         LeaveRequest saved = leaveRequestMapper.findById(id);
         if (status == 1 && saved != null) {
-            checkInService.reconcileApprovedLeave(saved.getStudentId(), saved.getStartTime(), saved.getEndTime());
+            checkInService.applyApprovedLeave(saved.getStudentId(), saved.getStartTime(), saved.getEndTime());
         }
         return saved;
     }

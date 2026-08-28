@@ -22,6 +22,9 @@ public class CheckExceptionService {
     @Autowired
     private OperationLogService operationLogService;
 
+    @Autowired
+    private CheckInService checkInService;
+
     public CheckException findById(Long id) {
         return checkExceptionMapper.findById(id);
     }
@@ -69,10 +72,11 @@ public class CheckExceptionService {
             throw new RuntimeException("该异常已处理");
         }
         
-        int updated = checkExceptionMapper.handle(id, handlerId, handleResult, handleNote);
-        if (updated == 0) {
+        int rows = checkExceptionMapper.handle(id, handlerId, handleResult, handleNote);
+        if (rows == 0) {
             throw new RuntimeException("该异常已处理");
         }
+        checkInService.syncRecordAfterExceptionHandled(exception, handleResult);
         operationLogService.log(exception.getStudentId(), "manager", handlerName, "check_exception.handle", Map.of(
                 "exceptionId", id,
                 "result", handleResult == null ? "" : handleResult,
@@ -103,11 +107,7 @@ public class CheckExceptionService {
         stats.put("absentCount", absentCount);
         stats.put("missingCount", missingCount);
         stats.put("totalCount", lateCount + absentCount + missingCount);
-        
-        // 未处理数量
-        List<CheckException> unhandled = checkExceptionMapper.findByHandled(0);
-        stats.put("unhandledCount", unhandled.size());
-        
+        stats.put("unhandledCount", checkExceptionMapper.countUnhandledByDate(date));
         return stats;
     }
     

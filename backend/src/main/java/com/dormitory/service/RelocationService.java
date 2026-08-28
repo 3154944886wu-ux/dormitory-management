@@ -119,7 +119,9 @@ public class RelocationService {
     public RelocationApplication reject(Long applicationId, Long adminUserId, String comment) {
         RelocationApplication app = relocationAppMapper.findById(applicationId);
         if (app == null) throw new RuntimeException("申请不存在");
-        if (!"pending".equals(app.getStatus())) throw new RuntimeException("只有待审核的申请才能拒绝");
+        if (!"pending".equals(app.getStatus()) && !"approved".equals(app.getStatus())) {
+            throw new RuntimeException("只有待审核或已通过的申请才能拒绝");
+        }
 
         app.setStatus("rejected");
         app.setReviewedBy(adminUserId);
@@ -144,12 +146,18 @@ public class RelocationService {
 
         Student student = studentMapper.findById(app.getStudentId());
         if (student == null) throw new RuntimeException("学生不存在");
+        if (student.getStatus() == null || student.getStatus() != 1) {
+            throw new RuntimeException("学生已退宿，无法执行调宿");
+        }
 
         Room newRoom = roomMapper.findById(newRoomId);
         if (newRoom == null) throw new RuntimeException("目标房间不存在");
         if (newRoom.getIsActive() != 1) throw new RuntimeException("目标房间已停用");
-        if (newRoom.getCurrentCount() >= newRoom.getCapacity())
+        boolean sameRoom = student.getRoomId() != null && student.getRoomId().equals(newRoomId);
+        int live = studentMapper.countByRoomId(newRoomId);
+        if (!sameRoom && live >= newRoom.getCapacity()) {
             throw new RuntimeException("目标房间已满");
+        }
 
         Building building = buildingMapper.findById(newRoom.getBuildingId());
         if (building == null) {
@@ -172,9 +180,11 @@ public class RelocationService {
         if (occupied == 0) {
             throw new RuntimeException("该床位已被占用");
         }
-        int inc = roomMapper.incrementCount(newRoomId);
-        if (inc == 0) {
-            throw new RuntimeException("目标房间已满，无法调宿");
+        if (!sameRoom) {
+            int inc = roomMapper.incrementCount(newRoomId);
+            if (inc == 0) {
+                throw new RuntimeException("目标房间已满，无法调宿");
+            }
         }
 
         // 更新学生
@@ -182,6 +192,10 @@ public class RelocationService {
         student.setRoomId(newRoomId);
         student.setBedNumber(newBed.getBedNumber());
         studentMapper.update(student);
+        roomMapper.setCurrentCount(newRoomId, studentMapper.countByRoomId(newRoomId));
+        if (oldRoomId != null && !oldRoomId.equals(newRoomId)) {
+            roomMapper.setCurrentCount(oldRoomId, studentMapper.countByRoomId(oldRoomId));
+        }
 
         // 更新 AllocationResult：原地更新为 manual_assigned，避免违反 (student_id, batch_id) 唯一约束
         AllocationResult result = allocationResultMapper
@@ -262,6 +276,17 @@ public class RelocationService {
         return relocationAppMapper.findById(id);
     }
 
+    public void cancelActiveByStudent(Long studentId) {
+        if (studentId == null) {
+            return;
+        }
+        for (RelocationApplication app : relocationAppMapper.findByStudentId(studentId)) {
+            if ("pending".equals(app.getStatus()) || "approved".equals(app.getStatus())) {
+                relocationAppMapper.updateStatus(app.getId(), "cancelled");
+            }
+        }
+    }
+
     private Long studentCurrentBedId(Student student) {
         if (student.getRoomId() == null || student.getBedNumber() == null) {
             return null;
@@ -278,7 +303,8 @@ public class RelocationService {
         if (student.getRoomId() != null) {
             int dec = roomMapper.decrementCount(student.getRoomId());
             if (dec == 0) {
-                System.err.println("警告: 调宿释放时房间[" + student.getRoomId() + "]人数减减失败");
+                roomMapper.setCurrentCount(student.getRoomId(),
+                        Math.max(0, studentMapper.countByRoomId(student.getRoomId()) - 1));
             }
         }
         if (currentBedId != null) {

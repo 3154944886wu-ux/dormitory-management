@@ -335,7 +335,8 @@ public class InspectionRecordController {
         if (managerId == null) {
             return records;
         }
-        return managerScopeService.filterVisibleByBuilding(managerId, records, InspectionRecord::getBuildingId);
+        return managerScopeService.filterVisibleByRoom(managerId, records,
+                InspectionRecord::getBuildingId, InspectionRecord::getRoomId);
     }
 
     private ResponseEntity<?> denyIfOutOfScope(Authentication auth, InspectionRecord record) {
@@ -346,7 +347,7 @@ public class InspectionRecordController {
         if (record == null) {
             return ResponseEntity.status(404).body(Map.of("code", 404, "success", false, "message", "检查记录不存在"));
         }
-        if (!managerScopeService.canSeeBuilding(managerId, record.getBuildingId())) {
+        if (!managerScopeService.canSeeRoom(managerId, record.getBuildingId(), record.getRoomId())) {
             return ApiResponses.forbidden("无权操作该范围外的检查记录");
         }
         return null;
@@ -361,7 +362,7 @@ public class InspectionRecordController {
         if (room == null) {
             return ResponseEntity.status(404).body(Map.of("code", 404, "message", "房间不存在"));
         }
-        if (!managerScopeService.canSeeBuilding(managerId, room.getBuildingId())) {
+        if (!managerScopeService.canSeeRoom(managerId, room.getBuildingId(), roomId)) {
             return ApiResponses.forbidden("无权查看该范围外的房间检查记录");
         }
         return null;

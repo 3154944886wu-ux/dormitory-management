@@ -4,6 +4,7 @@ import com.dormitory.mapper.RoomMapper;
 import com.dormitory.mapper.UtilityFeeMapper;
 import com.dormitory.model.Room;
 import com.dormitory.model.UtilityFee;
+import com.dormitory.utils.FeeTotal;
 import com.dormitory.utils.MeterReading;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -64,8 +65,6 @@ public class UtilityFeeService {
 
         // 计算用量
         calculateUsage(fee);
-
-        // 计算费用
         calculateTotalFee(fee);
 
         fee.setStatus(0); // 未缴费
@@ -92,6 +91,7 @@ public class UtilityFeeService {
         }
 
         fee.setStatus(fee.getStatus() != null ? fee.getStatus() : 0);
+        fee.setTotalFee(FeeTotal.of(fee.getElectricityFee(), fee.getWaterFee()));
         feeMapper.insert(fee);
         return fee.getId();
     }
@@ -101,6 +101,9 @@ public class UtilityFeeService {
         UtilityFee existing = feeMapper.findById(fee.getId());
         if (existing == null) {
             throw new RuntimeException("费用记录不存在");
+        }
+        if (existing.getStatus() != null && existing.getStatus() == 1) {
+            throw new RuntimeException("已缴费记录不可修改");
         }
 
         // 重新计算用量和费用
@@ -119,7 +122,11 @@ public class UtilityFeeService {
         if (existing == null) {
             throw new RuntimeException("费用记录不存在");
         }
+        if (existing.getStatus() != null && existing.getStatus() == 1) {
+            throw new RuntimeException("已缴费记录不可修改");
+        }
 
+        fee.setTotalFee(FeeTotal.of(fee.getElectricityFee(), fee.getWaterFee()));
         feeMapper.update(fee);
     }
     
@@ -219,8 +226,6 @@ public class UtilityFeeService {
             waterFee = fee.getWaterUsage().multiply(WATER_RATE);
         }
         fee.setWaterFee(waterFee);
-        
-        // 计算总费用
-        fee.setTotalFee(electricityFee.add(waterFee));
+        fee.setTotalFee(FeeTotal.of(electricityFee, waterFee));
     }
 }

@@ -25,16 +25,22 @@ public class Room {
     private LocalDateTime createTime;
     private LocalDateTime updateTime;
     
-    // 计算剩余床位
-    public Integer getAvailableBeds() {
-        if (capacity != null && currentCount != null) {
-            return capacity - currentCount;
+    /** 闸门用实际在住人数，缺省才回退到 current_count。 */
+    public int usedCount() {
+        if (occupancy != null) {
+            return occupancy;
         }
-        return capacity != null ? capacity : 0;
+        return currentCount != null ? currentCount : 0;
+    }
+
+    public Integer getAvailableBeds() {
+        if (capacity == null) {
+            return 0;
+        }
+        return Math.max(0, capacity - usedCount());
     }
     
-    // 是否满员
     public Boolean isFull() {
-        return currentCount != null && capacity != null && currentCount >= capacity;
+        return capacity != null && usedCount() >= capacity;
     }
 }

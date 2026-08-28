@@ -13,6 +13,9 @@ public final class FeeTotal {
     public static BigDecimal of(BigDecimal electricityFee, BigDecimal waterFee) {
         BigDecimal electric = electricityFee == null ? BigDecimal.ZERO : electricityFee;
         BigDecimal water = waterFee == null ? BigDecimal.ZERO : waterFee;
+        if (electric.signum() < 0 || water.signum() < 0) {
+            throw new IllegalArgumentException("水电费金额不能为负数");
+        }
         return electric.add(water);
     }
 }

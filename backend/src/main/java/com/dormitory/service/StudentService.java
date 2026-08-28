@@ -1,9 +1,11 @@
 package com.dormitory.service;
 
+import com.dormitory.mapper.AllocationResultMapper;
 import com.dormitory.mapper.BuildingMapper;
 import com.dormitory.mapper.RoomMapper;
 import com.dormitory.mapper.StudentMapper;
 import com.dormitory.mapper.BedMapper;
+import com.dormitory.model.AllocationResult;
 import com.dormitory.model.Building;
 import com.dormitory.model.Room;
 import com.dormitory.model.Student;
@@ -24,13 +26,19 @@ public class StudentService {
     private final RoomMapper roomMapper;
     private final BuildingMapper buildingMapper;
     private final BedMapper bedMapper;
+    private final AllocationResultMapper allocationResultMapper;
+    private final RelocationService relocationService;
 
     public StudentService(StudentMapper studentMapper, RoomMapper roomMapper,
-                          BuildingMapper buildingMapper, BedMapper bedMapper) {
+                          BuildingMapper buildingMapper, BedMapper bedMapper,
+                          AllocationResultMapper allocationResultMapper,
+                          RelocationService relocationService) {
         this.studentMapper = studentMapper;
         this.roomMapper = roomMapper;
         this.buildingMapper = buildingMapper;
         this.bedMapper = bedMapper;
+        this.allocationResultMapper = allocationResultMapper;
+        this.relocationService = relocationService;
     }
     
     public List<Student> findAll() {
@@ -74,7 +82,7 @@ public class StudentService {
     }
 
     public long countByRoomId(Long roomId) {
-        return studentMapper.countByRoomIdAll(roomId);
+        return studentMapper.countByRoomId(roomId);
     }
     
     public List<Student> searchByName(String name) {
@@ -101,7 +109,7 @@ public class StudentService {
         if (student.getRoomId() != null) {
             assignRoomAndBed(student);
         } else {
-            student.setStatus(1);
+            student.setStatus(0);
         }
         if (student.getCheckInDate() == null) {
             student.setCheckInDate(LocalDateTime.now());
@@ -130,6 +138,7 @@ public class StudentService {
         // 管理员清空了房间 → 自动退宿
         if (student.getRoomId() == null && existing.getRoomId() != null) {
             releaseStudentResources(existing);
+            relocationService.cancelActiveByStudent(existing.getId());
             student.setStatus(0);
             student.setCheckOutDate(LocalDateTime.now());
             student.setBedNumber(null);
@@ -158,14 +167,48 @@ public class StudentService {
             occupyBed(newBed.getId());
         }
 
+        if (student.getCollegeId() == null) {
+            student.setCollegeId(existing.getCollegeId());
+        }
+        if (student.getMajorId() == null) {
+            student.setMajorId(existing.getMajorId());
+        }
+        if (student.getDormBatchId() == null) {
+            student.setDormBatchId(existing.getDormBatchId());
+        }
+        if (student.getUserId() == null) {
+            student.setUserId(existing.getUserId());
+        }
+        if (student.getIdCard() == null) {
+            student.setIdCard(existing.getIdCard());
+        }
+        if (student.getCheckInDate() == null) {
+            student.setCheckInDate(existing.getCheckInDate());
+        }
+        if (student.getPhone() == null) {
+            student.setPhone(existing.getPhone());
+        }
+        if (student.getDepartment() == null) {
+            student.setDepartment(existing.getDepartment());
+        }
+        if (student.getClassName() == null) {
+            student.setClassName(existing.getClassName());
+        }
+
         studentMapper.update(student);
+        if (student.getRoomId() != null) {
+            syncCurrentCount(student.getRoomId());
+        }
+        if (existing.getRoomId() != null && !existing.getRoomId().equals(student.getRoomId())) {
+            syncCurrentCount(existing.getRoomId());
+        }
     }
 
     private void releaseStudentResources(Student student) {
         if (student.getRoomId() != null) {
             int dec = roomMapper.decrementCount(student.getRoomId());
             if (dec == 0) {
-                System.err.println("警告: 房间[" + student.getRoomId() + "]人数减减失败(可能已为0)");
+                syncCurrentCount(student.getRoomId());
             }
             if (student.getBedNumber() != null) {
                 releaseBed(student.getRoomId(), student.getBedNumber());
@@ -198,7 +241,8 @@ public class StudentService {
         if (newRoom.getIsActive() != 1 || newRoom.getStatus() != 1) {
             throw new RuntimeException("目标房间已停用");
         }
-        if (newRoom.getCurrentCount() >= newRoom.getCapacity()) {
+        int live = studentMapper.countByRoomId(newRoom.getId());
+        if (live >= newRoom.getCapacity()) {
             throw new RuntimeException("目标房间已满");
         }
         // 检查性别匹配
@@ -214,15 +258,9 @@ public class StudentService {
                 throw new RuntimeException("床位 " + student.getBedNumber() + " 不存在");
             }
             if (bed.getIsOccupied() != null && bed.getIsOccupied() == 1) {
-                Bed available = findAvailableBed(student.getRoomId());
-                if (available == null) {
-                    throw new RuntimeException("目标房间无可用床位");
-                }
-                student.setBedNumber(available.getBedNumber());
-                occupyBed(available.getId());
-            } else {
-                occupyBed(bed.getId());
+                throw new RuntimeException("床位 " + student.getBedNumber() + " 已被占用");
             }
+            occupyBed(bed.getId());
         } else {
             Bed available = findAvailableBed(student.getRoomId());
             if (available == null) {
@@ -240,6 +278,7 @@ public class StudentService {
         if (student.getCheckInDate() == null) {
             student.setCheckInDate(LocalDateTime.now());
         }
+        syncCurrentCount(newRoom.getId());
     }
 
     private Bed findAvailableBed(Long roomId) {
@@ -256,13 +295,18 @@ public class StudentService {
             throw new RuntimeException("学生已退宿");
         }
 
+        Long oldRoomId = student.getRoomId();
         releaseStudentResources(student);
+        relocationService.cancelActiveByStudent(id);
 
         student.setStatus(0);
         student.setCheckOutDate(LocalDateTime.now());
         student.setRoomId(null);
         student.setBedNumber(null);
         studentMapper.update(student);
+        if (oldRoomId != null) {
+            syncCurrentCount(oldRoomId);
+        }
     }
     
     @Transactional
@@ -275,6 +319,7 @@ public class StudentService {
         // 如果学生还在住，先释放资源
         if (student.getStatus() == 1 && student.getRoomId() != null) {
             releaseStudentResources(student);
+            relocationService.cancelActiveByStudent(id);
         }
 
         studentMapper.deleteById(id);
@@ -294,7 +339,7 @@ public class StudentService {
         if (newRoom == null) {
             throw new RuntimeException("目标房间不存在");
         }
-        if (newRoom.getCurrentCount() >= newRoom.getCapacity()) {
+        if (studentMapper.countByRoomId(newRoomId) >= newRoom.getCapacity()) {
             throw new RuntimeException("目标房间已满");
         }
         if (newRoom.getIsActive() != 1 || newRoom.getStatus() != 1) {
@@ -311,11 +356,13 @@ public class StudentService {
         if (bed == null || !bed.getRoomId().equals(newRoomId)) {
             throw new RuntimeException("床位不存在或不属于目标房间");
         }
+        if (bed.getIsOccupied() != null && bed.getIsOccupied() == 1) {
+            throw new RuntimeException("该床位已被占用");
+        }
 
-        // 释放旧房间/床位
+        Long oldRoomId = student.getRoomId();
         releaseStudentResources(student);
 
-        // 占用新房间/床位
         int inc = roomMapper.incrementCount(newRoomId);
         if (inc == 0) {
             throw new RuntimeException("目标房间已满，无法调宿");
@@ -326,6 +373,33 @@ public class StudentService {
         student.setBedNumber(bed.getBedNumber());
         student.setCheckInDate(LocalDateTime.now());
         studentMapper.update(student);
+        syncCurrentCount(newRoomId);
+        if (oldRoomId != null && !oldRoomId.equals(newRoomId)) {
+            syncCurrentCount(oldRoomId);
+        }
+        syncAllocationResult(student);
+    }
+
+    private void syncAllocationResult(Student student) {
+        List<AllocationResult> results = allocationResultMapper.findByStudentId(student.getId());
+        if (results == null || results.isEmpty()) {
+            return;
+        }
+        AllocationResult latest = results.get(0);
+        latest.setRoomId(student.getRoomId());
+        Bed bed = findBedByNumber(student.getRoomId(), student.getBedNumber());
+        if (bed != null) {
+            latest.setBedId(bed.getId());
+            latest.setBedNumber(bed.getBedNumber());
+        }
+        allocationResultMapper.update(latest);
+    }
+
+    private void syncCurrentCount(Long roomId) {
+        if (roomId == null) {
+            return;
+        }
+        roomMapper.setCurrentCount(roomId, studentMapper.countByRoomId(roomId));
     }
 
     private void occupyBed(Long bedId) {

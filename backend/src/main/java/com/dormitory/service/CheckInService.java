@@ -13,7 +13,7 @@ import com.dormitory.model.LeaveRequest;
 import com.dormitory.model.Room;
 import com.dormitory.model.Student;
 import com.dormitory.util.MapValueUtils;
-import com.dormitory.utils.CheckAbsentWindow;
+import com.dormitory.utils.CheckWindow;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
@@ -59,35 +59,40 @@ public class CheckInService {
     public CheckInRecord checkIn(Long studentId, Integer checkType, BigDecimal latitude, 
                                   BigDecimal longitude, BigDecimal locationAccuracy,
                                   String deviceInfo, String ipAddress) {
-        LocalDate today = LocalDate.now();
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = CheckWindow.now();
         LocalTime currentTime = now.toLocalTime();
-        
-        // 检查是否已打卡
-        CheckInRecord existing = checkInMapper.findByStudentAndDate(studentId, today);
-        if (existing != null) {
-            throw new RuntimeException("今日已打卡");
-        }
-        
+
         Student student = studentMapper.findById(studentId);
         if (student == null) {
             throw new RuntimeException("学生不存在");
         }
-        
-        // 获取归寝规则
+        if (student.getRoomId() == null || student.getStatus() == null || student.getStatus() != 1) {
+            throw new RuntimeException("未分配宿舍，无法打卡");
+        }
+
         CheckRule rule = getCheckRule(student);
-        
-        // 位置验证
+        if (rule == null || !CheckWindow.isInCheckWindow(currentTime, rule)) {
+            throw new RuntimeException("当前不在打卡时段");
+        }
+
+        LocalDate businessDate = CheckWindow.businessDate(now, rule);
+        if (!CheckWindow.appliesOn(businessDate, rule)) {
+            throw new RuntimeException("今日无需归寝打卡");
+        }
+
+        CheckInRecord existing = checkInMapper.findByStudentAndDate(studentId, businessDate);
+        if (existing != null) {
+            throw new RuntimeException("今日已打卡");
+        }
+
         validateLocation(studentId, latitude, longitude, locationAccuracy, rule);
-        
-        // 计算打卡状态
-        Integer status = calculateStatus(studentId, today, currentTime, rule);
-        
-        // 创建打卡记录
+
+        Integer status = calculateStatus(studentId, businessDate, currentTime, rule);
+
         CheckInRecord record = new CheckInRecord();
         record.setStudentId(studentId);
         record.setRoomId(student.getRoomId());
-        record.setCheckDate(today);
+        record.setCheckDate(businessDate);
         record.setCheckTime(now);
         record.setCheckType(checkType);
         record.setLatitude(latitude);
@@ -108,12 +113,11 @@ public class CheckInService {
         logDetail.put("longitude", longitude);
         logDetail.put("accuracy", locationAccuracy);
         operationLogService.log(studentId, "student", student.getStudentNo(), "checkin.submit", logDetail);
-        
-        // 如果是晚归或未归，创建异常记录
+
         if (status == 1 || status == 2) {
-            createException(studentId, today, status, record.getId());
+            createException(studentId, businessDate, status, record.getId());
         }
-        
+
         return checkInMapper.findById(record.getId());
     }
     
@@ -138,33 +142,14 @@ public class CheckInService {
      * 计算打卡状态：结束前的已归(0)，结束后至未归截止前为晚归(1)，未归截止后为未归(2)
      */
     private Integer calculateStatus(Long studentId, LocalDate date, LocalTime currentTime, CheckRule rule) {
-        LeaveRequest leave = leaveRequestMapper.findActiveLeaveByStudent(studentId, LocalDateTime.now());
+        LeaveRequest leave = leaveRequestMapper.findActiveLeaveByStudent(studentId, CheckWindow.now());
         if (leave != null) {
             return 3;
         }
-
-        if (rule == null || !appliesOn(date, rule)) {
+        if (rule == null || !CheckWindow.appliesOn(date, rule)) {
             return 0;
         }
-
-        LocalTime start = rule.getCheckStartTime() != null ? rule.getCheckStartTime() : rule.getCheckEndTime();
-        LocalTime end = rule.getCheckEndTime();
-        LocalTime absent = rule.getAbsentDeadline();
-        if (start == null || end == null || absent == null) {
-            return 0;
-        }
-
-        int currentMin = toWindowMinutes(currentTime, start);
-        int endMin = toWindowMinutes(end, start);
-        int absentMin = toWindowMinutes(absent, start);
-
-        if (currentMin > absentMin) {
-            return 2;
-        }
-        if (currentMin > endMin) {
-            return 1;
-        }
-        return 0;
+        return CheckWindow.statusOf(currentTime, rule);
     }
     
     /**
@@ -267,32 +252,70 @@ public class CheckInService {
      */
     @Transactional(noRollbackFor = DuplicateKeyException.class)
     public int generateMissingCheckIns(LocalDate date) {
-        List<Student> allStudents = studentMapper.findAll();
         int count = 0;
-        
-        for (Student student : allStudents) {
-            if (student.getRoomId() == null) continue;
+        for (Student student : studentMapper.findAll()) {
+            if (!isResiding(student)) {
+                continue;
+            }
             CheckRule rule = getCheckRule(student);
-            if (rule == null || !appliesOn(date, rule)) continue;
-            
-            CheckInRecord record = checkInMapper.findByStudentAndDate(student.getId(), date);
-            if (record == null) {
-                // 检查是否有请假
-                LeaveRequest leave = leaveRequestMapper.findActiveLeaveByStudent(
-                    student.getId(), 
-                    date.atTime(LocalTime.MAX)
-                );
-                
-                if (leave == null) {
-                    if (insertAbsentRecord(student, date, rule.getAbsentDeadline() != null
-                            ? rule.getAbsentDeadline() : LocalTime.MIDNIGHT)) {
-                        count++;
-                    }
-                }
+            if (rule == null || !CheckWindow.appliesOn(date, rule)) {
+                continue;
+            }
+            if (insertAbsentIfNeeded(student, date, date.atTime(LocalTime.MAX))) {
+                count++;
             }
         }
-        
         return count;
+    }
+
+    /**
+     * 请假批准后：覆盖日期内的未归/晚归改为请假，并关闭对应异常；无记录则补请假打卡行。
+     */
+    @Transactional
+    public void applyApprovedLeave(Long studentId, LocalDateTime start, LocalDateTime end) {
+        if (studentId == null || start == null || end == null) {
+            return;
+        }
+        Student student = studentMapper.findById(studentId);
+        if (student == null) {
+            return;
+        }
+        LocalDate from = start.toLocalDate();
+        LocalDate to = end.toLocalDate();
+        for (LocalDate date = from; !date.isAfter(to); date = date.plusDays(1)) {
+            CheckInRecord record = checkInMapper.findByStudentAndDate(studentId, date);
+            if (record == null) {
+                CheckInRecord leaveRecord = new CheckInRecord();
+                leaveRecord.setStudentId(studentId);
+                leaveRecord.setRoomId(student.getRoomId());
+                leaveRecord.setCheckDate(date);
+                leaveRecord.setCheckTime(date.atTime(LocalTime.NOON));
+                leaveRecord.setCheckType(0);
+                leaveRecord.setStatus(3);
+                try {
+                    checkInMapper.insert(leaveRecord);
+                } catch (DuplicateKeyException ignored) {
+                    record = checkInMapper.findByStudentAndDate(studentId, date);
+                }
+            }
+            if (record != null && record.getStatus() != null && record.getStatus() != 3) {
+                checkInMapper.updateStatus(record.getId(), 3, "请假已批准");
+            }
+            checkExceptionMapper.markHandledByStudentAndDate(studentId, date, "leave_approved", "请假已批准自动关闭");
+        }
+    }
+
+    /**
+     * 异常处理为已安全归寝时，同步打卡记录。
+     */
+    public void syncRecordAfterExceptionHandled(CheckException exception, String handleResult) {
+        if (exception == null || exception.getCheckRecordId() == null) {
+            return;
+        }
+        if (!"safe_return".equals(handleResult)) {
+            return;
+        }
+        checkInMapper.updateStatus(exception.getCheckRecordId(), 0, "异常核实：已安全归寝");
     }
     
     public CheckInRecord findById(Long id) {
@@ -348,24 +371,26 @@ public class CheckInService {
     }
 
     public Map<String, Object> getTodayStatus(Long studentId) {
-        LocalDate today = LocalDate.now();
-        LocalTime now = LocalTime.now();
-        CheckInRecord record = checkInMapper.findByStudentAndDate(studentId, today);
-        LeaveRequest leave = leaveRequestMapper.findActiveLeaveByStudent(studentId, LocalDateTime.now());
+        LocalDateTime now = CheckWindow.now();
+        Student student = studentMapper.findById(studentId);
+        CheckRule rule = student != null ? getCheckRule(student) : null;
+        LocalDate date = CheckWindow.displayDate(now, rule);
+        CheckInRecord record = checkInMapper.findByStudentAndDate(studentId, date);
+        LeaveRequest leave = leaveRequestMapper.findActiveLeaveByStudent(studentId, now);
 
         Map<String, Object> status = new LinkedHashMap<>();
         status.put("checkedIn", record != null);
         status.put("record", record);
         status.put("checkTime", record == null ? null : record.getCheckTime());
 
-        if (leave != null && record == null) {
+        if (leave != null && (record == null || record.getStatus() == 3)) {
             status.put("status", 3);
         } else if (record != null) {
             status.put("status", record.getStatus());
+        } else if (rule != null && CheckWindow.isInCheckWindow(now.toLocalTime(), rule)) {
+            status.put("status", calculateStatus(studentId, date, now.toLocalTime(), rule));
         } else {
-            Student student = studentMapper.findById(studentId);
-            CheckRule rule = student != null ? getCheckRule(student) : null;
-            status.put("status", calculateStatus(studentId, today, now, rule));
+            status.put("status", null);
         }
         return status;
     }
@@ -455,39 +480,25 @@ public class CheckInService {
      */
     @Transactional(noRollbackFor = DuplicateKeyException.class)
     public int generateAbsentAfterDeadline() {
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = CheckWindow.now();
         int count = 0;
 
         for (Student student : studentMapper.findAll()) {
-            if (student.getRoomId() == null) {
+            if (!isResiding(student)) {
                 continue;
             }
             CheckRule rule = getCheckRule(student);
             if (rule == null) {
                 continue;
             }
-
-            LocalTime start = rule.getCheckStartTime() != null ? rule.getCheckStartTime() : rule.getCheckEndTime();
-            LocalTime absent = rule.getAbsentDeadline();
-            LocalDate checkDate = CheckAbsentWindow.targetCheckDate(now, start, absent);
-            if (checkDate == null || !appliesOn(checkDate, rule)) {
+            LocalDate businessDate = CheckWindow.businessDate(now, rule);
+            if (!CheckWindow.appliesOn(businessDate, rule)) {
                 continue;
             }
-
-            if (checkInMapper.findByStudentAndDate(student.getId(), checkDate) != null) {
+            if (!CheckWindow.isPastAbsentDeadline(now.toLocalTime(), rule)) {
                 continue;
             }
-
-            LocalDateTime leaveProbe = CheckAbsentWindow.crossesMidnight(start, absent)
-                    ? checkDate.plusDays(1).atTime(absent)
-                    : checkDate.atTime(absent);
-            LeaveRequest leave = leaveRequestMapper.findActiveLeaveByStudent(student.getId(), leaveProbe);
-            if (leave != null) {
-                insertLeaveCheckIn(student, checkDate, absent);
-                continue;
-            }
-
-            if (insertAbsentRecord(student, checkDate, absent)) {
+            if (insertAbsentIfNeeded(student, businessDate, now)) {
                 count++;
             }
         }
@@ -495,90 +506,39 @@ public class CheckInService {
         return count;
     }
 
-    /**
-     * 请假批准后：覆盖日期内的未归/晚归打卡改为请假，并关闭对应异常；无打卡则补请假记录。
-     */
-    @Transactional(noRollbackFor = DuplicateKeyException.class)
-    public void reconcileApprovedLeave(Long studentId, LocalDateTime startTime, LocalDateTime endTime) {
-        if (studentId == null || startTime == null || endTime == null) {
-            return;
-        }
-        Student student = studentMapper.findById(studentId);
-        if (student == null) {
-            return;
-        }
-        LocalDate start = startTime.toLocalDate();
-        LocalDate end = endTime.toLocalDate();
-        for (LocalDate date = start; !date.isAfter(end); date = date.plusDays(1)) {
-            CheckInRecord existing = checkInMapper.findByStudentAndDate(studentId, date);
-            if (existing == null) {
-                insertLeaveCheckIn(student, date, startTime.toLocalTime());
-            } else if (existing.getStatus() != null && (existing.getStatus() == 1 || existing.getStatus() == 2)) {
-                checkInMapper.updateStatus(existing.getId(), 3, "请假已批准，自动纠偏");
-            }
-            checkExceptionMapper.resolveByApprovedLeave(studentId, date);
-        }
+    private boolean isResiding(Student student) {
+        return student.getRoomId() != null && student.getStatus() != null && student.getStatus() == 1;
     }
 
-    private boolean insertAbsentRecord(Student student, LocalDate checkDate, LocalTime absent) {
+    private boolean insertAbsentIfNeeded(Student student, LocalDate date, LocalDateTime leaveAt) {
+        if (checkInMapper.findByStudentAndDate(student.getId(), date) != null) {
+            return false;
+        }
+        LeaveRequest leave = leaveRequestMapper.findCoveringLeaveByStudent(student.getId(), leaveAt);
+        if (leave == null) {
+            leave = leaveRequestMapper.findActiveLeaveByStudent(student.getId(), leaveAt);
+        }
+        if (leave != null) {
+            return false;
+        }
         CheckInRecord absentRecord = new CheckInRecord();
         absentRecord.setStudentId(student.getId());
         absentRecord.setRoomId(student.getRoomId());
-        absentRecord.setCheckDate(checkDate);
-        absentRecord.setCheckTime(checkDate.atTime(absent));
+        absentRecord.setCheckDate(date);
+        absentRecord.setCheckTime(date.atStartOfDay());
         absentRecord.setCheckType(2);
         absentRecord.setStatus(2);
         try {
             checkInMapper.insert(absentRecord);
-            createException(student.getId(), checkDate, 2, absentRecord.getId());
+            createException(student.getId(), date, 2, absentRecord.getId());
             return true;
         } catch (DuplicateKeyException ignored) {
             return false;
         }
     }
 
-    private void insertLeaveCheckIn(Student student, LocalDate checkDate, LocalTime time) {
-        if (checkInMapper.findByStudentAndDate(student.getId(), checkDate) != null) {
-            return;
-        }
-        CheckInRecord leaveRecord = new CheckInRecord();
-        leaveRecord.setStudentId(student.getId());
-        leaveRecord.setRoomId(student.getRoomId());
-        leaveRecord.setCheckDate(checkDate);
-        leaveRecord.setCheckTime(checkDate.atTime(time != null ? time : LocalTime.MIDNIGHT));
-        leaveRecord.setCheckType(3);
-        leaveRecord.setStatus(3);
-        try {
-            checkInMapper.insert(leaveRecord);
-        } catch (DuplicateKeyException ignored) {
-            // 并发打卡已写入
-        }
-    }
-
-    private int toWindowMinutes(LocalTime time, LocalTime windowStart) {
-        int minutes = time.toSecondOfDay() / 60;
-        int anchor = windowStart.toSecondOfDay() / 60;
-        if (minutes <= anchor && !time.equals(windowStart)) {
-            minutes += 24 * 60;
-        }
-        return minutes;
-    }
-
-    private boolean appliesOn(LocalDate date, CheckRule rule) {
-        if (rule.getApplyDays() == null || rule.getApplyDays().isBlank()) {
-            return true;
-        }
-        int dayOfWeek = date.getDayOfWeek().getValue();
-        for (String day : rule.getApplyDays().split(",")) {
-            if (!day.isBlank() && Integer.parseInt(day.trim()) == dayOfWeek) {
-                return true;
-            }
-        }
-        return false;
-    }
-
     private LocalDate[] normalizeRange(LocalDate startDate, LocalDate endDate) {
-        LocalDate end = endDate != null ? endDate : LocalDate.now();
+        LocalDate end = endDate != null ? endDate : CheckWindow.today();
         LocalDate start = startDate != null ? startDate : end.minusDays(30);
         return new LocalDate[]{start, end};
     }

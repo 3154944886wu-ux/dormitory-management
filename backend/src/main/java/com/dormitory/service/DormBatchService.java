@@ -268,7 +268,15 @@ public class DormBatchService {
                     "auto_confirm", "你的选宿分配结果已自动确认，请查看「我的宿舍」");
             if (student != null && ar.getRoomId() != null) {
                 student.setRoomId(ar.getRoomId());
-                student.setBedNumber(ar.getBedNumber());
+                String bedNumber = ar.getBedNumber();
+                if (bedNumber == null && ar.getBedId() != null) {
+                    com.dormitory.model.Bed bed = bedMapper.findById(ar.getBedId());
+                    if (bed != null) {
+                        bedNumber = bed.getBedNumber();
+                    }
+                }
+                student.setBedNumber(bedNumber);
+                student.setStatus(1);
                 student.setCheckInDate(java.time.LocalDateTime.now());
                 studentMapper.update(student);
             }

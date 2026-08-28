@@ -90,6 +90,10 @@ public class FileAccessService {
         return false;
     }
 
+    public boolean managerInScope(String username, String publicUrl) {
+        return managerOwns(username, publicUrl);
+    }
+
     private boolean managerOwns(String username, String publicUrl) {
         User manager = userMapper.findByUsername(username);
         if (manager == null || manager.getId() == null || !managerScopeService.hasScope(manager.getId())) {
@@ -114,12 +118,13 @@ public class FileAccessService {
         for (InspectionRecord record : inspectionRecordMapper.findAll()) {
             if (FileOwnership.containsUrl(record.getPhotos(), publicUrl)
                     || FileOwnership.containsUrl(record.getRectificationPhotos(), publicUrl)) {
-                if (managerScopeService.canSeeBuilding(managerId, record.getBuildingId())) {
+                if (managerScopeService.canSeeRoom(managerId, record.getBuildingId(), record.getRoomId())) {
                     return true;
                 }
             }
         }
-        for (LeaveRequest leave : leaveRequestMapper.findAll(0, LEAVE_SCAN_LIMIT)) {
+        int leaveTotal = leaveRequestMapper.count();
+        for (LeaveRequest leave : leaveRequestMapper.findAll(0, Math.max(leaveTotal, LEAVE_SCAN_LIMIT))) {
             if (FileOwnership.containsUrl(leave.getAttachment(), publicUrl)
                     && managerScopeService.canSee(managerId, leave.getBuildingId(), leave.getClassName())) {
                 return true;

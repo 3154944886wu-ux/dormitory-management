@@ -41,7 +41,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             try {
                 Claims claims = jwtUtils.parseToken(token);
                 String username = claims.getSubject();
-                User user = userMapper.findByUsername(username);
+                User user = username == null ? null : userMapper.findByUsername(username);
                 String dbRole = SessionValidity.normalizedRole(user == null ? null : user.getRole());
                 String tokenPv = claims.get("pv", String.class);
                 if (SessionValidity.isActive(user)

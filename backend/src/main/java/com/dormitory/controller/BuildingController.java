@@ -36,6 +36,7 @@ public class BuildingController {
             buildings = buildings.stream()
                     .filter(b -> buildingId != null && buildingId.equals(b.getId()))
                     .toList();
+            stripManagerContact(buildings);
         }
         
         Map<String, Object> result = new HashMap<>();
@@ -62,6 +63,8 @@ public class BuildingController {
                 result.put("message", "无权查看该楼栋");
                 return ResponseEntity.status(403).body(result);
             }
+            building.setManager(null);
+            building.setManagerPhone(null);
         }
         
         result.put("code", 200);
@@ -137,6 +140,16 @@ public class BuildingController {
             result.put("code", 400);
             result.put("message", e.getMessage());
             return ResponseEntity.badRequest().body(result);
+        }
+    }
+
+    private void stripManagerContact(List<Building> buildings) {
+        if (buildings == null) {
+            return;
+        }
+        for (Building building : buildings) {
+            building.setManager(null);
+            building.setManagerPhone(null);
         }
     }
 }
