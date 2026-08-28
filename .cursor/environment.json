@@ -1,0 +1,20 @@
+{
+  "name": "dormitory-manage-system",
+  "user": "ubuntu",
+  "install": "bash .cursor/install.sh",
+  "start": "bash .cursor/start.sh",
+  "terminals": [
+    {
+      "name": "backend",
+      "command": "cd backend && mvn -B -DskipTests spring-boot:run"
+    },
+    {
+      "name": "frontend",
+      "command": "cd frontend && npm run dev"
+    }
+  ],
+  "ports": [
+    { "name": "backend", "port": 8080 },
+    { "name": "frontend", "port": 5173 }
+  ]
+}

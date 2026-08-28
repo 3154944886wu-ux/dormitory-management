@@ -92,7 +92,7 @@ const locating = ref(false)
 const loading = ref(false)
 const currentLocation = ref(null)
 const locationError = ref('')
-const todayStatus = ref({ checkedIn: false, status: 2 })
+const todayStatus = ref({ checkedIn: false, status: 0 })
 const records = ref([])
 const rule = ref(null)
 
@@ -180,7 +180,7 @@ const handleCheckIn = async () => {
 
 const loadTodayStatus = async () => {
   const res = await getTodayStatus()
-  todayStatus.value = res.data || { checkedIn: false, status: 2 }
+  todayStatus.value = res.data || { checkedIn: false, status: 0 }
 }
 
 const loadRecords = async () => {

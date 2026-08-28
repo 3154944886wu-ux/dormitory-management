@@ -1,6 +1,7 @@
 package com.dormitory.mapper;
 
 import com.dormitory.model.Student;
+import com.dormitory.utils.OccupancySql;
 import org.apache.ibatis.annotations.*;
 
 import java.util.List;
@@ -8,42 +9,42 @@ import java.util.List;
 @Mapper
 public interface StudentMapper {
     
-    @Select("SELECT s.*, r.room_number, b.name as building_name " +
+    @Select("SELECT s.*, r.room_number, r.floor, r.room_type, " + OccupancySql.LIVE_IN_ROOM + " AS occupancy, r.capacity, r.building_id AS buildingId, b.name as building_name " +
              "FROM students s " +
              "LEFT JOIN rooms r ON s.room_id = r.id " +
              "LEFT JOIN buildings b ON r.building_id = b.id " +
              "ORDER BY s.student_no")
     List<Student> findAll();
     
-    @Select("SELECT s.*, r.room_number, b.name as building_name " +
+    @Select("SELECT s.*, r.room_number, r.floor, r.room_type, " + OccupancySql.LIVE_IN_ROOM + " AS occupancy, r.capacity, r.building_id AS buildingId, b.name as building_name " +
              "FROM students s " +
              "LEFT JOIN rooms r ON s.room_id = r.id " +
              "LEFT JOIN buildings b ON r.building_id = b.id " +
              "WHERE s.id = #{id}")
     Student findById(Long id);
     
-    @Select("SELECT s.*, r.room_number, b.name as building_name " +
+    @Select("SELECT s.*, r.room_number, r.floor, r.room_type, " + OccupancySql.LIVE_IN_ROOM + " AS occupancy, r.capacity, r.building_id AS buildingId, b.name as building_name " +
              "FROM students s " +
              "LEFT JOIN rooms r ON s.room_id = r.id " +
              "LEFT JOIN buildings b ON r.building_id = b.id " +
              "WHERE s.student_no = #{studentNo}")
     Student findByStudentNo(String studentNo);
     
-    @Select("SELECT s.*, r.room_number, b.name as building_name " +
+    @Select("SELECT s.*, r.room_number, r.floor, r.room_type, " + OccupancySql.LIVE_IN_ROOM + " AS occupancy, r.capacity, r.building_id AS buildingId, b.name as building_name " +
              "FROM students s " +
              "LEFT JOIN rooms r ON s.room_id = r.id " +
              "LEFT JOIN buildings b ON r.building_id = b.id " +
              "WHERE s.room_id = #{roomId}")
     List<Student> findByRoomId(Long roomId);
     
-    @Select("SELECT s.*, r.room_number, b.name as building_name " +
+    @Select("SELECT s.*, r.room_number, r.floor, r.room_type, " + OccupancySql.LIVE_IN_ROOM + " AS occupancy, r.capacity, r.building_id AS buildingId, b.name as building_name " +
              "FROM students s " +
              "LEFT JOIN rooms r ON s.room_id = r.id " +
              "LEFT JOIN buildings b ON r.building_id = b.id " +
              "WHERE s.name LIKE CONCAT('%', #{name}, '%')")
     List<Student> findByName(String name);
 
-    @Select("SELECT s.*, r.room_number, b.name as building_name " +
+    @Select("SELECT s.*, r.room_number, r.floor, r.room_type, " + OccupancySql.LIVE_IN_ROOM + " AS occupancy, r.capacity, r.building_id AS buildingId, b.name as building_name " +
              "FROM students s " +
              "LEFT JOIN rooms r ON s.room_id = r.id " +
              "LEFT JOIN buildings b ON r.building_id = b.id " +
@@ -57,7 +58,7 @@ public interface StudentMapper {
     @Select("SELECT COUNT(*) FROM students WHERE name LIKE CONCAT('%', #{name}, '%')")
     long countByName(String name);
 
-    @Select("SELECT s.*, r.room_number, b.name as building_name " +
+    @Select("SELECT s.*, r.room_number, r.floor, r.room_type, " + OccupancySql.LIVE_IN_ROOM + " AS occupancy, r.capacity, r.building_id AS buildingId, b.name as building_name " +
              "FROM students s " +
              "LEFT JOIN rooms r ON s.room_id = r.id " +
              "LEFT JOIN buildings b ON r.building_id = b.id " +
@@ -96,7 +97,7 @@ public interface StudentMapper {
     @Select("SELECT COUNT(*) FROM students WHERE user_id = #{userId}")
     int countByUserId(Long userId);
 
-    @Select("SELECT s.*, r.room_number, b.name as building_name " +
+    @Select("SELECT s.*, r.room_number, r.floor, r.room_type, " + OccupancySql.LIVE_IN_ROOM + " AS occupancy, r.capacity, r.building_id AS buildingId, b.name as building_name " +
             "FROM students s " +
             "LEFT JOIN rooms r ON s.room_id = r.id " +
             "LEFT JOIN buildings b ON r.building_id = b.id " +
@@ -116,7 +117,7 @@ public interface StudentMapper {
     @Update("UPDATE students SET dorm_batch_id = NULL WHERE dorm_batch_id = #{batchId}")
     int clearDormBatchIdByBatchId(Long batchId);
 
-    @Select("SELECT s.*, r.room_number, b.name as building_name " +
+    @Select("SELECT s.*, r.room_number, r.floor, r.room_type, " + OccupancySql.LIVE_IN_ROOM + " AS occupancy, r.capacity, r.building_id AS buildingId, b.name as building_name " +
             "FROM students s " +
             "LEFT JOIN rooms r ON s.room_id = r.id " +
             "LEFT JOIN buildings b ON r.building_id = b.id " +
@@ -126,7 +127,7 @@ public interface StudentMapper {
     @Select("SELECT COUNT(*) FROM students WHERE dorm_batch_id = #{batchId}")
     int countByDormBatchId(Long batchId);
 
-    @Select("SELECT s.*, r.room_number, b.name as building_name " +
+    @Select("SELECT s.*, r.room_number, r.floor, r.room_type, " + OccupancySql.LIVE_IN_ROOM + " AS occupancy, r.capacity, r.building_id AS buildingId, b.name as building_name " +
             "FROM students s " +
             "LEFT JOIN rooms r ON s.room_id = r.id " +
             "LEFT JOIN buildings b ON r.building_id = b.id " +

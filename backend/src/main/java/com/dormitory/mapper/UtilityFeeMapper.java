@@ -8,14 +8,14 @@ import java.util.List;
 @Mapper
 public interface UtilityFeeMapper {
     
-    @Select("SELECT u.*, r.room_number, b.name as building_name " +
+    @Select("SELECT u.*, r.room_number, r.building_id as buildingId, b.name as building_name " +
              "FROM utility_fees u " +
              "LEFT JOIN rooms r ON u.room_id = r.id " +
              "LEFT JOIN buildings b ON r.building_id = b.id " +
              "ORDER BY u.year DESC, u.month DESC, b.id, r.room_number")
     List<UtilityFee> findAll();
     
-    @Select("SELECT u.*, r.room_number, b.name as building_name " +
+    @Select("SELECT u.*, r.room_number, r.building_id as buildingId, b.name as building_name " +
              "FROM utility_fees u " +
              "LEFT JOIN rooms r ON u.room_id = r.id " +
              "LEFT JOIN buildings b ON r.building_id = b.id " +
@@ -23,14 +23,14 @@ public interface UtilityFeeMapper {
              "ORDER BY u.year DESC, u.month DESC")
     List<UtilityFee> findByRoomId(Long roomId);
     
-    @Select("SELECT u.*, r.room_number, b.name as building_name " +
+    @Select("SELECT u.*, r.room_number, r.building_id as buildingId, b.name as building_name " +
              "FROM utility_fees u " +
              "LEFT JOIN rooms r ON u.room_id = r.id " +
              "LEFT JOIN buildings b ON r.building_id = b.id " +
              "WHERE u.id = #{id}")
     UtilityFee findById(Long id);
     
-    @Select("SELECT u.*, r.room_number, b.name as building_name " +
+    @Select("SELECT u.*, r.room_number, r.building_id as buildingId, b.name as building_name " +
              "FROM utility_fees u " +
              "LEFT JOIN rooms r ON u.room_id = r.id " +
              "LEFT JOIN buildings b ON r.building_id = b.id " +
@@ -39,7 +39,7 @@ public interface UtilityFeeMapper {
                                    @Param("year") Integer year, 
                                    @Param("month") Integer month);
     
-    @Select("SELECT u.*, r.room_number, b.name as building_name " +
+    @Select("SELECT u.*, r.room_number, r.building_id as buildingId, b.name as building_name " +
              "FROM utility_fees u " +
              "LEFT JOIN rooms r ON u.room_id = r.id " +
              "LEFT JOIN buildings b ON r.building_id = b.id " +

@@ -44,7 +44,7 @@
           </template>
         </el-table-column>
         <el-table-column prop="majorBonus" label="匹配置信度" width="120" align="center" />
-        <el-table-column label="操作" width="280" fixed="right" v-if="isAdmin">
+        <el-table-column label="操作" width="320" fixed="right" v-if="isAdmin">
           <template #default="{ row }">
             <template v-if="row.matchStatus === 'pending'">
               <el-button type="primary" link @click="handleEdit(row)">编辑</el-button>
@@ -53,6 +53,7 @@
             </template>
             <template v-else-if="row.matchStatus === 'running'">
               <el-button type="warning" link @click="handleCutoff(row)">截止问卷</el-button>
+              <el-button type="primary" link @click="handleTriggerMatching(row)">触发匹配</el-button>
             </template>
             <template v-else-if="row.matchStatus === 'confirming'">
               <el-button type="danger" link @click="handleFinish(row)">结束批次</el-button>
@@ -68,7 +69,7 @@
               <el-button type="info" link @click="handleReset(row)">重置</el-button>
             </template>
             <template v-else-if="row.matchStatus === 'matching'">
-              <span style="color: #909399;">匹配中...</span>
+              <el-button type="primary" link @click="handleTriggerMatching(row)">重新匹配</el-button>
             </template>
           </template>
         </el-table-column>
@@ -281,6 +282,23 @@ const handleCutoff = async (row) => {
   } catch (error) {
     if (error !== 'cancel') {
       ElMessage.error(error.message || '操作失败')
+    }
+  }
+}
+
+const handleTriggerMatching = async (row) => {
+  try {
+    await ElMessageBox.confirm(
+      `确定要对批次"${row.name}"触发匹配吗？匹配完成后批次将进入确认阶段。`,
+      '提示',
+      { type: 'warning' }
+    )
+    await dormBatchAPI.triggerMatching(row.id)
+    ElMessage.success('匹配完成')
+    loadBatches()
+  } catch (error) {
+    if (error !== 'cancel') {
+      ElMessage.error(error.message || '匹配失败')
     }
   }
 }

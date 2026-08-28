@@ -48,4 +48,5 @@ public class LeaveRequest {
     private String className;
     private String roomNumber;
     private String buildingName;
+    private Long buildingId;   // 学生所在楼栋ID（用于宿管/辅导员范围过滤）
 }

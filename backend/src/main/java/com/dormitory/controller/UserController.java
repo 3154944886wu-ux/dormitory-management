@@ -64,11 +64,6 @@ public class UserController {
         existingUser.setPhone(userUpdate.getPhone());
         existingUser.setEmail(userUpdate.getEmail());
         
-        // 如果要更新密码
-        if (userUpdate.getPassword() != null && !userUpdate.getPassword().isEmpty()) {
-            existingUser.setPassword(passwordEncoder.encode(userUpdate.getPassword()));
-        }
-        
         userMapper.update(existingUser);
         
         Map<String, Object> result = new HashMap<>();

@@ -2,6 +2,10 @@ server:
   port: 8080
 
 spring:
+  # 自动加载同目录下的 application-local.yml（本地开发配置，已被 .gitignore 忽略）；
+  # 文件不存在时忽略，无需激活 local profile。
+  config:
+    import: optional:classpath:application-local.yml
   datasource:
     url: jdbc:mysql://localhost:3306/dormitory?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&useSSL=false
     username: ${DB_USERNAME:root}

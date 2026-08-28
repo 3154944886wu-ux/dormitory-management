@@ -23,7 +23,8 @@ public interface CheckRuleMapper {
     
     @Select("SELECT r.*, b.name as building_name FROM check_rules r " +
             "LEFT JOIN buildings b ON r.building_id = b.id " +
-            "WHERE r.building_id = #{buildingId} AND r.status = 1")
+            "WHERE r.building_id = #{buildingId} AND r.status = 1 " +
+            "ORDER BY r.is_default DESC, r.id DESC LIMIT 1")
     CheckRule findByBuildingId(@Param("buildingId") Long buildingId);
     
     @Select("SELECT * FROM check_rules WHERE is_default = 1 AND status = 1 LIMIT 1")

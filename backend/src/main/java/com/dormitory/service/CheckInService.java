@@ -14,6 +14,7 @@ import com.dormitory.model.Room;
 import com.dormitory.model.Student;
 import com.dormitory.util.MapValueUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -248,7 +249,11 @@ public class CheckInService {
         exception.setExceptionType(exceptionType);
         exception.setCheckRecordId(checkRecordId);
         if (checkExceptionMapper.countByStudentDateAndType(studentId, date, exceptionType) == 0) {
-            checkExceptionMapper.insert(exception);
+            try {
+                checkExceptionMapper.insert(exception);
+            } catch (DuplicateKeyException ignored) {
+                // 唯一键并发下忽略重复插入
+            }
         }
     }
     
@@ -279,8 +284,12 @@ public class CheckInService {
                         exception.setStudentId(student.getId());
                         exception.setExceptionDate(date);
                         exception.setExceptionType(2); // 未归
-                        checkExceptionMapper.insert(exception);
-                        count++;
+                        try {
+                            checkExceptionMapper.insert(exception);
+                            count++;
+                        } catch (DuplicateKeyException ignored) {
+                            // 唯一键并发下忽略重复插入
+                        }
                     }
                 }
             }
@@ -325,14 +334,13 @@ public class CheckInService {
     }
 
     public Map<String, Object> searchScopedPaged(LocalDate startDate, LocalDate endDate,
-                                                 String buildingIdsCsv, String classNamesCsv,
-                                                 Integer status, int page, int size) {
+                                                 String scopesJson, Integer status, int page, int size) {
         LocalDate[] range = normalizeRange(startDate, endDate);
         int offset = Math.max(page - 1, 0) * size;
         List<CheckInRecord> records = checkInMapper.searchScopedPaged(
-                range[0], range[1], blankToNull(buildingIdsCsv), blankToNull(classNamesCsv), status, offset, size);
+                range[0], range[1], blankToNull(scopesJson), status, offset, size);
         int total = checkInMapper.countScopedSearch(
-                range[0], range[1], blankToNull(buildingIdsCsv), blankToNull(classNamesCsv), status);
+                range[0], range[1], blankToNull(scopesJson), status);
 
         Map<String, Object> result = new HashMap<>();
         result.put("records", records);
@@ -393,21 +401,21 @@ public class CheckInService {
     }
 
     public Map<String, Object> getTrendStatistics(LocalDate startDate, LocalDate endDate,
-                                                   String buildingIdsCsv, String classNamesCsv) {
+                                                   String scopesJson) {
         LocalDate[] range = normalizeRange(startDate, endDate);
         Map<String, Object> stats = new HashMap<>();
-        stats.put("summary", buildCheckInSummary(range[0], range[1], buildingIdsCsv, classNamesCsv));
+        stats.put("summary", buildCheckInSummary(range[0], range[1], scopesJson));
         stats.put("dailyTrend", normalizeDailyTrend(checkInMapper.countDailyGroupByStatus(
-                range[0], range[1], blankToNull(buildingIdsCsv), blankToNull(classNamesCsv))));
+                range[0], range[1], blankToNull(scopesJson))));
         return stats;
     }
 
     private Map<String, Object> buildCheckInSummary(LocalDate start, LocalDate end,
-                                                     String buildingIdsCsv, String classNamesCsv) {
+                                                     String scopesJson) {
         Map<String, Object> summary = new HashMap<>();
         int normalCount = 0, lateCount = 0, absentCount = 0, leaveCount = 0;
         for (Map<String, Object> item : checkInMapper.countRangeGroupByStatus(
-                start, end, blankToNull(buildingIdsCsv), blankToNull(classNamesCsv))) {
+                start, end, blankToNull(scopesJson))) {
             int status = MapValueUtils.intValue(item, "status", "STATUS");
             int count = MapValueUtils.intValue(item, "count", "COUNT");
             switch (status) {

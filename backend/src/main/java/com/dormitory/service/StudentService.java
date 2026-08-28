@@ -8,11 +8,14 @@ import com.dormitory.model.Building;
 import com.dormitory.model.Room;
 import com.dormitory.model.Student;
 import com.dormitory.model.Bed;
+import com.dormitory.utils.GenderMatcher;
+import com.dormitory.utils.RoommateNames;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 
 @Service
 public class StudentService {
@@ -48,6 +51,18 @@ public class StudentService {
     
     public Student findByStudentNo(String studentNo) {
         return studentMapper.findByStudentNo(studentNo);
+    }
+
+    public Student findByStudentNoWithRoommates(String studentNo) {
+        Student student = studentMapper.findByStudentNo(studentNo);
+        if (student == null || student.getRoomId() == null) {
+            return student;
+        }
+        List<Map<String, Object>> roommates = RoommateNames.summaries(
+                studentMapper.findByRoomId(student.getRoomId()), student.getId());
+        student.setRoommates(roommates);
+        student.setRoommateNames(RoommateNames.display(roommates));
+        return student;
     }
     
     public List<Student> findByRoomId(Long roomId) {
@@ -137,11 +152,8 @@ public class StudentService {
             }
             // 占用新床位
             Bed newBed = findBedByNumber(student.getRoomId(), student.getBedNumber());
-            if (newBed != null && newBed.getIsOccupied() == 1) {
-                throw new RuntimeException("床位 " + student.getBedNumber() + " 已被占用");
-            }
             if (newBed != null) {
-                bedMapper.updateOccupied(newBed.getId(), 1);
+                occupyBed(newBed.getId());
             }
         }
 
@@ -190,7 +202,7 @@ public class StudentService {
         }
         // 检查性别匹配
         Building building = buildingMapper.findById(newRoom.getBuildingId());
-        if (!isGenderMatch(student.getGender(), building.getGenderType())) {
+        if (!GenderMatcher.isCompatible(student.getGender(), building == null ? null : building.getGenderType())) {
             throw new RuntimeException("学生性别与目标楼栋类型不匹配");
         }
 
@@ -200,25 +212,23 @@ public class StudentService {
             if (bed == null) {
                 throw new RuntimeException("床位 " + student.getBedNumber() + " 不存在");
             }
-            if (bed.getIsOccupied() == 1) {
-                // 自动分配其他空床位
+            if (bed.getIsOccupied() != null && bed.getIsOccupied() == 1) {
                 Bed available = findAvailableBed(student.getRoomId());
                 if (available == null) {
                     throw new RuntimeException("目标房间无可用床位");
                 }
                 student.setBedNumber(available.getBedNumber());
-                bedMapper.updateOccupied(available.getId(), 1);
+                occupyBed(available.getId());
             } else {
-                bedMapper.updateOccupied(bed.getId(), 1);
+                occupyBed(bed.getId());
             }
         } else {
-            // 未指定床位，自动分配一个
             Bed available = findAvailableBed(student.getRoomId());
             if (available == null) {
                 throw new RuntimeException("目标房间无可用床位");
             }
             student.setBedNumber(available.getBedNumber());
-            bedMapper.updateOccupied(available.getId(), 1);
+            occupyBed(available.getId());
         }
 
         int inc = roomMapper.incrementCount(newRoom.getId());
@@ -292,16 +302,13 @@ public class StudentService {
 
         // 校验性别匹配
         Building building = buildingMapper.findById(newRoom.getBuildingId());
-        if (!isGenderMatch(student.getGender(), building.getGenderType())) {
+        if (!GenderMatcher.isCompatible(student.getGender(), building == null ? null : building.getGenderType())) {
             throw new RuntimeException("学生性别与目标楼栋类型不匹配");
         }
 
         Bed bed = bedMapper.findById(newBedId);
         if (bed == null || !bed.getRoomId().equals(newRoomId)) {
             throw new RuntimeException("床位不存在或不属于目标房间");
-        }
-        if (bed.getIsOccupied() == 1) {
-            throw new RuntimeException("该床位已被占用");
         }
 
         // 释放旧房间/床位
@@ -312,7 +319,7 @@ public class StudentService {
         if (inc == 0) {
             throw new RuntimeException("目标房间已满，无法调宿");
         }
-        bedMapper.updateOccupied(newBedId, 1);
+        occupyBed(newBedId);
 
         student.setRoomId(newRoomId);
         student.setBedNumber(bed.getBedNumber());
@@ -320,15 +327,12 @@ public class StudentService {
         studentMapper.update(student);
     }
 
-    /**
-     * 检查学生性别是否与楼栋类型匹配
-     */
-    private boolean isGenderMatch(String studentGender, String buildingType) {
-        if (buildingType == null) return true;
-        String buildingTypeLower = buildingType.toLowerCase();
-        if ("男".equals(studentGender) && "male".equals(buildingTypeLower)) return true;
-        if ("女".equals(studentGender) && "female".equals(buildingTypeLower)) return true;
-        if ("mixed".equals(buildingTypeLower)) return true;
-        return false;
+    private void occupyBed(Long bedId) {
+        if (bedId == null) {
+            throw new RuntimeException("床位不存在");
+        }
+        if (bedMapper.tryOccupy(bedId) == 0) {
+            throw new RuntimeException("床位已被占用");
+        }
     }
 }

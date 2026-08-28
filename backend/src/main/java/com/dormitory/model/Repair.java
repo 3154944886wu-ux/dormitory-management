@@ -24,4 +24,6 @@ public class Repair {
     private String studentNo;      // 学号
     private String roomNumber;     // 房间号
     private String buildingName;   // 楼栋名称
+    private Long buildingId;
+    private String className;
 }

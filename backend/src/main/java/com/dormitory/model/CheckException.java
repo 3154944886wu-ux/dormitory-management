@@ -40,4 +40,5 @@ public class CheckException {
     private String className;
     private String roomNumber;
     private String buildingName;
+    private Long buildingId;
 }

@@ -1,15 +1,32 @@
 import axios from 'axios'
+import { isTokenExpired } from './jwt'
 
 const api = axios.create({
   baseURL: '/api',
   timeout: 10000
 })
 
+let redirectingToLogin = false
+
+const redirectToLogin = () => {
+  if (redirectingToLogin) {
+    return
+  }
+  redirectingToLogin = true
+  localStorage.removeItem('token')
+  localStorage.removeItem('user')
+  window.location.href = '/login'
+}
+
 // 请求拦截器 - 添加Token
 api.interceptors.request.use(
   config => {
     const token = localStorage.getItem('token')
     if (token) {
+      if (isTokenExpired(token)) {
+        redirectToLogin()
+        return Promise.reject(new Error('登录已过期'))
+      }
       config.headers.Authorization = `Bearer ${token}`
     }
     return config
@@ -30,12 +47,10 @@ api.interceptors.response.use(
     const status = error.response?.status
     // 仅 401（未认证）时跳转登录；403 可能是业务权限问题，仅 console 警告
     if (status === 401) {
+      const isLoginRequest = error.config?.url?.includes('/auth/login')
       const isLoginPage = window.location.href.includes('/login')
-      if (!isLoginPage && !sessionStorage.getItem('_redirecting')) {
-        sessionStorage.setItem('_redirecting', '1')
-        localStorage.removeItem('token')
-        localStorage.removeItem('user')
-        window.location.href = '/login'
+      if (!isLoginRequest && !isLoginPage) {
+        redirectToLogin()
       }
     }
     if (status === 403) {

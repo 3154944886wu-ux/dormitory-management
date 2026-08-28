@@ -1,4 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import { isTokenExpired } from '../utils/jwt'
 
 const routes = [
   {
@@ -194,6 +195,12 @@ const routes = [
         meta: { title: '教师管理', roles: ['admin'] }
       },
       {
+        path: 'manager-scopes',
+        name: 'AdminManagerScopes',
+        component: () => import('../views/ManagerScopeManagement.vue'),
+        meta: { title: '管理范围', roles: ['admin'] }
+      },
+      {
         path: 'audit-logs',
         name: 'AdminAuditLogs',
         component: () => import('../views/AuditLog.vue'),
@@ -223,6 +230,12 @@ const routes = [
         name: 'ManagerCheckRecords',
         component: () => import('../views/ManagerCheckRecords.vue'),
         meta: { title: '归寝记录', roles: ['manager'] }
+      },
+      {
+        path: 'leave-approval',
+        name: 'ManagerLeaveApproval',
+        component: () => import('../views/LeaveApproval.vue'),
+        meta: { title: '请假审批', roles: ['manager'] }
       },
       {
         path: 'statistics',
@@ -353,8 +366,13 @@ const router = createRouter({
 // 路由守卫
 router.beforeEach((to, from, next) => {
   document.title = to.meta.title ? `${to.meta.title} - 宿舍管理系统` : '宿舍管理系统'
-  
-  const token = localStorage.getItem('token')
+
+  let token = localStorage.getItem('token')
+  if (token && isTokenExpired(token)) {
+    localStorage.removeItem('token')
+    localStorage.removeItem('user')
+    token = null
+  }
   let userRole = 'student'
   
   try {

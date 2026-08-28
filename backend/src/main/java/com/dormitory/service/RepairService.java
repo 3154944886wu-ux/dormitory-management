@@ -6,6 +6,7 @@ import com.dormitory.mapper.StudentMapper;
 import com.dormitory.model.Repair;
 import com.dormitory.model.Room;
 import com.dormitory.model.Student;
+import com.dormitory.utils.RepairCompletion;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -121,8 +122,9 @@ public class RepairService {
         if (repair == null) {
             throw new RuntimeException("报修记录不存在");
         }
-        if (repair.getStatus() == 2) {
-            throw new RuntimeException("该报修已完成");
+        if (!RepairCompletion.canComplete(repair.getStatus())) {
+            throw new RuntimeException(repair.getStatus() != null && repair.getStatus() == 3
+                    ? "该报修已关闭" : "该报修已完成");
         }
         
         repair.setStatus(2); // 已完成

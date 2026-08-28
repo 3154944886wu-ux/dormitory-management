@@ -2,6 +2,7 @@ package com.dormitory.mapper;
 
 import com.dormitory.model.BatchRoom;
 import com.dormitory.model.Room;
+import com.dormitory.utils.OccupancySql;
 import org.apache.ibatis.annotations.*;
 
 import java.util.List;
@@ -53,7 +54,7 @@ public interface BatchRoomMapper {
             "AND db.match_status NOT IN ('finished', 'cancelled', 'pending')")
     int countByRoomIdAndActiveBatches(Long roomId);
 
-    @Select("SELECT r.*, b.name as building_name " +
+    @Select("SELECT r.*, " + OccupancySql.LIVE_IN_ROOM + " AS occupancy, b.name as building_name " +
             "FROM batch_room br " +
             "JOIN rooms r ON br.room_id = r.id " +
             "JOIN buildings b ON r.building_id = b.id " +

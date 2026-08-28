@@ -15,6 +15,8 @@ export const dormBatchAPI = {
 
   finish: (id) => api.put(`/batches/${id}/finish`),
 
+  triggerMatching: (id) => api.put(`/batches/${id}/trigger-matching`, null, { timeout: 120000 }),
+
   reset: (id) => api.put(`/batches/${id}/reset`),
 
   delete: (id) => api.delete(`/batches/${id}`),

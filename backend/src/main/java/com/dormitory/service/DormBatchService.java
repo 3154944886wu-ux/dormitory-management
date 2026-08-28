@@ -3,6 +3,7 @@ package com.dormitory.service;
 import com.dormitory.mapper.*;
 import com.dormitory.model.College;
 import com.dormitory.model.DormBatch;
+import com.dormitory.utils.BatchFinishPolicy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -395,11 +396,15 @@ public class DormBatchService {
     }
 
     /** 自动: confirming → finished */
+    @Transactional
     public void autoTransitionConfirmingToFinished() {
         List<DormBatch> batches = batchMapper.findConfirmingAndPastDeadline();
         for (DormBatch batch : batches) {
             confirmAllRecommendations(batch.getId());
-            batchMapper.updateStatus(batch.getId(), "finished");
+            int remaining = allocationResultMapper.findByBatchIdAndStatus(batch.getId(), "recommended").size();
+            if (BatchFinishPolicy.shouldMarkFinished(remaining)) {
+                batchMapper.updateStatus(batch.getId(), "finished");
+            }
         }
     }
 }

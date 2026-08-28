@@ -4,6 +4,8 @@ import com.dormitory.mapper.*;
 import com.dormitory.model.*;
 import com.dormitory.service.*;
 import jakarta.servlet.http.HttpServletResponse;
+import com.dormitory.utils.ApiResponses;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
@@ -43,7 +45,7 @@ public class AllocationResultViewController {
 
     @GetMapping("/{batchId}/view-rooms")
     @PreAuthorize("hasRole('ADMIN')")
-    public Map<String, Object> viewRooms(@PathVariable Long batchId,
+    public ResponseEntity<Map<String, Object>> viewRooms(@PathVariable Long batchId,
                                          @RequestParam(required = false) Long buildingId,
                                          @RequestParam(required = false) String roomNumber,
                                          @RequestParam(required = false) String occupancyStatus) {
@@ -53,7 +55,8 @@ public class AllocationResultViewController {
 
             if (occupancyStatus != null && !occupancyStatus.isEmpty() && !"all".equals(occupancyStatus)) {
                 rooms = rooms.stream().filter(r -> {
-                    int cur = r.getCurrentCount() != null ? r.getCurrentCount() : 0;
+                    int cur = r.getOccupancy() != null ? r.getOccupancy()
+                            : (r.getCurrentCount() != null ? r.getCurrentCount() : 0);
                     int cap = r.getCapacity() != null ? r.getCapacity() : 4;
                     return switch (occupancyStatus) {
                         case "empty" -> cur == 0;
@@ -70,12 +73,12 @@ public class AllocationResultViewController {
             result.put("code", 500);
             result.put("message", e.getMessage());
         }
-        return result;
+        return ApiResponses.json(result);
     }
 
     @GetMapping("/{batchId}/view-rooms/{roomId}/beds")
     @PreAuthorize("hasRole('ADMIN')")
-    public Map<String, Object> viewRoomBeds(@PathVariable Long batchId,
+    public ResponseEntity<Map<String, Object>> viewRoomBeds(@PathVariable Long batchId,
                                             @PathVariable Long roomId) {
         Map<String, Object> result = new HashMap<>();
         try {
@@ -135,14 +138,14 @@ public class AllocationResultViewController {
             result.put("code", 500);
             result.put("message", e.getMessage());
         }
-        return result;
+        return ApiResponses.json(result);
     }
 
     // ========== 分配报表 ==========
 
     @GetMapping("/{batchId}/report")
     @PreAuthorize("hasRole('ADMIN')")
-    public Map<String, Object> getReport(@PathVariable Long batchId) {
+    public ResponseEntity<Map<String, Object>> getReport(@PathVariable Long batchId) {
         Map<String, Object> result = new HashMap<>();
         try {
             List<AllocationResult> report = reportService.getReport(batchId);
@@ -152,7 +155,7 @@ public class AllocationResultViewController {
             result.put("code", 500);
             result.put("message", e.getMessage());
         }
-        return result;
+        return ApiResponses.json(result);
     }
 
     @GetMapping("/{batchId}/report/excel")
@@ -165,7 +168,7 @@ public class AllocationResultViewController {
 
     @GetMapping("/{batchId}/statistics")
     @PreAuthorize("hasRole('ADMIN')")
-    public Map<String, Object> getStatistics(@PathVariable Long batchId) {
+    public ResponseEntity<Map<String, Object>> getStatistics(@PathVariable Long batchId) {
         Map<String, Object> result = new HashMap<>();
         try {
             Map<String, Object> stats = statisticsService.getBatchStats(batchId);
@@ -175,14 +178,14 @@ public class AllocationResultViewController {
             result.put("code", 500);
             result.put("message", e.getMessage());
         }
-        return result;
+        return ApiResponses.json(result);
     }
 
     // ========== 归档 ==========
 
     @PutMapping("/{id}/archive")
     @PreAuthorize("hasRole('ADMIN')")
-    public Map<String, Object> archive(@PathVariable Long id) {
+    public ResponseEntity<Map<String, Object>> archive(@PathVariable Long id) {
         Map<String, Object> result = new HashMap<>();
         try {
             DormBatch updated = batchService.archiveBatch(id);
@@ -193,6 +196,6 @@ public class AllocationResultViewController {
             result.put("code", 400);
             result.put("message", e.getMessage());
         }
-        return result;
+        return ApiResponses.json(result);
     }
 }

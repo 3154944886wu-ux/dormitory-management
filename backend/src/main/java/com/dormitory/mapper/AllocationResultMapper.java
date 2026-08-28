@@ -8,8 +8,8 @@ import java.util.List;
 @Mapper
 public interface AllocationResultMapper {
 
-    @Select("SELECT ar.*, s.name as student_name, s.student_no, " +
-            "r.room_number, bk.bed_number, db.name as batch_name " +
+    @Select("SELECT ar.*, s.name as student_name, s.student_no, s.class_name as className, " +
+            "r.room_number, r.building_id as buildingId, bk.bed_number, db.name as batch_name " +
             "FROM allocation_result ar " +
             "LEFT JOIN students s ON ar.student_id = s.id " +
             "LEFT JOIN rooms r ON ar.room_id = r.id " +
@@ -18,8 +18,8 @@ public interface AllocationResultMapper {
             "ORDER BY ar.id DESC")
     List<AllocationResult> findAll();
 
-    @Select("SELECT ar.*, s.name as student_name, s.student_no, " +
-            "r.room_number, bk.bed_number, db.name as batch_name " +
+    @Select("SELECT ar.*, s.name as student_name, s.student_no, s.class_name as className, " +
+            "r.room_number, r.building_id as buildingId, bk.bed_number, db.name as batch_name " +
             "FROM allocation_result ar " +
             "LEFT JOIN students s ON ar.student_id = s.id " +
             "LEFT JOIN rooms r ON ar.room_id = r.id " +
@@ -28,8 +28,8 @@ public interface AllocationResultMapper {
             "WHERE ar.id = #{id}")
     AllocationResult findById(Long id);
 
-    @Select("SELECT ar.*, s.name as student_name, s.student_no, " +
-            "r.room_number, bk.bed_number, db.name as batch_name " +
+    @Select("SELECT ar.*, s.name as student_name, s.student_no, s.class_name as className, " +
+            "r.room_number, r.building_id as buildingId, bk.bed_number, db.name as batch_name " +
             "FROM allocation_result ar " +
             "LEFT JOIN students s ON ar.student_id = s.id " +
             "LEFT JOIN rooms r ON ar.room_id = r.id " +
@@ -39,8 +39,8 @@ public interface AllocationResultMapper {
             "ORDER BY ar.id DESC")
     List<AllocationResult> findByStudentId(Long studentId);
 
-    @Select("SELECT ar.*, s.name as student_name, s.student_no, " +
-            "r.room_number, bk.bed_number, db.name as batch_name " +
+    @Select("SELECT ar.*, s.name as student_name, s.student_no, s.class_name as className, " +
+            "r.room_number, r.building_id as buildingId, bk.bed_number, db.name as batch_name " +
             "FROM allocation_result ar " +
             "LEFT JOIN students s ON ar.student_id = s.id " +
             "LEFT JOIN rooms r ON ar.room_id = r.id " +
@@ -50,8 +50,8 @@ public interface AllocationResultMapper {
             "ORDER BY ar.match_score DESC")
     List<AllocationResult> findByBatchId(Long batchId);
 
-    @Select("SELECT ar.*, s.name as student_name, s.student_no, " +
-            "r.room_number, bk.bed_number, db.name as batch_name " +
+    @Select("SELECT ar.*, s.name as student_name, s.student_no, s.class_name as className, " +
+            "r.room_number, r.building_id as buildingId, bk.bed_number, db.name as batch_name " +
             "FROM allocation_result ar " +
             "LEFT JOIN students s ON ar.student_id = s.id " +
             "LEFT JOIN rooms r ON ar.room_id = r.id " +
@@ -61,8 +61,8 @@ public interface AllocationResultMapper {
             "ORDER BY ar.match_score DESC")
     List<AllocationResult> findByBatchIdAndStatus(@Param("batchId") Long batchId, @Param("status") String status);
 
-    @Select("SELECT ar.*, s.name as student_name, s.student_no, " +
-            "r.room_number, bk.bed_number, db.name as batch_name " +
+    @Select("SELECT ar.*, s.name as student_name, s.student_no, s.class_name as className, " +
+            "r.room_number, r.building_id as buildingId, bk.bed_number, db.name as batch_name " +
             "FROM allocation_result ar " +
             "LEFT JOIN students s ON ar.student_id = s.id " +
             "LEFT JOIN rooms r ON ar.room_id = r.id " +
@@ -94,8 +94,8 @@ public interface AllocationResultMapper {
     @Delete("DELETE FROM allocation_result WHERE batch_id = #{batchId}")
     int deleteByBatchId(Long batchId);
 
-    @Select("SELECT ar.*, s.name as student_name, s.student_no, " +
-            "r.room_number, bk.bed_number, db.name as batch_name " +
+    @Select("SELECT ar.*, s.name as student_name, s.student_no, s.class_name as className, " +
+            "r.room_number, r.building_id as buildingId, bk.bed_number, db.name as batch_name " +
             "FROM allocation_result ar " +
             "LEFT JOIN students s ON ar.student_id = s.id " +
             "LEFT JOIN rooms r ON ar.room_id = r.id " +
@@ -104,8 +104,8 @@ public interface AllocationResultMapper {
             "WHERE ar.student_id = #{studentId} AND ar.batch_id = #{batchId}")
     AllocationResult findByStudentIdAndBatchId(@Param("studentId") Long studentId, @Param("batchId") Long batchId);
 
-    @Select("SELECT ar.*, s.name as student_name, s.student_no, " +
-            "r.room_number, bk.bed_number, db.name as batch_name " +
+    @Select("SELECT ar.*, s.name as student_name, s.student_no, s.class_name as className, " +
+            "r.room_number, r.building_id as buildingId, bk.bed_number, db.name as batch_name " +
             "FROM allocation_result ar " +
             "LEFT JOIN students s ON ar.student_id = s.id " +
             "LEFT JOIN rooms r ON ar.room_id = r.id " +

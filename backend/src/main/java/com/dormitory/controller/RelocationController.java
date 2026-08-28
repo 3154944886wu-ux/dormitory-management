@@ -39,6 +39,11 @@ public class RelocationController {
         Map<String, Object> result = new HashMap<>();
         try {
             User user = userMapper.findByUsername(auth.getName());
+            if (user == null) {
+                result.put("code", 401);
+                result.put("message", "未登录");
+                return ResponseEntity.status(401).body(result);
+            }
             Student student = studentMapper.findByUserId(user.getId());
             if (student == null) {
                 result.put("code", 400);
@@ -77,6 +82,11 @@ public class RelocationController {
         Map<String, Object> result = new HashMap<>();
         try {
             User user = userMapper.findByUsername(auth.getName());
+            if (user == null) {
+                result.put("code", 401);
+                result.put("message", "未登录");
+                return ResponseEntity.status(401).body(result);
+            }
             Student student = studentMapper.findByUserId(user.getId());
             if (student == null) {
                 result.put("code", 400);
@@ -135,6 +145,11 @@ public class RelocationController {
         Map<String, Object> result = new HashMap<>();
         try {
             User admin = userMapper.findByUsername(auth.getName());
+            if (admin == null) {
+                result.put("code", 401);
+                result.put("message", "未登录");
+                return ResponseEntity.status(401).body(result);
+            }
             String comment = body != null ? body.getOrDefault("comment", "") : "";
             RelocationApplication app = relocationService.approve(id, admin.getId(), comment);
             result.put("code", 200);
@@ -157,6 +172,11 @@ public class RelocationController {
         Map<String, Object> result = new HashMap<>();
         try {
             User admin = userMapper.findByUsername(auth.getName());
+            if (admin == null) {
+                result.put("code", 401);
+                result.put("message", "未登录");
+                return ResponseEntity.status(401).body(result);
+            }
             String comment = body != null ? body.getOrDefault("comment", "") : "";
             RelocationApplication app = relocationService.reject(id, admin.getId(), comment);
             result.put("code", 200);
@@ -179,6 +199,11 @@ public class RelocationController {
         Map<String, Object> result = new HashMap<>();
         try {
             User admin = userMapper.findByUsername(auth.getName());
+            if (admin == null) {
+                result.put("code", 401);
+                result.put("message", "未登录");
+                return ResponseEntity.status(401).body(result);
+            }
             Long newRoomId = ((Number) body.get("roomId")).longValue();
             Long newBedId = ((Number) body.get("bedId")).longValue();
             RelocationApplication app = relocationService.execute(id, admin.getId(), newRoomId, newBedId);

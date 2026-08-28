@@ -3,6 +3,8 @@ package com.dormitory.controller;
 import com.dormitory.model.BatchRoom;
 import com.dormitory.model.Room;
 import com.dormitory.service.BatchRoomService;
+import com.dormitory.utils.ApiResponses;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
@@ -22,17 +24,17 @@ public class BatchRoomController {
 
     @GetMapping
     @PreAuthorize("hasRole('ADMIN')")
-    public Map<String, Object> list(@RequestParam Long batchId) {
+    public ResponseEntity<Map<String, Object>> list(@RequestParam Long batchId) {
         List<BatchRoom> list = batchRoomService.findByBatchId(batchId);
         Map<String, Object> result = new HashMap<>();
         result.put("code", 200);
         result.put("data", list);
-        return result;
+        return ApiResponses.json(result);
     }
 
     @GetMapping("/available")
     @PreAuthorize("hasRole('ADMIN')")
-    public Map<String, Object> available(@RequestParam Long batchId,
+    public ResponseEntity<Map<String, Object>> available(@RequestParam Long batchId,
                                           @RequestParam(required = false) Long buildingId,
                                           @RequestParam(required = false) Integer floor,
                                           @RequestParam(required = false) Integer minAvailableBeds) {
@@ -50,12 +52,12 @@ public class BatchRoomController {
             result.put("code", 400);
             result.put("message", e.getMessage());
         }
-        return result;
+        return ApiResponses.json(result);
     }
 
     @PostMapping("/add")
     @PreAuthorize("hasRole('ADMIN')")
-    public Map<String, Object> addRooms(@RequestBody Map<String, Object> body) {
+    public ResponseEntity<Map<String, Object>> addRooms(@RequestBody Map<String, Object> body) {
         Map<String, Object> result = new HashMap<>();
         try {
             Long batchId = ((Number) body.get("batchId")).longValue();
@@ -71,12 +73,12 @@ public class BatchRoomController {
             result.put("code", 400);
             result.put("message", e.getMessage());
         }
-        return result;
+        return ApiResponses.json(result);
     }
 
     @PostMapping("/remove")
     @PreAuthorize("hasRole('ADMIN')")
-    public Map<String, Object> removeRooms(@RequestBody Map<String, Object> body) {
+    public ResponseEntity<Map<String, Object>> removeRooms(@RequestBody Map<String, Object> body) {
         Map<String, Object> result = new HashMap<>();
         try {
             Long batchId = ((Number) body.get("batchId")).longValue();
@@ -91,6 +93,6 @@ public class BatchRoomController {
             result.put("code", 400);
             result.put("message", e.getMessage());
         }
-        return result;
+        return ApiResponses.json(result);
     }
 }

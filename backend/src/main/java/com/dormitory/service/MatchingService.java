@@ -2,7 +2,8 @@ package com.dormitory.service;
 
 import com.dormitory.mapper.*;
 import com.dormitory.model.*;
-import org.springframework.scheduling.annotation.Async;
+import com.dormitory.utils.BedSelection;
+import com.dormitory.utils.GenderMatcher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -50,7 +51,6 @@ public class MatchingService {
         this.notificationMapper = notificationMapper;
     }
 
-    @Async("matchingExecutor")
     @Transactional
     public void executeMatching(Long batchId) {
         DormBatch batch = batchMapper.findById(batchId);
@@ -59,7 +59,10 @@ public class MatchingService {
             throw new RuntimeException("只有 running 状态的批次才能执行匹配");
         }
 
-        batchMapper.updateStatus(batch.getId(), "matching");
+        int claimed = batchMapper.updateStatusIf(batch.getId(), "running", "matching");
+        if (claimed == 0) {
+            throw new RuntimeException("批次状态已变化，无法执行匹配");
+        }
 
         try {
             // 清理旧的匹配数据（防止重复运行时数据叠加）
@@ -215,8 +218,11 @@ public class MatchingService {
 
             batchMapper.updateStatus(batch.getId(), "confirming");
         } catch (Exception e) {
-            batchMapper.updateStatus(batch.getId(), "running");
-            throw new RuntimeException("匹配失败: " + e.getMessage(), e);
+            batchMapper.updateStatusIf(batch.getId(), "matching", "running");
+            if (e instanceof RuntimeException runtime) {
+                throw runtime;
+            }
+            throw new RuntimeException(e.getMessage(), e);
         }
     }
 
@@ -640,15 +646,19 @@ public class MatchingService {
             throw new RuntimeException("房间[" + targetRoom.getRoomNumber() + "]无可用床位");
         }
 
-        String preference = getStudentBedPreference(student);
-        Bed assigned = null;
-        for (Bed b : availableBeds) {
-            if (preference != null && preference.equals(b.getBedType())) {
-                assigned = b;
-                break;
+        // 排除本批次内已被其他学生推荐/分配的床位，避免重复推荐同一床位
+        Set<Long> reservedBedIds = new HashSet<>();
+        for (AllocationResult ar : allocationResultMapper.findByRoomIdAndBatchId(targetRoom.getId(), batchId)) {
+            if (ar.getBedId() != null && !ar.getStudentId().equals(studentId)) {
+                reservedBedIds.add(ar.getBedId());
             }
         }
-        if (assigned == null) assigned = availableBeds.get(0);
+
+        String preference = getStudentBedPreference(student);
+        Bed assigned = BedSelection.pick(availableBeds, reservedBedIds, preference);
+        if (assigned == null) {
+            throw new RuntimeException("房间[" + targetRoom.getRoomNumber() + "]无可用床位（本批次床位已被占用）");
+        }
 
         // 匹配阶段仅更新逻辑推荐，不占用物理资源（床位/房间在确认时占用）
 
@@ -686,13 +696,7 @@ public class MatchingService {
     }
 
     private boolean isGenderCompatible(Building building, String gender) {
-        if (building.getGenderType() == null) return true;
-        return switch (building.getGenderType()) {
-            case "MALE" -> "男".equals(gender);
-            case "FEMALE" -> "女".equals(gender);
-            case "MIXED" -> true;
-            default -> true;
-        };
+        return GenderMatcher.isCompatible(gender, building == null ? null : building.getGenderType());
     }
 
     // ---- 内部数据结构 ----

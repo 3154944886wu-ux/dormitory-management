@@ -20,6 +20,8 @@ public class AllocationResult {
 
     private String studentName;
     private String studentNo;
+    private String className;
+    private Long buildingId;
     private String roomNumber;
     private String bedNumber;
     private String batchName;

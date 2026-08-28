@@ -28,7 +28,7 @@ export const visitorAPI = {
   
   // 访客离开
   leave(id) {
-    return api.put(`/visitors/${id}/leave`)
+    return api.post(`/visitors/${id}/leave`)
   }
 }
 

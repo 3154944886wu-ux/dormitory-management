@@ -9,7 +9,7 @@ import java.util.List;
 public interface LeaveRequestMapper {
     
     @Select("SELECT l.*, s.name as student_name, s.student_no, s.department, s.class_name, " +
-            "r.room_number, b.name as building_name " +
+            "r.room_number, r.building_id, b.name as building_name " +
             "FROM leave_requests l " +
             "LEFT JOIN students s ON l.student_id = s.id " +
             "LEFT JOIN rooms r ON s.room_id = r.id " +
@@ -18,7 +18,7 @@ public interface LeaveRequestMapper {
     LeaveRequest findById(@Param("id") Long id);
     
     @Select("SELECT l.*, s.name as student_name, s.student_no, s.department, s.class_name, " +
-            "r.room_number, b.name as building_name " +
+            "r.room_number, r.building_id, b.name as building_name " +
             "FROM leave_requests l " +
             "LEFT JOIN students s ON l.student_id = s.id " +
             "LEFT JOIN rooms r ON s.room_id = r.id " +
@@ -31,7 +31,7 @@ public interface LeaveRequestMapper {
     int count();
     
     @Select("SELECT l.*, s.name as student_name, s.student_no, s.department, s.class_name, " +
-            "r.room_number, b.name as building_name " +
+            "r.room_number, r.building_id, b.name as building_name " +
             "FROM leave_requests l " +
             "LEFT JOIN students s ON l.student_id = s.id " +
             "LEFT JOIN rooms r ON s.room_id = r.id " +
@@ -41,7 +41,7 @@ public interface LeaveRequestMapper {
     List<LeaveRequest> findByStudentId(@Param("studentId") Long studentId);
     
     @Select("SELECT l.*, s.name as student_name, s.student_no, s.department, s.class_name, " +
-            "r.room_number, b.name as building_name " +
+            "r.room_number, r.building_id, b.name as building_name " +
             "FROM leave_requests l " +
             "LEFT JOIN students s ON l.student_id = s.id " +
             "LEFT JOIN rooms r ON s.room_id = r.id " +
@@ -78,7 +78,7 @@ public interface LeaveRequestMapper {
     int cancel(@Param("id") Long id);
     
     @Update("UPDATE leave_requests SET status = 4, actual_return_time = #{actualReturnTime} " +
-            "WHERE id = #{id}")
+            "WHERE id = #{id} AND status = 1")
     int confirmReturn(@Param("id") Long id, @Param("actualReturnTime") LocalDateTime actualReturnTime);
     
     @Select("SELECT COUNT(*) FROM leave_requests WHERE student_id = #{studentId} AND status IN (0, 1)")

@@ -2,6 +2,7 @@ package com.dormitory.service;
 
 import com.dormitory.mapper.*;
 import com.dormitory.model.*;
+import com.dormitory.utils.GenderMatcher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -151,7 +152,7 @@ public class RelocationService {
             throw new RuntimeException("目标房间已满");
 
         Building building = buildingMapper.findById(newRoom.getBuildingId());
-        if (!isGenderMatch(student.getGender(), building.getGenderType()))
+        if (!GenderMatcher.isCompatible(student.getGender(), building.getGenderType()))
             throw new RuntimeException("学生性别与目标楼栋类型不匹配");
 
         Bed newBed = bedMapper.findById(newBedId);
@@ -163,12 +164,15 @@ public class RelocationService {
         // 释放旧资源
         releaseOldResources(student, app.getCurrentBedId());
 
-        // 占用新资源
+        // 占用新资源：先条件占床，防止并发下重复占用同一床位
+        int occupied = bedMapper.tryOccupy(newBedId);
+        if (occupied == 0) {
+            throw new RuntimeException("该床位已被占用");
+        }
         int inc = roomMapper.incrementCount(newRoomId);
         if (inc == 0) {
             throw new RuntimeException("目标房间已满，无法调宿");
         }
-        bedMapper.updateOccupied(newBedId, 1);
 
         // 更新学生
         Long oldRoomId = student.getRoomId();
@@ -176,25 +180,13 @@ public class RelocationService {
         student.setBedNumber(newBed.getBedNumber());
         studentMapper.update(student);
 
-        // 更新 AllocationResult: 旧记录标 adjusted，新建 manual_assigned
-        AllocationResult oldResult = allocationResultMapper
+        // 更新 AllocationResult：原地更新为 manual_assigned，避免违反 (student_id, batch_id) 唯一约束
+        AllocationResult result = allocationResultMapper
                 .findByStudentIdAndBatchId(student.getId(), app.getBatchId());
-        if (oldResult != null) {
-            oldResult.setStatus("adjusted");
-            allocationResultMapper.update(oldResult);
-
-            AllocationResult newResult = new AllocationResult();
-            newResult.setStudentId(student.getId());
-            newResult.setBatchId(app.getBatchId());
-            newResult.setRoomId(newRoomId);
-            newResult.setBedId(newBedId);
-            newResult.setMatchScore(oldResult.getMatchScore());
-            newResult.setStatus("manual_assigned");
-            allocationResultMapper.insert(newResult);
-
+        if (result != null) {
             // 从旧室友组中移除
-            if (oldResult.getRoommateGroupId() != null) {
-                RoommateGroup oldGroup = roommateGroupMapper.findById(oldResult.getRoommateGroupId());
+            if (result.getRoommateGroupId() != null) {
+                RoommateGroup oldGroup = roommateGroupMapper.findById(result.getRoommateGroupId());
                 if (oldGroup != null) {
                     List<Long> members = oldGroup.getMemberIdList();
                     members.remove(student.getId());
@@ -224,6 +216,13 @@ public class RelocationService {
                 targetGroup.setMemberIdList(new ArrayList<>(List.of(student.getId())));
                 roommateGroupMapper.insert(targetGroup);
             }
+
+            // 原地更新分配结果并关联到新室友组
+            result.setRoomId(newRoomId);
+            result.setBedId(newBedId);
+            result.setStatus("manual_assigned");
+            result.setRoommateGroupId(targetGroup.getId());
+            allocationResultMapper.update(result);
         }
 
         // 更新申请
@@ -270,15 +269,6 @@ public class RelocationService {
         if (currentBedId != null) {
             bedMapper.updateOccupied(currentBedId, 0);
         }
-    }
-
-    private boolean isGenderMatch(String studentGender, String buildingType) {
-        if (buildingType == null) return true;
-        String lower = buildingType.toLowerCase();
-        if ("男".equals(studentGender) && "male".equals(lower)) return true;
-        if ("女".equals(studentGender) && "female".equals(lower)) return true;
-        if ("mixed".equals(lower)) return true;
-        return false;
     }
 
     private void writeLog(Long studentId, String operatorType, String operatorId,

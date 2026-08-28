@@ -1,9 +1,16 @@
 package com.dormitory.controller;
 
+import com.dormitory.mapper.UserMapper;
 import com.dormitory.model.Room;
+import com.dormitory.model.User;
+import com.dormitory.service.ManagerScopeService;
 import com.dormitory.service.RoomService;
+import com.dormitory.utils.ApiResponses;
+import com.dormitory.utils.AuthRoles;
+import com.dormitory.utils.Pagination;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
@@ -15,26 +22,51 @@ import java.util.Map;
 public class RoomController {
     
     private final RoomService roomService;
+    private final ManagerScopeService managerScopeService;
+    private final UserMapper userMapper;
     
-    public RoomController(RoomService roomService) {
+    public RoomController(RoomService roomService,
+                          ManagerScopeService managerScopeService,
+                          UserMapper userMapper) {
         this.roomService = roomService;
+        this.managerScopeService = managerScopeService;
+        this.userMapper = userMapper;
     }
     
     @GetMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'STUDENT')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
     public ResponseEntity<Map<String, Object>> list(
             @RequestParam(required = false) Long buildingId,
             @RequestParam(name = "pageNum", defaultValue = "1") int page,
-            @RequestParam(name = "pageSize", defaultValue = "20") int size) {
-        int offset = (page - 1) * size;
+            @RequestParam(name = "pageSize", defaultValue = "20") int size,
+            Authentication auth) {
+        int safePage = Pagination.page(page);
+        int safeSize = Pagination.size(size);
         List<Room> rooms;
         long total;
-        if (buildingId != null) {
-            rooms = roomService.findByBuildingIdWithPagination(buildingId, offset, size);
-            total = roomService.countByBuildingId(buildingId);
+        Long managerId = managerUserId(auth);
+        if (managerId != null) {
+            if (!managerScopeService.hasScope(managerId)
+                    || (buildingId != null && !managerScopeService.canSeeBuilding(managerId, buildingId))) {
+                rooms = List.of();
+                total = 0;
+            } else {
+                List<Room> all = buildingId != null
+                        ? roomService.findByBuildingId(buildingId)
+                        : roomService.findAll();
+                all = managerScopeService.filterVisibleByBuilding(managerId, all, Room::getBuildingId);
+                total = all.size();
+                rooms = Pagination.slice(all, safePage, safeSize);
+            }
         } else {
-            rooms = roomService.findAllWithPagination(offset, size);
-            total = roomService.countAll();
+            int offset = Pagination.offset(safePage, safeSize);
+            if (buildingId != null) {
+                rooms = roomService.findByBuildingIdWithPagination(buildingId, offset, safeSize);
+                total = roomService.countByBuildingId(buildingId);
+            } else {
+                rooms = roomService.findAllWithPagination(offset, safeSize);
+                total = roomService.countAll();
+            }
         }
 
         Map<String, Object> data = new HashMap<>();
@@ -42,9 +74,9 @@ public class RoomController {
         data.put("content", rooms);
         data.put("total", total);
         data.put("totalElements", total);
-        data.put("totalPages", (int) Math.ceil((double) total / size));
-        data.put("currentPage", page);
-        data.put("pageSize", size);
+        data.put("totalPages", (int) Math.ceil(safeSize == 0 ? 0 : (double) total / safeSize));
+        data.put("currentPage", safePage);
+        data.put("pageSize", safeSize);
 
         Map<String, Object> result = new HashMap<>();
         result.put("code", 200);
@@ -53,8 +85,13 @@ public class RoomController {
     }
     
     @GetMapping("/building/{buildingId}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'STUDENT')")
-    public ResponseEntity<Map<String, Object>> getByBuildingId(@PathVariable Long buildingId) {
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+    public ResponseEntity<Map<String, Object>> getByBuildingId(@PathVariable Long buildingId,
+                                                               Authentication auth) {
+        ResponseEntity<Map<String, Object>> denied = denyIfBuildingOutOfScope(auth, buildingId);
+        if (denied != null) {
+            return denied;
+        }
         List<Room> rooms = roomService.findByBuildingId(buildingId);
 
         Map<String, Object> result = new HashMap<>();
@@ -64,8 +101,8 @@ public class RoomController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'STUDENT')")
-    public ResponseEntity<Map<String, Object>> getById(@PathVariable Long id) {
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+    public ResponseEntity<Map<String, Object>> getById(@PathVariable Long id, Authentication auth) {
         Room room = roomService.findById(id);
         
         Map<String, Object> result = new HashMap<>();
@@ -73,6 +110,10 @@ public class RoomController {
             result.put("code", 404);
             result.put("message", "房间不存在");
             return ResponseEntity.status(404).body(result);
+        }
+        ResponseEntity<Map<String, Object>> denied = denyIfBuildingOutOfScope(auth, room.getBuildingId());
+        if (denied != null) {
+            return denied;
         }
         
         result.put("code", 200);
@@ -171,5 +212,24 @@ public class RoomController {
             result.put("message", e.getMessage());
             return ResponseEntity.badRequest().body(result);
         }
+    }
+
+    private Long managerUserId(Authentication auth) {
+        if (!AuthRoles.isManagerOnly(auth)) {
+            return null;
+        }
+        User user = userMapper.findByUsername(auth.getName());
+        return user == null ? null : user.getId();
+    }
+
+    private ResponseEntity<Map<String, Object>> denyIfBuildingOutOfScope(Authentication auth, Long buildingId) {
+        Long managerId = managerUserId(auth);
+        if (managerId == null) {
+            return null;
+        }
+        if (!managerScopeService.canSeeBuilding(managerId, buildingId)) {
+            return ApiResponses.forbidden("无权查看该范围外的房间");
+        }
+        return null;
     }
 }
