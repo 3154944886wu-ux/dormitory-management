@@ -93,7 +93,7 @@ public class DashboardController {
     @GetMapping("/utility")
     public ResponseEntity<Map<String, Object>> getUtilityStats(Authentication auth) {
         ScopedSnapshot snap = snapshot(auth);
-        List<UtilityFee> fees = snap.fees;
+        List<UtilityFee> fees = DashboardFees.currentCalendarMonth(snap.fees);
         Map<String, Object> data = new HashMap<>();
         data.put("total", fees.size());
         long unpaid = fees.stream().filter(f -> f.getStatus() != null && f.getStatus() == 0).count();
@@ -118,7 +118,10 @@ public class DashboardController {
     @GetMapping("/dorm-stats")
     public ResponseEntity<Map<String, Object>> getDormStats(Authentication auth) {
         ScopedSnapshot snap = snapshot(auth);
-        return ok(DashboardOverview.dormStats(snap.allocations, dormBatchMapper.countActive()));
+        int activeBatches = managerUserId(auth) == null
+                ? dormBatchMapper.countActive()
+                : DashboardOverview.distinctBatchCount(snap.allocations);
+        return ok(DashboardOverview.dormStats(snap.allocations, activeBatches));
     }
 
     @GetMapping("/stats")
@@ -146,7 +149,7 @@ public class DashboardController {
         List<Student> visibleStudents = managerScopeService.filterVisible(
                 managerId, students, Student::getBuildingId, Student::getClassName);
         repairs = managerScopeService.filterVisible(managerId, repairs, Repair::getBuildingId, Repair::getClassName);
-        visitors = managerScopeService.filterVisible(managerId, visitors, Visitor::getBuildingId, v -> null);
+        visitors = managerScopeService.filterVisibleByBuilding(managerId, visitors, Visitor::getBuildingId);
         fees = managerScopeService.filterVisibleByBuilding(managerId, fees, UtilityFee::getBuildingId);
         allocations = managerScopeService.filterVisible(
                 managerId, allocations, AllocationResult::getBuildingId, AllocationResult::getClassName);

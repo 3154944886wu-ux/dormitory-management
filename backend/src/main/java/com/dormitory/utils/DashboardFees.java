@@ -4,6 +4,8 @@ import com.dormitory.model.UtilityFee;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -11,6 +13,29 @@ import java.util.Map;
 public final class DashboardFees {
 
     private DashboardFees() {
+    }
+
+    public static List<UtilityFee> currentCalendarMonth(List<UtilityFee> fees) {
+        return currentCalendarMonth(fees, LocalDate.now());
+    }
+
+    public static List<UtilityFee> currentCalendarMonth(List<UtilityFee> fees, LocalDate today) {
+        if (fees == null || fees.isEmpty() || today == null) {
+            return List.of();
+        }
+        int year = today.getYear();
+        int month = today.getMonthValue();
+        List<UtilityFee> matched = new ArrayList<>();
+        for (UtilityFee fee : fees) {
+            if (fee == null) {
+                continue;
+            }
+            if (fee.getYear() != null && fee.getYear() == year
+                    && fee.getMonth() != null && fee.getMonth() == month) {
+                matched.add(fee);
+            }
+        }
+        return matched;
     }
 
     public static Map<String, String> summarize(List<UtilityFee> fees) {

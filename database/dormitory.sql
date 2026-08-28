@@ -255,6 +255,8 @@ CREATE TABLE `inspection_plans` (
   `inspector_ids` varchar(500) DEFAULT NULL COMMENT '检查人员ID列表，逗号分隔',
   `total_rooms` int DEFAULT '0' COMMENT '总房间数',
   `completed_rooms` int DEFAULT '0' COMMENT '已完成房间数',
+  `creator_id` bigint DEFAULT NULL COMMENT '创建人ID',
+  `floor_range` varchar(50) DEFAULT NULL COMMENT '楼层范围',
   `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
   `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`)

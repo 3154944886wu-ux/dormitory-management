@@ -2,6 +2,7 @@ package com.dormitory.service;
 
 import com.dormitory.mapper.*;
 import com.dormitory.model.*;
+import com.dormitory.utils.OccupancyRelease;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -301,6 +302,9 @@ public class DormSelectionService {
         if (!"confirming".equals(batch.getMatchStatus())) {
             throw new RuntimeException("当前批次不在确认阶段");
         }
+        if (batch.getConfirmDeadline() != null && LocalDateTime.now().isAfter(batch.getConfirmDeadline())) {
+            throw new RuntimeException("确认已截止");
+        }
 
         AllocationResult allocation = allocationResultMapper.findByStudentIdAndBatchId(student.getId(), batch.getId());
         if (allocation == null) {
@@ -311,21 +315,26 @@ public class DormSelectionService {
         }
 
         // 先增加房间人数（容量检查），再占床位，防止人数满后床位幽灵占用
-        if (allocation.getRoomId() != null) {
-            int inc = roomMapper.incrementCount(allocation.getRoomId());
-            if (inc == 0) {
-                throw new RuntimeException("房间人数已满，确认失败");
+        if (OccupancyRelease.needsRoomIncrement(student.getRoomId(), allocation.getRoomId())) {
+            if (student.getRoomId() != null) {
+                releaseStudentOccupation(student);
+            }
+            if (allocation.getRoomId() != null) {
+                int inc = roomMapper.incrementCount(allocation.getRoomId());
+                if (inc == 0) {
+                    throw new RuntimeException("房间人数已满，确认失败");
+                }
             }
         }
 
-        if (allocation.getBedId() != null) {
+        if (allocation.getBedId() != null && !alreadyOccupyingBed(student, allocation)) {
             int rows = bedMapper.tryOccupy(allocation.getBedId());
             if (rows == 0) {
-                // 床位被占且人数已加，需回滚人数
-                if (allocation.getRoomId() != null) {
+                if (OccupancyRelease.needsRoomIncrement(student.getRoomId(), allocation.getRoomId())
+                        && allocation.getRoomId() != null) {
                     roomMapper.decrementCount(allocation.getRoomId());
                 }
-                throw new RuntimeException("床位已被占用，请重新选择");
+                throw new RuntimeException("床位已被占用，请联系辅导员重新匹配");
             }
         }
 
@@ -366,6 +375,9 @@ public class DormSelectionService {
         if (!"confirming".equals(batch.getMatchStatus())) {
             throw new RuntimeException("当前批次不在确认阶段");
         }
+        if (batch.getConfirmDeadline() != null && LocalDateTime.now().isAfter(batch.getConfirmDeadline())) {
+            throw new RuntimeException("确认已截止");
+        }
 
         AllocationResult allocation = allocationResultMapper.findByStudentIdAndBatchId(student.getId(), batch.getId());
         if (allocation == null) {
@@ -396,7 +408,7 @@ public class DormSelectionService {
         operationLogMapper.insert(log);
 
         Map<String, Object> result = new HashMap<>();
-        result.put("message", "已申请重新匹配，请等待新结果");
+        result.put("message", "已重新匹配，请查看新的分配结果");
         return result;
     }
 
@@ -410,6 +422,32 @@ public class DormSelectionService {
         student.setBedNumber(allocation.getBedNumber());
         student.setCheckInDate(LocalDateTime.now());
         studentMapper.update(student);
+    }
+
+    private boolean alreadyOccupyingBed(Student student, AllocationResult allocation) {
+        if (student.getRoomId() == null || allocation.getBedId() == null) {
+            return false;
+        }
+        if (!student.getRoomId().equals(allocation.getRoomId()) || student.getBedNumber() == null) {
+            return false;
+        }
+        Bed bed = bedMapper.findById(allocation.getBedId());
+        return bed != null && student.getBedNumber().equals(bed.getBedNumber());
+    }
+
+    private void releaseStudentOccupation(Student student) {
+        if (student.getRoomId() == null) {
+            return;
+        }
+        roomMapper.decrementCount(student.getRoomId());
+        if (student.getBedNumber() != null) {
+            for (Bed bed : bedMapper.findByRoomId(student.getRoomId())) {
+                if (student.getBedNumber().equals(bed.getBedNumber())) {
+                    bedMapper.updateOccupied(bed.getId(), 0);
+                    break;
+                }
+            }
+        }
     }
 
     public static class AnswerItem {

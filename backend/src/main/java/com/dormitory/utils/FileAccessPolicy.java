@@ -3,7 +3,7 @@ package com.dormitory.utils;
 import java.util.Locale;
 
 /**
- * 上传文件读取权限：管理员/宿管可看全部；学生仅能看自己有归属的附件。
+ * 上传文件读取权限：管理员可看全部；宿管与学生仅能看已判定归属的附件。
  */
 public final class FileAccessPolicy {
 

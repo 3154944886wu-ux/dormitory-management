@@ -102,15 +102,9 @@ public class RepairController {
     @GetMapping("/stats")
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
     public ResponseEntity<Map<String, Object>> getStats(Authentication auth) {
-        List<Repair> repairs = repairService.findAll();
-        repairs = filterForManager(auth, repairs);
-        Map<String, Object> panel = RepairCounts.panel(repairs);
         Map<String, Object> result = new HashMap<>();
         result.put("code", 200);
-        result.put("data", Map.of(
-            "pending", panel.get("pending"),
-            "processing", panel.get("processing")
-        ));
+        result.put("data", RepairCounts.panel(filterForManager(auth, repairService.findAll())));
         return ResponseEntity.ok(result);
     }
 

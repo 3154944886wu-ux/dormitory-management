@@ -318,6 +318,8 @@ CREATE TABLE IF NOT EXISTS inspection_plans (
     inspector_ids VARCHAR(500) COMMENT '检查人员ID列表，逗号分隔',
     total_rooms INT DEFAULT 0 COMMENT '总房间数',
     completed_rooms INT DEFAULT 0 COMMENT '已完成房间数',
+    creator_id BIGINT COMMENT '创建人ID',
+    floor_range VARCHAR(50) COMMENT '楼层范围',
     create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
     update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='安全卫生检查计划表';

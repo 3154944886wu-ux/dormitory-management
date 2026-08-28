@@ -34,4 +34,9 @@ class GenderMatcherTest {
         assertTrue(GenderMatcher.isCompatible("男", null));
         assertTrue(GenderMatcher.isCompatible("女", "  "));
     }
+
+    @Test
+    void unknownBuildingTypeRejects() {
+        assertFalse(GenderMatcher.isCompatible("男", "UNKNOWN"));
+    }
 }

@@ -5,8 +5,10 @@ import com.dormitory.model.AllocationResult;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 public final class DashboardOverview {
 
@@ -44,6 +46,19 @@ public final class DashboardOverview {
         data.put("buildingCount", buildingCount);
         data.put("occupancyRate", RoomFill.occupancyRate(occupiedRooms, totalRooms));
         return data;
+    }
+
+    public static int distinctBatchCount(List<AllocationResult> results) {
+        if (results == null || results.isEmpty()) {
+            return 0;
+        }
+        Set<Long> batchIds = new HashSet<>();
+        for (AllocationResult result : results) {
+            if (result != null && result.getBatchId() != null) {
+                batchIds.add(result.getBatchId());
+            }
+        }
+        return batchIds.size();
     }
 
     public static Map<String, Object> dormStats(List<AllocationResult> results, int activeBatches) {

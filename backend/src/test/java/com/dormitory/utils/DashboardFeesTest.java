@@ -29,4 +29,20 @@ class DashboardFeesTest {
         assertEquals("4.00", stats.get("paidAmount"));
         assertEquals("4.00", stats.get("unpaidAmount"));
     }
+
+    @Test
+    void currentCalendarMonthKeepsOnlyMatchingYearMonth() {
+        UtilityFee current = new UtilityFee();
+        current.setYear(2026);
+        current.setMonth(8);
+        current.setTotalFee(new BigDecimal("10.00"));
+        UtilityFee other = new UtilityFee();
+        other.setYear(2026);
+        other.setMonth(7);
+        other.setTotalFee(new BigDecimal("99.00"));
+        List<UtilityFee> month = DashboardFees.currentCalendarMonth(
+                List.of(current, other), java.time.LocalDate.of(2026, 8, 28));
+        assertEquals(1, month.size());
+        assertEquals(current, month.get(0));
+    }
 }

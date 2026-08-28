@@ -88,6 +88,10 @@ public interface CheckExceptionMapper {
                @Param("handleResult") String handleResult,
                @Param("handleNote") String handleNote);
 
+    @Update("UPDATE check_exceptions SET handled = 1, handle_result = '请假已批准', handle_time = NOW() " +
+            "WHERE student_id = #{studentId} AND exception_date = #{date} AND exception_type IN (1, 2) AND handled = 0")
+    int resolveByApprovedLeave(@Param("studentId") Long studentId, @Param("date") LocalDate date);
+
     @Update("UPDATE check_exceptions SET handled = 1, handle_result = #{handleResult}, " +
             "handle_note = #{handleNote}, handle_time = NOW() " +
             "WHERE student_id = #{studentId} AND exception_date = #{date} AND handled = 0")

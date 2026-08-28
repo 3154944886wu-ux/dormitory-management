@@ -5,6 +5,7 @@ import com.dormitory.mapper.UtilityFeeMapper;
 import com.dormitory.model.Room;
 import com.dormitory.model.UtilityFee;
 import com.dormitory.utils.FeeTotal;
+import com.dormitory.utils.MeterReading;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -207,15 +208,8 @@ public class UtilityFeeService {
     }
     
     private void calculateUsage(UtilityFee fee) {
-        // 计算用电量
-        if (fee.getElectricityEnd() != null && fee.getElectricityStart() != null) {
-            fee.setElectricityUsage(fee.getElectricityEnd().subtract(fee.getElectricityStart()));
-        }
-        
-        // 计算用水量
-        if (fee.getWaterEnd() != null && fee.getWaterStart() != null) {
-            fee.setWaterUsage(fee.getWaterEnd().subtract(fee.getWaterStart()));
-        }
+        fee.setElectricityUsage(MeterReading.usage(fee.getElectricityStart(), fee.getElectricityEnd()));
+        fee.setWaterUsage(MeterReading.usage(fee.getWaterStart(), fee.getWaterEnd()));
     }
     
     private void calculateTotalFee(UtilityFee fee) {

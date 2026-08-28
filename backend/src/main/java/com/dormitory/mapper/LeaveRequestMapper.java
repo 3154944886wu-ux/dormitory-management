@@ -79,7 +79,7 @@ public interface LeaveRequestMapper {
     
     @Update("UPDATE leave_requests SET status = #{status}, approver_id = #{approverId}, " +
             "approver_name = #{approverName}, approve_time = #{approveTime}, approve_note = #{approveNote} " +
-            "WHERE id = #{id}")
+            "WHERE id = #{id} AND status = 0")
     int approve(@Param("id") Long id, @Param("status") Integer status, 
                 @Param("approverId") Long approverId, @Param("approverName") String approverName,
                 @Param("approveTime") LocalDateTime approveTime, @Param("approveNote") String approveNote);

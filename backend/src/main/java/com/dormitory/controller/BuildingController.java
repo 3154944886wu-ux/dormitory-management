@@ -1,6 +1,8 @@
 package com.dormitory.controller;
 
+import com.dormitory.mapper.StudentMapper;
 import com.dormitory.model.Building;
+import com.dormitory.model.Student;
 import com.dormitory.service.BuildingService;
 import com.dormitory.utils.AuthRoles;
 import org.springframework.http.ResponseEntity;
@@ -17,16 +19,23 @@ import java.util.Map;
 public class BuildingController {
     
     private final BuildingService buildingService;
+    private final StudentMapper studentMapper;
     
-    public BuildingController(BuildingService buildingService) {
+    public BuildingController(BuildingService buildingService, StudentMapper studentMapper) {
         this.buildingService = buildingService;
+        this.studentMapper = studentMapper;
     }
     
     @GetMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'STUDENT')")
     public ResponseEntity<Map<String, Object>> list(Authentication auth) {
         List<Building> buildings = buildingService.findAll();
-        if (AuthRoles.has(auth, "STUDENT")) {
+        if (AuthRoles.has(auth, "STUDENT") && !AuthRoles.has(auth, "ADMIN")) {
+            Student student = studentMapper.findByStudentNo(auth.getName());
+            Long buildingId = student == null ? null : student.getBuildingId();
+            buildings = buildings.stream()
+                    .filter(b -> buildingId != null && buildingId.equals(b.getId()))
+                    .toList();
             stripManagerContact(buildings);
         }
         
@@ -47,7 +56,13 @@ public class BuildingController {
             result.put("message", "楼栋不存在");
             return ResponseEntity.status(404).body(result);
         }
-        if (AuthRoles.has(auth, "STUDENT")) {
+        if (AuthRoles.has(auth, "STUDENT") && !AuthRoles.has(auth, "ADMIN")) {
+            Student student = studentMapper.findByStudentNo(auth.getName());
+            if (student == null || student.getBuildingId() == null || !student.getBuildingId().equals(id)) {
+                result.put("code", 403);
+                result.put("message", "无权查看该楼栋");
+                return ResponseEntity.status(403).body(result);
+            }
             building.setManager(null);
             building.setManagerPhone(null);
         }

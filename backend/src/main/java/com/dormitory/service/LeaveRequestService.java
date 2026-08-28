@@ -76,6 +76,14 @@ public class LeaveRequestService {
             throw new RuntimeException("已有待审批或进行中的请假申请");
         }
         
+        if (request.getStudentId() != null) {
+            Student owner = studentMapper.findById(request.getStudentId());
+            if (owner != null) {
+                request.setAttachment(com.dormitory.utils.FileOwnership.keepOwned(
+                        request.getAttachment(), owner.getUserId()));
+            }
+        }
+
         leaveRequestMapper.insert(request);
         return leaveRequestMapper.findById(request.getId());
     }
@@ -98,12 +106,15 @@ public class LeaveRequestService {
             throw new RuntimeException("无效的审批状态");
         }
         
-        leaveRequestMapper.approve(id, status, approverId, approverName, CheckWindow.now(), note);
-        LeaveRequest updated = leaveRequestMapper.findById(id);
-        if (status == 1 && updated != null) {
-            checkInService.applyApprovedLeave(updated.getStudentId(), updated.getStartTime(), updated.getEndTime());
+        int updated = leaveRequestMapper.approve(id, status, approverId, approverName, CheckWindow.now(), note);
+        if (updated == 0) {
+            throw new RuntimeException("该申请已处理");
         }
-        return updated;
+        LeaveRequest saved = leaveRequestMapper.findById(id);
+        if (status == 1 && saved != null) {
+            checkInService.applyApprovedLeave(saved.getStudentId(), saved.getStartTime(), saved.getEndTime());
+        }
+        return saved;
     }
     
     /**
@@ -124,7 +135,10 @@ public class LeaveRequestService {
             throw new RuntimeException("只能撤销待审批的申请");
         }
         
-        leaveRequestMapper.cancel(id);
+        int updated = leaveRequestMapper.cancel(id);
+        if (updated == 0) {
+            throw new RuntimeException("只能撤销待审批的申请");
+        }
     }
     
     /**

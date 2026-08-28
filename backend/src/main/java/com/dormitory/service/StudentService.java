@@ -161,9 +161,10 @@ public class StudentService {
             }
             // 占用新床位
             Bed newBed = findBedByNumber(student.getRoomId(), student.getBedNumber());
-            if (newBed != null) {
-                occupyBed(newBed.getId());
+            if (newBed == null) {
+                throw new RuntimeException("床位不存在");
             }
+            occupyBed(newBed.getId());
         }
 
         if (student.getCollegeId() == null) {

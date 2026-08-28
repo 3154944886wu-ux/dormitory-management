@@ -73,6 +73,7 @@ public class RepairService {
             if (student == null) {
                 throw new RuntimeException("学生不存在");
             }
+            repair.setImages(com.dormitory.utils.FileOwnership.keepOwned(repair.getImages(), student.getUserId()));
         }
 
         repair.setStatus(0); // 待处理

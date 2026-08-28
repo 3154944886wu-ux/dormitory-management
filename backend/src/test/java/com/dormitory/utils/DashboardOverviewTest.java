@@ -63,5 +63,8 @@ class DashboardOverviewTest {
         assertEquals(2, data.get("totalAllocated"));
         assertEquals(1, data.get("pendingConfirm"));
         assertEquals("70.0", data.get("avgMatchScore"));
+        recommended.setBatchId(11L);
+        confirmed.setBatchId(11L);
+        assertEquals(1, DashboardOverview.distinctBatchCount(List.of(recommended, confirmed)));
     }
 }

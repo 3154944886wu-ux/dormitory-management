@@ -160,6 +160,9 @@ public class RelocationService {
         }
 
         Building building = buildingMapper.findById(newRoom.getBuildingId());
+        if (building == null) {
+            throw new RuntimeException("目标楼栋不存在");
+        }
         if (!GenderMatcher.isCompatible(student.getGender(), building.getGenderType()))
             throw new RuntimeException("学生性别与目标楼栋类型不匹配");
 
@@ -169,20 +172,8 @@ public class RelocationService {
         if (newBed.getIsOccupied() == 1)
             throw new RuntimeException("该床位已被占用");
 
-        // 释放旧资源（按学生当前床位，而不是申请快照，避免期间已换床）
-        if (sameRoom) {
-            if (student.getBedNumber() != null) {
-                List<Bed> beds = bedMapper.findByRoomId(student.getRoomId());
-                for (Bed b : beds) {
-                    if (student.getBedNumber().equals(b.getBedNumber()) && !b.getId().equals(newBedId)) {
-                        bedMapper.updateOccupied(b.getId(), 0);
-                        break;
-                    }
-                }
-            }
-        } else {
-            releaseOldResources(student);
-        }
+        Long currentBedId = studentCurrentBedId(student);
+        releaseOldResources(student, currentBedId);
 
         // 占用新资源：先条件占床，防止并发下重复占用同一床位
         int occupied = bedMapper.tryOccupy(newBedId);
@@ -296,17 +287,19 @@ public class RelocationService {
         }
     }
 
-    private void releaseOldResources(Student student) {
-        Long currentBedId = null;
-        if (student.getRoomId() != null && student.getBedNumber() != null) {
-            List<Bed> beds = bedMapper.findByRoomId(student.getRoomId());
-            for (Bed b : beds) {
-                if (student.getBedNumber().equals(b.getBedNumber())) {
-                    currentBedId = b.getId();
-                    break;
-                }
+    private Long studentCurrentBedId(Student student) {
+        if (student.getRoomId() == null || student.getBedNumber() == null) {
+            return null;
+        }
+        for (Bed bed : bedMapper.findByRoomId(student.getRoomId())) {
+            if (student.getBedNumber().equals(bed.getBedNumber())) {
+                return bed.getId();
             }
         }
+        return null;
+    }
+
+    private void releaseOldResources(Student student, Long currentBedId) {
         if (student.getRoomId() != null) {
             int dec = roomMapper.decrementCount(student.getRoomId());
             if (dec == 0) {

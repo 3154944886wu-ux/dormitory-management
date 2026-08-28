@@ -4,6 +4,8 @@ import com.dormitory.mapper.*;
 import com.dormitory.model.*;
 import com.dormitory.utils.BedSelection;
 import com.dormitory.utils.GenderMatcher;
+import com.dormitory.utils.MatchingCapacity;
+import com.dormitory.utils.MatchingGroups;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -170,8 +172,11 @@ public class MatchingService {
 
                 // 处理已提交学生
                 if (!submitted.isEmpty()) {
+                    List<Room> capacityRooms = new ArrayList<>();
+                    capacityRooms.addAll(compatibleEmptyRooms);
+                    capacityRooms.addAll(compatiblePartialRooms);
                     List<StudentGroup> groups = matchSubmitted(submitted, matchQuestions, optionMap,
-                            questionMap, studentAnswers, batch);
+                            questionMap, studentAnswers, batch, capacityRooms);
                     assignRoomsAndBeds(groups, compatibleEmptyRooms, compatiblePartialRooms, batch, buildingMap, reservedBedIds);
                     for (StudentGroup g : groups) {
                         RoommateGroup rg = createRoommateGroup(g, batch.getId());
@@ -232,10 +237,10 @@ public class MatchingService {
                                               Map<Long, QuestionOption> optionMap,
                                               Map<Long, Questionnaire> questionMap,
                                               Map<Long, Map<Long, Long>> studentAnswers,
-                                              DormBatch batch) {
+                                              DormBatch batch,
+                                              List<Room> rooms) {
 
-        // 确定房间容量（取房源池中最常见的容量）
-        int capacity = 4; // 默认4人间
+        int capacity = MatchingCapacity.mostCommon(rooms, 4);
 
         // 计算两两匹配度
         int n = students.size();
@@ -307,7 +312,16 @@ public class MatchingService {
             if (!grouped[i]) leftover.add(students.get(i));
         }
         if (!leftover.isEmpty()) {
-            groups.addAll(splitIntoCapacityGroups(leftover, capacity));
+            List<List<Student>> asLists = new ArrayList<>();
+            for (StudentGroup group : groups) {
+                asLists.add(group.students);
+            }
+            MatchingGroups.appendLeftovers(asLists, leftover, capacity);
+            while (groups.size() < asLists.size()) {
+                StudentGroup extra = new StudentGroup();
+                extra.students.addAll(asLists.get(groups.size()));
+                groups.add(extra);
+            }
         }
 
         // 计算每个学生在组内的平均匹配度得分
@@ -362,7 +376,7 @@ public class MatchingService {
     private List<StudentGroup> matchUnsubmitted(List<Student> students, DormBatch batch,
                                                  List<Room> rooms,
                                                  Map<Long, Building> buildingMap) {
-        int capacity = 4;
+        int capacity = MatchingCapacity.mostCommon(rooms, 4);
         List<StudentGroup> groups = new ArrayList<>();
 
         if (batch.getAllowMixMajor() != null && batch.getAllowMixMajor() == 0) {
@@ -452,6 +466,7 @@ public class MatchingService {
             group.room = assigned;
             roomExtraOccupants.merge(assigned.getId(), needed, Integer::sum);
 
+            // 分配床位
             assignBeds(group, assigned, reservedBedIds);
         }
     }

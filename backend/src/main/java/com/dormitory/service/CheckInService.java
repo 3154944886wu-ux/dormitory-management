@@ -250,7 +250,7 @@ public class CheckInService {
     /**
      * 批量生成未归异常（定时任务调用）
      */
-    @Transactional
+    @Transactional(noRollbackFor = DuplicateKeyException.class)
     public int generateMissingCheckIns(LocalDate date) {
         int count = 0;
         for (Student student : studentMapper.findAll()) {
@@ -476,9 +476,9 @@ public class CheckInService {
     }
 
     /**
-     * 超过未归截止后，为当日未打卡且未请假的学生自动生成未归记录。
+     * 超过未归截止后，为「当晚」未打卡且未请假的学生自动生成未归记录。
      */
-    @Transactional
+    @Transactional(noRollbackFor = DuplicateKeyException.class)
     public int generateAbsentAfterDeadline() {
         LocalDateTime now = CheckWindow.now();
         int count = 0;
