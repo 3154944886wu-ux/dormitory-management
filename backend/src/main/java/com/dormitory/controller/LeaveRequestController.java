@@ -298,8 +298,10 @@ public class LeaveRequestController {
      */
     @GetMapping("/statistics")
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
-    public ResponseEntity<?> getStatistics() {
-        return ResponseEntity.ok(leaveRequestService.getStatistics());
+    public ResponseEntity<?> getStatistics(Authentication auth,
+                                           @RequestHeader("Authorization") String token) {
+        Long managerId = managerScopeUserId(auth, token);
+        return ResponseEntity.ok(leaveRequestService.getStatistics(managerId));
     }
 
     private Long getStudentId(String token) {

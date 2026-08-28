@@ -112,7 +112,10 @@ public class RoomService {
         if (room == null) {
             throw new RuntimeException("房间不存在");
         }
-        if (room.getCurrentCount() > 0) {
+        int occupancy = room.getOccupancy() != null
+                ? room.getOccupancy()
+                : (room.getCurrentCount() == null ? 0 : room.getCurrentCount());
+        if (occupancy > 0) {
             throw new RuntimeException("房间内有学生入住，无法删除");
         }
         roomMapper.deleteById(id);

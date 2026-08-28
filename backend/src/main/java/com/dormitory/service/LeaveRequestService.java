@@ -6,6 +6,7 @@ import com.dormitory.model.LeaveRequest;
 import com.dormitory.model.ManagerScope;
 import com.dormitory.model.Student;
 import com.dormitory.utils.LeaveReturn;
+import com.dormitory.utils.LeaveStatistics;
 import com.dormitory.utils.ManagerScopeMatcher;
 import com.dormitory.utils.Pagination;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -14,7 +15,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -168,15 +168,16 @@ public class LeaveRequestService {
      * 获取请假统计
      */
     public Map<String, Object> getStatistics() {
-        Map<String, Object> stats = new HashMap<>();
-        
+        return getStatistics(null);
+    }
+
+    public Map<String, Object> getStatistics(Long managerUserId) {
         List<LeaveRequest> pending = leaveRequestMapper.findByStatus(0);
         List<LeaveRequest> approved = leaveRequestMapper.findByStatus(1);
-        
-        stats.put("pendingCount", pending.size());
-        stats.put("approvedCount", approved.size());
-        stats.put("pending", pending);
-        
-        return stats;
+        if (managerUserId != null) {
+            pending = filterByManagerScope(pending, managerUserId);
+            approved = filterByManagerScope(approved, managerUserId);
+        }
+        return LeaveStatistics.of(pending, approved);
     }
 }

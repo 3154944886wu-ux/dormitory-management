@@ -1,9 +1,14 @@
 package com.dormitory.controller;
 
 import com.dormitory.mapper.StudentMapper;
+import com.dormitory.mapper.UserMapper;
 import com.dormitory.model.Student;
+import com.dormitory.model.User;
 import com.dormitory.model.UtilityFee;
+import com.dormitory.service.ManagerScopeService;
 import com.dormitory.service.UtilityFeeService;
+import com.dormitory.utils.ApiResponses;
+import com.dormitory.utils.AuthRoles;
 import com.dormitory.utils.BillingPeriod;
 import com.dormitory.utils.FeeTotal;
 import org.springframework.http.ResponseEntity;
@@ -22,10 +27,17 @@ public class UtilityFeeController {
     
     private final UtilityFeeService feeService;
     private final StudentMapper studentMapper;
+    private final ManagerScopeService managerScopeService;
+    private final UserMapper userMapper;
 
-    public UtilityFeeController(UtilityFeeService feeService, StudentMapper studentMapper) {
+    public UtilityFeeController(UtilityFeeService feeService,
+                                StudentMapper studentMapper,
+                                ManagerScopeService managerScopeService,
+                                UserMapper userMapper) {
         this.feeService = feeService;
         this.studentMapper = studentMapper;
+        this.managerScopeService = managerScopeService;
+        this.userMapper = userMapper;
     }
 
     @GetMapping
@@ -53,6 +65,7 @@ public class UtilityFeeController {
         } else {
             fees = feeService.findAll();
         }
+        fees = filterForManager(auth, fees);
 
         Map<String, Object> result = new HashMap<>();
         result.put("code", 200);
@@ -77,6 +90,11 @@ public class UtilityFeeController {
                 result.put("code", 403);
                 result.put("message", "无权查看该费用");
                 return ResponseEntity.status(403).body(result);
+            }
+        } else {
+            ResponseEntity<Map<String, Object>> denied = denyIfOutOfScope(auth, fee);
+            if (denied != null) {
+                return denied;
             }
         }
 
@@ -250,5 +268,32 @@ public class UtilityFeeController {
             throw new RuntimeException("当前账号未关联学生信息");
         }
         return student;
+    }
+
+    private Long managerUserId(Authentication auth) {
+        if (!AuthRoles.isManagerOnly(auth)) {
+            return null;
+        }
+        User user = userMapper.findByUsername(auth.getName());
+        return user == null ? null : user.getId();
+    }
+
+    private List<UtilityFee> filterForManager(Authentication auth, List<UtilityFee> fees) {
+        Long managerId = managerUserId(auth);
+        if (managerId == null) {
+            return fees;
+        }
+        return managerScopeService.filterVisibleByBuilding(managerId, fees, UtilityFee::getBuildingId);
+    }
+
+    private ResponseEntity<Map<String, Object>> denyIfOutOfScope(Authentication auth, UtilityFee fee) {
+        Long managerId = managerUserId(auth);
+        if (managerId == null) {
+            return null;
+        }
+        if (!managerScopeService.canSeeBuilding(managerId, fee.getBuildingId())) {
+            return ApiResponses.forbidden("无权查看该范围外的水电费");
+        }
+        return null;
     }
 }

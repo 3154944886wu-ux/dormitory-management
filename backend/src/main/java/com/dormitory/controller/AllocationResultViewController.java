@@ -55,7 +55,8 @@ public class AllocationResultViewController {
 
             if (occupancyStatus != null && !occupancyStatus.isEmpty() && !"all".equals(occupancyStatus)) {
                 rooms = rooms.stream().filter(r -> {
-                    int cur = r.getCurrentCount() != null ? r.getCurrentCount() : 0;
+                    int cur = r.getOccupancy() != null ? r.getOccupancy()
+                            : (r.getCurrentCount() != null ? r.getCurrentCount() : 0);
                     int cap = r.getCapacity() != null ? r.getCapacity() : 4;
                     return switch (occupancyStatus) {
                         case "empty" -> cur == 0;

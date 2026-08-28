@@ -26,5 +26,6 @@ public class UtilityFee {
     
     // 关联字段
     private String buildingName;       // 楼栋名称
+    private Long buildingId;
     private String roomNumber;         // 房间号
 }

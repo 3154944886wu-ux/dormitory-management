@@ -18,6 +18,7 @@ mysql -u root -p dormitory < database/migration_rename_teachers_to_managers.sql
 mysql -u root -p dormitory < database/visitors.sql
 mysql -u root -p dormitory < database/migration_rectify_remark.sql
 mysql -u root -p dormitory < database/migration_remaining_integrity.sql
+mysql -u root -p dormitory < database/migration_sync_room_occupancy.sql
 ```
 
 `schema.sql` 已包含 `inspection_items` 表及种子数据；若从更旧版本升级，可单独执行 `migration_inspection_items.sql`。
@@ -37,6 +38,7 @@ mysql -u root -p dormitory < database/migration_remaining_integrity.sql
 | `visitors.sql` | 访客模块补充 |
 | `migration_rectify_remark.sql` | 检查整改说明独立列 |
 | `migration_remaining_integrity.sql` | 楼栋 name 唯一、异常 (学生,日期,类型) 唯一 |
+| `migration_sync_room_occupancy.sql` | 用实际在住学生数回写 `rooms.current_count` |
 | `migration_inspection_items.sql` | 仅缺检查项表时执行 |
 
 ## 不推荐

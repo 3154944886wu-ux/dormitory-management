@@ -74,6 +74,10 @@ public class ManagerScopeService {
         return ManagerScopeMatcher.isVisible(findActiveByUserId(userId), buildingId, className);
     }
 
+    public boolean canSeeBuilding(Long userId, Long buildingId) {
+        return ManagerScopeMatcher.isBuildingVisible(findActiveByUserId(userId), buildingId);
+    }
+
     public <T> java.util.List<T> filterVisible(Long userId, java.util.List<T> items,
                                                java.util.function.Function<T, Long> buildingId,
                                                java.util.function.Function<T, String> className) {
@@ -84,6 +88,21 @@ public class ManagerScopeService {
         java.util.List<T> visible = new java.util.ArrayList<>();
         for (T item : items) {
             if (ManagerScopeMatcher.isVisible(scopes, buildingId.apply(item), className.apply(item))) {
+                visible.add(item);
+            }
+        }
+        return visible;
+    }
+
+    public <T> java.util.List<T> filterVisibleByBuilding(Long userId, java.util.List<T> items,
+                                                         java.util.function.Function<T, Long> buildingId) {
+        if (items == null || items.isEmpty()) {
+            return java.util.List.of();
+        }
+        java.util.List<ManagerScope> scopes = findActiveByUserId(userId);
+        java.util.List<T> visible = new java.util.ArrayList<>();
+        for (T item : items) {
+            if (ManagerScopeMatcher.isBuildingVisible(scopes, buildingId.apply(item))) {
                 visible.add(item);
             }
         }
