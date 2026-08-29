@@ -28,6 +28,22 @@ public final class InspectionPlanScope {
         return false;
     }
 
+    public static boolean fullyWithin(String planBuildingIds, Collection<Long> managerBuildingIds) {
+        if (managerBuildingIds == null || managerBuildingIds.isEmpty()) {
+            return false;
+        }
+        Set<Long> planIds = parseIds(planBuildingIds);
+        if (planIds.isEmpty()) {
+            return false;
+        }
+        for (Long id : planIds) {
+            if (id == null || !managerBuildingIds.contains(id)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     public static Set<Long> parseIds(String csv) {
         Set<Long> ids = new HashSet<>();
         if (csv == null || csv.isBlank()) {

@@ -58,4 +58,17 @@ class CheckWindowTest {
         assertEquals(1, CheckWindow.statusOf(LocalTime.of(23, 30), rule));
         assertEquals(2, CheckWindow.statusOf(LocalTime.of(0, 10), rule));
     }
+
+    @Test
+    void overnightAbsentWindowClosesAfterDeadlineInstant() {
+        CheckRule rule = new CheckRule();
+        rule.setCheckStartTime(LocalTime.of(22, 0));
+        rule.setCheckEndTime(LocalTime.of(23, 0));
+        rule.setAbsentDeadline(LocalTime.of(0, 30));
+        LocalDate night = LocalDate.of(2026, 8, 28);
+        assertFalse(CheckWindow.absentWindowClosed(night, rule, LocalDateTime.of(2026, 8, 29, 0, 5)));
+        assertTrue(CheckWindow.absentWindowClosed(night, rule, LocalDateTime.of(2026, 8, 29, 0, 31)));
+        assertFalse(CheckWindow.absentWindowClosed(LocalDate.of(2026, 8, 29), rule,
+                LocalDateTime.of(2026, 8, 29, 13, 0)));
+    }
 }

@@ -66,7 +66,7 @@ public interface LeaveRequestMapper {
             "LEFT JOIN students s ON l.student_id = s.id " +
             "LEFT JOIN rooms r ON s.room_id = r.id " +
             "LEFT JOIN buildings b ON r.building_id = b.id " +
-            "WHERE l.student_id = #{studentId} AND l.status IN (0, 1) " +
+            "WHERE l.student_id = #{studentId} AND l.status = 1 " +
             "AND #{now} BETWEEN l.start_time AND l.end_time LIMIT 1")
     LeaveRequest findCoveringLeaveByStudent(@Param("studentId") Long studentId, @Param("now") LocalDateTime now);
     

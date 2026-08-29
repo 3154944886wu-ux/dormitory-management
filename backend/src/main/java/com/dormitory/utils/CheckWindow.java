@@ -115,6 +115,26 @@ public final class CheckWindow {
         return 0;
     }
 
+    public static LocalDateTime absentDeadlineInstant(LocalDate businessDate, CheckRule rule) {
+        if (businessDate == null || rule == null) {
+            return null;
+        }
+        LocalTime start = rule.getCheckStartTime() != null ? rule.getCheckStartTime() : rule.getCheckEndTime();
+        LocalTime absent = rule.getAbsentDeadline();
+        if (start == null || absent == null) {
+            return null;
+        }
+        if (CheckAbsentWindow.crossesMidnight(start, absent)) {
+            return businessDate.plusDays(1).atTime(absent);
+        }
+        return businessDate.atTime(absent);
+    }
+
+    public static boolean absentWindowClosed(LocalDate businessDate, CheckRule rule, LocalDateTime now) {
+        LocalDateTime deadline = absentDeadlineInstant(businessDate, rule);
+        return deadline != null && now != null && now.isAfter(deadline);
+    }
+
     public static boolean appliesOn(LocalDate date, CheckRule rule) {
         if (rule == null || rule.getApplyDays() == null || rule.getApplyDays().isBlank()) {
             return true;

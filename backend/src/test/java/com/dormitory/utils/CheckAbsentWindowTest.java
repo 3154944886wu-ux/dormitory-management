@@ -54,4 +54,17 @@ class CheckAbsentWindowTest {
     void detectsMidnightCrossing() {
         assertTrue(CheckAbsentWindow.crossesMidnight(START, ABSENT_MIDNIGHT));
     }
+
+    @Test
+    void thirtyPastMidnightStillOpenAt0005() {
+        LocalDateTime at0005 = LocalDateTime.of(2026, 6, 21, 0, 5);
+        assertNull(CheckAbsentWindow.targetCheckDate(at0005, START, LocalTime.of(0, 30)));
+    }
+
+    @Test
+    void thirtyPastMidnightMarksYesterdayAfterCutoff() {
+        LocalDateTime at0031 = LocalDateTime.of(2026, 6, 21, 0, 31);
+        assertEquals(LocalDate.of(2026, 6, 20),
+                CheckAbsentWindow.targetCheckDate(at0031, START, LocalTime.of(0, 30)));
+    }
 }

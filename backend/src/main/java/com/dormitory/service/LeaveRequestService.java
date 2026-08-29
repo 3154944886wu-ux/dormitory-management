@@ -14,7 +14,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -60,6 +59,9 @@ public class LeaveRequestService {
         Student student = studentMapper.findById(request.getStudentId());
         if (student == null) {
             throw new RuntimeException("学生不存在");
+        }
+        if (student.getStatus() == null || student.getStatus() != 1 || student.getRoomId() == null) {
+            throw new RuntimeException("未入住学生不能请假");
         }
         
         // 检查时间有效性
@@ -160,10 +162,11 @@ public class LeaveRequestService {
                     ? "已经销假" : "请假申请未批准");
         }
 
-        int updated = leaveRequestMapper.confirmReturn(id, LocalDateTime.now());
+        int updated = leaveRequestMapper.confirmReturn(id, CheckWindow.now());
         if (updated == 0) {
             throw new RuntimeException("销假失败，记录状态已变化");
         }
+        checkInService.clearFutureLeaveRecords(studentId, CheckWindow.today());
     }
     
     public LeaveRequest findById(Long id) {

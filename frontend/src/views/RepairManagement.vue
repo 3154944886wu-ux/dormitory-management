@@ -101,7 +101,7 @@
               完成处理
             </el-button>
             <el-button 
-              v-if="row.status === 2" 
+              v-if="row.status === 0 || row.status === 1" 
               type="info" 
               size="small"
               @click="handleStatusChange(row, 3)"

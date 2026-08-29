@@ -14,6 +14,7 @@ import com.dormitory.model.Room;
 import com.dormitory.model.Student;
 import com.dormitory.util.MapValueUtils;
 import com.dormitory.utils.CheckWindow;
+import com.dormitory.utils.LeaveCoverage;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
@@ -68,6 +69,10 @@ public class CheckInService {
         }
         if (student.getRoomId() == null || student.getStatus() == null || student.getStatus() != 1) {
             throw new RuntimeException("未分配宿舍，无法打卡");
+        }
+        LeaveRequest activeLeave = leaveRequestMapper.findActiveLeaveByStudent(studentId, now);
+        if (activeLeave != null) {
+            throw new RuntimeException("请假期间无需打卡");
         }
 
         CheckRule rule = getCheckRule(student);
@@ -160,9 +165,7 @@ public class CheckInService {
         if (rule == null) {
             return;
         }
-
-        boolean requireLocation = rule.getRequireLocation() == null || rule.getRequireLocation() == 1;
-        if (!requireLocation && (rule.getAllowedLatitude() == null || rule.getAllowedLongitude() == null)) {
+        if (rule.getRequireLocation() != null && rule.getRequireLocation() == 0) {
             return;
         }
 
@@ -261,7 +264,14 @@ public class CheckInService {
             if (rule == null || !CheckWindow.appliesOn(date, rule)) {
                 continue;
             }
-            if (insertAbsentIfNeeded(student, date, date.atTime(LocalTime.MAX))) {
+            if (!CheckWindow.absentWindowClosed(date, rule, CheckWindow.now())) {
+                continue;
+            }
+            LocalDateTime leaveAt = CheckWindow.absentDeadlineInstant(date, rule);
+            if (leaveAt == null) {
+                leaveAt = date.atTime(LocalTime.MAX);
+            }
+            if (insertAbsentIfNeeded(student, date, leaveAt)) {
                 count++;
             }
         }
@@ -277,12 +287,19 @@ public class CheckInService {
             return;
         }
         Student student = studentMapper.findById(studentId);
-        if (student == null) {
+        if (student == null || !isResiding(student)) {
             return;
         }
-        LocalDate from = start.toLocalDate();
-        LocalDate to = end.toLocalDate();
+        CheckRule rule = getCheckRule(student);
+        LocalDate from = start.toLocalDate().minusDays(1);
+        LocalDate to = end.toLocalDate().plusDays(1);
         for (LocalDate date = from; !date.isAfter(to); date = date.plusDays(1)) {
+            if (!LeaveCoverage.coversBusinessDate(start, end, date, rule)) {
+                continue;
+            }
+            if (rule != null && !CheckWindow.appliesOn(date, rule)) {
+                continue;
+            }
             CheckInRecord record = checkInMapper.findByStudentAndDate(studentId, date);
             if (record == null) {
                 CheckInRecord leaveRecord = new CheckInRecord();
@@ -298,11 +315,21 @@ public class CheckInService {
                     record = checkInMapper.findByStudentAndDate(studentId, date);
                 }
             }
+            if (record != null && record.getStatus() != null && record.getStatus() == 0) {
+                continue;
+            }
             if (record != null && record.getStatus() != null && record.getStatus() != 3) {
                 checkInMapper.updateStatus(record.getId(), 3, "请假已批准");
             }
             checkExceptionMapper.markHandledByStudentAndDate(studentId, date, "leave_approved", "请假已批准自动关闭");
         }
+    }
+
+    public void clearFutureLeaveRecords(Long studentId, LocalDate fromDate) {
+        if (studentId == null || fromDate == null) {
+            return;
+        }
+        checkInMapper.deleteLeaveRecordsFromDate(studentId, fromDate);
     }
 
     /**
@@ -392,6 +419,7 @@ public class CheckInService {
         } else {
             status.put("status", null);
         }
+        status.put("rule", rule);
         return status;
     }
     
@@ -514,10 +542,7 @@ public class CheckInService {
         if (checkInMapper.findByStudentAndDate(student.getId(), date) != null) {
             return false;
         }
-        LeaveRequest leave = leaveRequestMapper.findCoveringLeaveByStudent(student.getId(), leaveAt);
-        if (leave == null) {
-            leave = leaveRequestMapper.findActiveLeaveByStudent(student.getId(), leaveAt);
-        }
+        LeaveRequest leave = leaveRequestMapper.findActiveLeaveByStudent(student.getId(), leaveAt);
         if (leave != null) {
             return false;
         }

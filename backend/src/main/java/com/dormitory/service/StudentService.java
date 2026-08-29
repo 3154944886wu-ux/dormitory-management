@@ -116,6 +116,9 @@ public class StudentService {
         }
 
         studentMapper.insert(student);
+        if (student.getRoomId() != null) {
+            syncCurrentCount(student.getRoomId());
+        }
         return student.getId();
     }
     
@@ -125,7 +128,8 @@ public class StudentService {
         if (existing == null) {
             throw new RuntimeException("学生不存在");
         }
-        if (existing.getStatus() != 1) {
+        if (existing.getStatus() != null && existing.getStatus() != 1
+                && existing.getCheckOutDate() != null) {
             throw new RuntimeException("已退宿学生不能编辑");
         }
 
@@ -278,7 +282,6 @@ public class StudentService {
         if (student.getCheckInDate() == null) {
             student.setCheckInDate(LocalDateTime.now());
         }
-        syncCurrentCount(newRoom.getId());
     }
 
     private Bed findAvailableBed(Long roomId) {
@@ -334,12 +337,14 @@ public class StudentService {
         if (student.getStatus() != 1) {
             throw new RuntimeException("只能对在住学生执行调宿");
         }
+        relocationService.cancelActiveByStudent(studentId);
 
         Room newRoom = roomMapper.findById(newRoomId);
         if (newRoom == null) {
             throw new RuntimeException("目标房间不存在");
         }
-        if (studentMapper.countByRoomId(newRoomId) >= newRoom.getCapacity()) {
+        boolean sameRoom = student.getRoomId() != null && student.getRoomId().equals(newRoomId);
+        if (!sameRoom && studentMapper.countByRoomId(newRoomId) >= newRoom.getCapacity()) {
             throw new RuntimeException("目标房间已满");
         }
         if (newRoom.getIsActive() != 1 || newRoom.getStatus() != 1) {
@@ -361,11 +366,16 @@ public class StudentService {
         }
 
         Long oldRoomId = student.getRoomId();
-        releaseStudentResources(student);
-
-        int inc = roomMapper.incrementCount(newRoomId);
-        if (inc == 0) {
-            throw new RuntimeException("目标房间已满，无法调宿");
+        if (sameRoom) {
+            if (student.getBedNumber() != null) {
+                releaseBed(oldRoomId, student.getBedNumber());
+            }
+        } else {
+            releaseStudentResources(student);
+            int inc = roomMapper.incrementCount(newRoomId);
+            if (inc == 0) {
+                throw new RuntimeException("目标房间已满，无法调宿");
+            }
         }
         occupyBed(newBedId);
 

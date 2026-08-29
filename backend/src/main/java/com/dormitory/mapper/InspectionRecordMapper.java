@@ -109,7 +109,6 @@ public interface InspectionRecordMapper {
     @Update("UPDATE inspection_records SET overall_score = #{overallScore}, result = #{result}, " +
             "items_json = #{itemsJson}, photos = #{photos}, remark = #{remark}, " +
             "need_rectification = #{needRectification}, " +
-            "rectification_status = #{rectificationStatus}, " +
             "rectification_deadline = #{rectificationDeadline}, update_time = NOW() WHERE id = #{id}")
     int update(InspectionRecord record);
 
@@ -128,4 +127,11 @@ public interface InspectionRecordMapper {
 
     @Delete("DELETE FROM inspection_records WHERE id = #{id}")
     int delete(Long id);
+
+    @Select("SELECT COUNT(*) FROM inspection_records WHERE plan_id = #{planId} AND room_id = #{roomId}")
+    int countByPlanIdAndRoomId(@Param("planId") Long planId, @Param("roomId") Long roomId);
+
+    @Select("SELECT COUNT(*) FROM inspection_records WHERE plan_id = #{planId} " +
+            "AND need_rectification = 1 AND rectification_status = 'PENDING'")
+    int countPendingRectificationByPlanId(Long planId);
 }

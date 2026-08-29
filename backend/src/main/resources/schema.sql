@@ -261,7 +261,8 @@ CREATE TABLE IF NOT EXISTS check_exceptions (
     create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
     update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE,
-    FOREIGN KEY (check_record_id) REFERENCES check_in_records(id) ON DELETE SET NULL
+    FOREIGN KEY (check_record_id) REFERENCES check_in_records(id) ON DELETE SET NULL,
+    UNIQUE KEY uk_student_date_type (student_id, exception_date, exception_type)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='归寝异常记录表';
 
 -- 公告表
@@ -323,7 +324,8 @@ CREATE TABLE IF NOT EXISTS inspection_records (
     update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (plan_id) REFERENCES inspection_plans(id) ON DELETE SET NULL,
     FOREIGN KEY (building_id) REFERENCES buildings(id) ON DELETE CASCADE,
-    FOREIGN KEY (room_id) REFERENCES rooms(id) ON DELETE CASCADE
+    FOREIGN KEY (room_id) REFERENCES rooms(id) ON DELETE CASCADE,
+    UNIQUE KEY uk_plan_room (plan_id, room_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='安全卫生检查记录表';
 
 -- ================================================================

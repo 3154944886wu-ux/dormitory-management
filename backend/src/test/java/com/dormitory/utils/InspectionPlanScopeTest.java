@@ -17,4 +17,11 @@ class InspectionPlanScopeTest {
         assertFalse(InspectionPlanScope.visibleToManager("1", List.of()));
         assertFalse(InspectionPlanScope.visibleToManager("", Set.of(1L)));
     }
+
+    @Test
+    void createRequiresAllBuildingsInsideScope() {
+        assertTrue(InspectionPlanScope.fullyWithin("1", Set.of(1L, 2L)));
+        assertFalse(InspectionPlanScope.fullyWithin("1,2", Set.of(1L)));
+        assertFalse(InspectionPlanScope.fullyWithin("1", Set.of()));
+    }
 }

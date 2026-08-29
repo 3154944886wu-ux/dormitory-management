@@ -60,6 +60,19 @@ public class InspectionRecordService {
 
     @Transactional
     public InspectionRecord create(InspectionRecord record) {
+        if (record.getPlanId() != null) {
+            var plan = planMapper.findById(record.getPlanId());
+            if (plan == null) {
+                throw new RuntimeException("检查计划不存在");
+            }
+            if (!"IN_PROGRESS".equals(plan.getStatus())) {
+                throw new RuntimeException("只有进行中的计划才能录入检查记录");
+            }
+            if (record.getRoomId() != null
+                    && recordMapper.countByPlanIdAndRoomId(record.getPlanId(), record.getRoomId()) > 0) {
+                throw new RuntimeException("该房间在本计划中已有检查记录");
+            }
+        }
         record.setInspectionTime(LocalDateTime.now());
         record.setCreateTime(LocalDateTime.now());
         record.setUpdateTime(LocalDateTime.now());

@@ -90,7 +90,8 @@ public class UtilityFeeService {
             throw new RuntimeException("该房间当月费用记录已存在");
         }
 
-        fee.setStatus(fee.getStatus() != null ? fee.getStatus() : 0);
+        fee.setStatus(0);
+        fee.setPayTime(null);
         fee.setTotalFee(FeeTotal.of(fee.getElectricityFee(), fee.getWaterFee()));
         feeMapper.insert(fee);
         return fee.getId();
@@ -126,6 +127,8 @@ public class UtilityFeeService {
             throw new RuntimeException("已缴费记录不可修改");
         }
 
+        fee.setStatus(0);
+        fee.setPayTime(null);
         fee.setTotalFee(FeeTotal.of(fee.getElectricityFee(), fee.getWaterFee()));
         feeMapper.update(fee);
     }

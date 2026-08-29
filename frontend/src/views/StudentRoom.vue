@@ -109,8 +109,8 @@
         <div v-if="batchConfirming && allocation.status === 'recommended'" class="action-bar">
           <el-alert title="你的宿舍推荐已生成！请在截止时间前确认或调整" type="success" show-icon :closable="true" style="margin-bottom: 16px;" />
           <el-button type="primary" @click="handleConfirm" :loading="confirmLoading">确认入住</el-button>
-          <el-button type="warning" @click="handleReallocate" :loading="reallocateLoading" :disabled="reallocationUsed >= 1">换一个宿舍</el-button>
-          <span v-if="reallocationUsed >= 1" class="text-hint">(已使用重新匹配机会)</span>
+          <el-button type="warning" @click="handleReallocate" :loading="reallocateLoading" :disabled="reallocationUsed >= maxReallocation">换一个宿舍</el-button>
+          <span v-if="reallocationUsed >= maxReallocation" class="text-hint">(已使用重新匹配机会)</span>
         </div>
 
         <div v-if="allocation && (allocation.status === 'confirmed' || allocation.status === 'auto_confirmed')" class="action-bar">
@@ -253,11 +253,12 @@ const confirmLoading = ref(false)
 const reallocateLoading = ref(false)
 const formRef = ref(null)
 const student = reactive({ dormBatchId: null })
-const batch = reactive({ id: null, name: '', startTime: '', endTime: '', confirmDeadline: '', matchStatus: '' })
+const batch = reactive({ id: null, name: '', startTime: '', endTime: '', confirmDeadline: '', matchStatus: '', maxReallocation: 1 })
 const allocation = ref(null)
 const questions = ref([])
 const hasSubmitted = ref(false)
 const reallocationUsed = ref(0)
+const maxReallocation = computed(() => Number(batch.maxReallocation) > 0 ? Number(batch.maxReallocation) : 1)
 const formData = reactive({})
 const dormRoommates = ref([]) // roommates from dorm selection
 const buildingName = ref('')
