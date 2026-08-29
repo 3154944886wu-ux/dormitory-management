@@ -90,7 +90,7 @@ mysql -u root -p dormitory < database/migration_rename_teachers_to_managers.sql
 mysql -u root -p dormitory < database/visitors.sql
 ```
 
-> 不推荐仅导入 `dormitory.sql`（可能缺少 `managers` 等表）。从旧库升级请按 `MIGRATIONS.md` 执行尚未应用的 `migration_*.sql`。
+> `dormitory.sql` 现为 schema-only 便利快照（无业务数据）。首次部署仍走 `schema.sql` + `test_data.sql`；从旧库升级请按 `MIGRATIONS.md` 执行尚未应用的 `migration_*.sql`。
 
 ### 3. 配置后端
 
@@ -140,9 +140,11 @@ npm run dev
 | 角色 | 账号 | 密码 | 说明 |
 |------|------|------|------|
 | 管理员 | `admin` | `admin123` | 首次启动可配合 `app.init-admin.enabled=true` 创建 |
-| 学生 | 学号 | 注册时设置 | 如 `20230001`，也可在登录页注册 |
+| 学生 | 学号 | 注册时设置 | 如 `20230001`，需先注册。种子学生未分房时 `status=0` |
 
-学生注册时需填写与 `students` 表中一致的学号信息。教师账号不会在默认启动时创建。
+学生注册时需填写与 `students` 表中一致的学号+姓名。种子脚本会写入 1 号楼（男生）、2/3 号楼（女生）。教师账号不会在默认启动时创建；演示教师见下方「演示数据」。后台新建教师会生成随机密码。
+
+登录失败同一账号 10 分钟内超过 5 次会暂时锁定。CORS 允许来源由 `app.cors.allowed-origins` / `CORS_ALLOWED_ORIGINS` 配置，默认本机 Vite 端口。系统默认时区为 `Asia/Shanghai`。
 
 ## 演示数据（可选）
 

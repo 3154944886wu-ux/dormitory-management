@@ -5,6 +5,7 @@ import com.dormitory.mapper.UserMapper;
 import com.dormitory.model.CheckException;
 import com.dormitory.model.User;
 import com.dormitory.util.MapValueUtils;
+import com.dormitory.utils.Pagination;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,6 +25,9 @@ public class CheckExceptionService {
     private OperationLogService operationLogService;
 
     @Autowired
+    private CheckInService checkInService;
+
+    @Autowired
     private ManagerScopeService managerScopeService;
 
     @Autowired
@@ -34,8 +38,7 @@ public class CheckExceptionService {
     }
 
     public List<CheckException> findAll(int page, int size) {
-        int offset = (page - 1) * size;
-        return checkExceptionMapper.findAll(offset, size);
+        return checkExceptionMapper.findAll(Pagination.offset(page, size), Pagination.size(size));
     }
 
     public int count() {
@@ -61,10 +64,9 @@ public class CheckExceptionService {
     }
 
     public List<CheckException> searchScoped(LocalDate startDate, LocalDate endDate,
-                                             String buildingIdsCsv, String classNamesCsv,
-                                             Integer exceptionType, Integer handled) {
+                                             String scopesJson, Integer exceptionType, Integer handled) {
         LocalDate[] range = normalizeRange(startDate, endDate);
-        return checkExceptionMapper.searchScoped(range[0], range[1], blankToNull(buildingIdsCsv), blankToNull(classNamesCsv), exceptionType, handled);
+        return checkExceptionMapper.searchScoped(range[0], range[1], blankToNull(scopesJson), exceptionType, handled);
     }
 
     @Transactional
@@ -74,7 +76,7 @@ public class CheckExceptionService {
             throw new RuntimeException("异常记录不存在");
         }
         
-        if (exception.getHandled() == 1) {
+        if (exception.getHandled() != null && exception.getHandled() == 1) {
             throw new RuntimeException("该异常已处理");
         }
 
@@ -83,7 +85,11 @@ public class CheckExceptionService {
             managerScopeService.assertStudentInScope(handler.getRole(), handlerId, exception.getStudentId());
         }
 
-        checkExceptionMapper.handle(id, handlerId, handleResult, handleNote);
+        int rows = checkExceptionMapper.handle(id, handlerId, handleResult, handleNote);
+        if (rows == 0) {
+            throw new RuntimeException("该异常已处理");
+        }
+        checkInService.syncRecordAfterExceptionHandled(exception, handleResult);
         operationLogService.log(exception.getStudentId(), "manager", handlerName, "check_exception.handle", Map.of(
                 "exceptionId", id,
                 "result", handleResult == null ? "" : handleResult,
@@ -114,11 +120,7 @@ public class CheckExceptionService {
         stats.put("absentCount", absentCount);
         stats.put("missingCount", missingCount);
         stats.put("totalCount", lateCount + absentCount + missingCount);
-        
-        // 未处理数量
-        List<CheckException> unhandled = checkExceptionMapper.findByHandled(0);
-        stats.put("unhandledCount", unhandled.size());
-        
+        stats.put("unhandledCount", checkExceptionMapper.countUnhandledByDate(date));
         return stats;
     }
     
@@ -135,14 +137,14 @@ public class CheckExceptionService {
         Map<String, Object> stats = new HashMap<>();
         stats.put("byBuilding", checkExceptionMapper.countByBuilding(range[0], range[1]));
         stats.put("byClass", checkExceptionMapper.countByClassName(range[0], range[1]));
-        stats.put("summary", buildExceptionSummary(range[0], range[1], null, null));
+        stats.put("summary", buildExceptionSummary(range[0], range[1], null));
         return stats;
     }
 
     public Map<String, Object> getScopedTrendStatistics(LocalDate startDate, LocalDate endDate,
-                                                        String buildingIdsCsv, String classNamesCsv) {
+                                                        String scopesJson) {
         LocalDate[] range = normalizeRange(startDate, endDate);
-        List<CheckException> exceptions = searchScoped(startDate, endDate, buildingIdsCsv, classNamesCsv, null, null);
+        List<CheckException> exceptions = searchScoped(startDate, endDate, scopesJson, null, null);
         Map<String, Map<String, Integer>> building = new HashMap<>();
         Map<String, Map<String, Integer>> className = new HashMap<>();
 
@@ -154,18 +156,18 @@ public class CheckExceptionService {
         Map<String, Object> stats = new HashMap<>();
         stats.put("byBuilding", flattenCounts(building));
         stats.put("byClass", flattenCounts(className));
-        stats.put("summary", buildExceptionSummary(range[0], range[1], buildingIdsCsv, classNamesCsv));
+        stats.put("summary", buildExceptionSummary(range[0], range[1], scopesJson));
         return stats;
     }
 
     private Map<String, Object> buildExceptionSummary(LocalDate start, LocalDate end,
-                                                       String buildingIdsCsv, String classNamesCsv) {
+                                                       String scopesJson) {
         Map<String, Object> summary = new HashMap<>();
         int lateCount = 0, absentCount = 0, missingCount = 0;
         int absentHandledCount = 0, absentUnhandledCount = 0;
 
         for (Map<String, Object> item : checkExceptionMapper.countRangeGroupByTypeAndHandled(
-                start, end, blankToNull(buildingIdsCsv), blankToNull(classNamesCsv))) {
+                start, end, blankToNull(scopesJson))) {
             int type = MapValueUtils.intValue(item, "type", "exception_type", "TYPE");
             int handled = MapValueUtils.intValue(item, "handled", "HANDLED");
             int count = MapValueUtils.intValue(item, "count", "COUNT");
@@ -190,7 +192,7 @@ public class CheckExceptionService {
         summary.put("missingCount", missingCount);
         summary.put("totalCount", lateCount + absentCount + missingCount);
         summary.put("unhandledCount", checkExceptionMapper.countUnhandledInRange(
-                start, end, blankToNull(buildingIdsCsv), blankToNull(classNamesCsv)));
+                start, end, blankToNull(scopesJson)));
         return summary;
     }
 

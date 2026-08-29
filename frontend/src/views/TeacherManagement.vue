@@ -83,7 +83,7 @@
           <el-input v-model="teacherForm.name" placeholder="教师姓名" />
         </el-form-item>
         <el-form-item v-if="!teacherForm.id">
-          <el-alert title="将自动创建登录账号，初始密码与工号相同" type="success" :closable="false" show-icon />
+          <el-alert title="将自动创建登录账号，并生成随机初始密码（仅创建成功时展示一次）" type="success" :closable="false" show-icon />
         </el-form-item>
         <el-form-item v-if="teacherForm.id" label="新密码">
           <el-input
@@ -287,6 +287,7 @@ const saveTeacher = async () => {
         email: teacherForm.email,
         password: teacherForm.password || undefined
       })
+      ElMessage.success('保存成功')
     } else {
       const scopes = []
       if (teacherForm.buildingId || teacherForm.className) {
@@ -295,15 +296,24 @@ const saveTeacher = async () => {
           className: teacherForm.className || null
         })
       }
-      await teacherAPI.create({
+      const res = await teacherAPI.create({
         employeeNo: teacherForm.employeeNo.trim(),
         name: teacherForm.name.trim(),
         phone: teacherForm.phone,
         email: teacherForm.email,
         scopes
       })
+      const initialPassword = res?.data?.initialPassword
+      if (initialPassword) {
+        await ElMessageBox.alert(
+          `登录账号：${res.data.employeeNo || teacherForm.employeeNo}\n初始密码：${initialPassword}\n请妥善告知教师并提醒尽快修改密码。`,
+          '教师账号已创建',
+          { confirmButtonText: '我已记下' }
+        )
+      } else {
+        ElMessage.success('保存成功')
+      }
     }
-    ElMessage.success('保存成功')
     teacherDialogVisible.value = false
     loadData()
   } catch (error) {

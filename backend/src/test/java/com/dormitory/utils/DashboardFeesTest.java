@@ -1,0 +1,48 @@
+package com.dormitory.utils;
+
+import com.dormitory.model.UtilityFee;
+import org.junit.jupiter.api.Test;
+
+import java.math.BigDecimal;
+import java.util.List;
+import java.util.Map;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
+class DashboardFeesTest {
+
+    @Test
+    void sumsWaterAndElectricAndPaidSplit() {
+        UtilityFee unpaid = new UtilityFee();
+        unpaid.setWaterFee(new BigDecimal("1.50"));
+        unpaid.setElectricityFee(new BigDecimal("2.50"));
+        unpaid.setTotalFee(new BigDecimal("4.00"));
+        unpaid.setStatus(0);
+        UtilityFee paid = new UtilityFee();
+        paid.setWaterFee(new BigDecimal("3.00"));
+        paid.setElectricityFee(new BigDecimal("1.00"));
+        paid.setTotalFee(new BigDecimal("4.00"));
+        paid.setStatus(1);
+        Map<String, String> stats = DashboardFees.summarize(List.of(unpaid, paid));
+        assertEquals("4.50", stats.get("waterFee"));
+        assertEquals("3.50", stats.get("electricFee"));
+        assertEquals("4.00", stats.get("paidAmount"));
+        assertEquals("4.00", stats.get("unpaidAmount"));
+    }
+
+    @Test
+    void currentCalendarMonthKeepsOnlyMatchingYearMonth() {
+        UtilityFee current = new UtilityFee();
+        current.setYear(2026);
+        current.setMonth(8);
+        current.setTotalFee(new BigDecimal("10.00"));
+        UtilityFee other = new UtilityFee();
+        other.setYear(2026);
+        other.setMonth(7);
+        other.setTotalFee(new BigDecimal("99.00"));
+        List<UtilityFee> month = DashboardFees.currentCalendarMonth(
+                List.of(current, other), java.time.LocalDate.of(2026, 8, 28));
+        assertEquals(1, month.size());
+        assertEquals(current, month.get(0));
+    }
+}

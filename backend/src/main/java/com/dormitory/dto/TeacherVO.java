@@ -19,5 +19,7 @@ public class TeacherVO {
     private String phone;
     private String email;
     private Integer status;
+    /** 仅创建时返回一次，用于告知管理员初始密码 */
+    private String initialPassword;
     private List<ManagerScope> scopes = new ArrayList<>();
 }

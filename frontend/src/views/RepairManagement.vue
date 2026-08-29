@@ -18,6 +18,7 @@
           <el-option label="待处理" :value="0" />
           <el-option label="处理中" :value="1" />
           <el-option label="已完成" :value="2" />
+          <el-option label="已关闭" :value="3" />
         </el-select>
         <el-button type="primary" @click="showAddDialog">
           <el-icon><Plus /></el-icon>
@@ -44,6 +45,12 @@
         <div class="stat-content">
           <div class="stat-number">{{ completedCount }}</div>
           <div class="stat-label">已完成</div>
+        </div>
+      </el-card>
+      <el-card class="stat-card closed">
+        <div class="stat-content">
+          <div class="stat-number">{{ closedCount }}</div>
+          <div class="stat-label">已关闭</div>
         </div>
       </el-card>
     </div>
@@ -75,7 +82,7 @@
             {{ formatDateTime(row.createTime) }}
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="250" fixed="right">
+        <el-table-column label="操作" width="300" fixed="right">
           <template #default="{ row }">
             <el-button 
               v-if="row.status === 0" 
@@ -92,6 +99,14 @@
               @click="handleStatusChange(row, 2)"
             >
               完成处理
+            </el-button>
+            <el-button 
+              v-if="row.status === 0 || row.status === 1" 
+              type="info" 
+              size="small"
+              @click="handleStatusChange(row, 3)"
+            >
+              关闭
             </el-button>
             <el-button type="primary" size="small" @click="showEditDialog(row)">
               编辑
@@ -138,6 +153,7 @@
             <el-option label="待处理" :value="0" />
             <el-option label="处理中" :value="1" />
             <el-option label="已完成" :value="2" />
+            <el-option label="已关闭" :value="3" />
           </el-select>
         </el-form-item>
       </el-form>
@@ -153,7 +169,7 @@
 import { ref, reactive, onMounted, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, Plus } from '@element-plus/icons-vue'
-import { getRepairs, createRepair, updateRepair, handleRepair, completeRepair, deleteRepair } from '@/api/repair'
+import { getRepairs, createRepair, updateRepair, handleRepair, completeRepair, closeRepair, deleteRepair } from '@/api/repair'
 import { buildingAPI } from '@/api/building'
 import { getRooms } from '@/api/room'
 
@@ -170,6 +186,7 @@ const roomOptions = ref([])
 const pendingCount = computed(() => repairs.value.filter(r => r.status === 0).length)
 const processingCount = computed(() => repairs.value.filter(r => r.status === 1).length)
 const completedCount = computed(() => repairs.value.filter(r => r.status === 2).length)
+const closedCount = computed(() => repairs.value.filter(r => r.status === 3).length)
 
 const form = reactive({
   id: null,
@@ -198,7 +215,7 @@ const getRepairTypeName = (type) => repairTypes[type] || type || '未知'
 
 // 状态映射
 const getStatusType = (status) => {
-  const types = { 0: 'danger', 1: 'warning', 2: 'success' }
+  const types = { 0: 'danger', 1: 'warning', 2: 'success', 3: 'info' }
   return types[status] || 'info'
 }
 
@@ -344,7 +361,8 @@ const handleSubmit = async () => {
 // 状态更新
 const handleStatusChange = async (row, status) => {
   try {
-    const statusName = status === 1 ? '开始处理' : '完成处理'
+    const statusNames = { 1: '开始处理', 2: '完成处理', 3: '关闭' }
+    const statusName = statusNames[status] || '更新'
     await ElMessageBox.confirm(`确认${statusName}该报修？`, '提示', {
       confirmButtonText: '确定',
       cancelButtonText: '取消',
@@ -355,6 +373,8 @@ const handleStatusChange = async (row, status) => {
       await handleRepair(row.id, '管理员', null)
     } else if (status === 2) {
       await completeRepair(row.id, null)
+    } else if (status === 3) {
+      await closeRepair(row.id, null)
     }
     ElMessage.success('状态更新成功')
     loadRepairs()
@@ -436,4 +456,5 @@ onMounted(() => {
 .pending .stat-number { color: #f56c6c; }
 .processing .stat-number { color: #e6a23c; }
 .completed .stat-number { color: #67c23a; }
+.closed .stat-number { color: #909399; }
 </style>

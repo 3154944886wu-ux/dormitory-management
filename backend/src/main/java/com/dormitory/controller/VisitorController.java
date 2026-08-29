@@ -1,10 +1,16 @@
 package com.dormitory.controller;
 
+import com.dormitory.mapper.UserMapper;
+import com.dormitory.model.User;
 import com.dormitory.model.Visitor;
+import com.dormitory.service.ManagerScopeService;
 import com.dormitory.service.VisitorService;
+import com.dormitory.utils.ApiResponses;
+import com.dormitory.utils.AuthRoles;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
@@ -17,9 +23,15 @@ import java.util.Map;
 public class VisitorController {
     
     private final VisitorService visitorService;
+    private final ManagerScopeService managerScopeService;
+    private final UserMapper userMapper;
     
-    public VisitorController(VisitorService visitorService) {
+    public VisitorController(VisitorService visitorService,
+                             ManagerScopeService managerScopeService,
+                             UserMapper userMapper) {
         this.visitorService = visitorService;
+        this.managerScopeService = managerScopeService;
+        this.userMapper = userMapper;
     }
     
     @GetMapping
@@ -29,7 +41,8 @@ public class VisitorController {
             @RequestParam(required = false) Integer status,
             @RequestParam(required = false) String name,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) 
-            LocalDateTime date) {
+            LocalDateTime date,
+            Authentication auth) {
         
         List<Visitor> visitors;
         if (roomId != null) {
@@ -43,6 +56,7 @@ public class VisitorController {
         } else {
             visitors = visitorService.findAll();
         }
+        visitors = filterForManager(auth, visitors);
         
         Map<String, Object> result = new HashMap<>();
         result.put("code", 200);
@@ -52,7 +66,7 @@ public class VisitorController {
     
     @GetMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
-    public ResponseEntity<Map<String, Object>> getById(@PathVariable Long id) {
+    public ResponseEntity<Map<String, Object>> getById(@PathVariable Long id, Authentication auth) {
         Visitor visitor = visitorService.findById(id);
         
         Map<String, Object> result = new HashMap<>();
@@ -60,6 +74,10 @@ public class VisitorController {
             result.put("code", 404);
             result.put("message", "访客记录不存在");
             return ResponseEntity.status(404).body(result);
+        }
+        ResponseEntity<Map<String, Object>> denied = denyIfOutOfScope(auth, visitor);
+        if (denied != null) {
+            return denied;
         }
         
         result.put("code", 200);
@@ -69,10 +87,12 @@ public class VisitorController {
     
     @GetMapping("/active/count")
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
-    public ResponseEntity<Map<String, Object>> getActiveCount() {
+    public ResponseEntity<Map<String, Object>> getActiveCount(Authentication auth) {
+        List<Visitor> active = visitorService.findByStatus(1);
+        active = filterForManager(auth, active);
         Map<String, Object> result = new HashMap<>();
         result.put("code", 200);
-        result.put("data", Map.of("count", visitorService.getActiveCount()));
+        result.put("data", Map.of("count", active.size()));
         return ResponseEntity.ok(result);
     }
     
@@ -145,5 +165,33 @@ public class VisitorController {
             result.put("message", e.getMessage());
             return ResponseEntity.badRequest().body(result);
         }
+    }
+
+    private Long managerUserId(Authentication auth) {
+        if (!AuthRoles.isManagerOnly(auth)) {
+            return null;
+        }
+        User user = userMapper.findByUsername(auth.getName());
+        return user == null ? null : user.getId();
+    }
+
+    private List<Visitor> filterForManager(Authentication auth, List<Visitor> visitors) {
+        Long managerId = managerUserId(auth);
+        if (managerId == null) {
+            return visitors;
+        }
+        return managerScopeService.filterVisibleByRoom(managerId, visitors,
+                Visitor::getBuildingId, Visitor::getRoomId);
+    }
+
+    private ResponseEntity<Map<String, Object>> denyIfOutOfScope(Authentication auth, Visitor visitor) {
+        Long managerId = managerUserId(auth);
+        if (managerId == null) {
+            return null;
+        }
+        if (!managerScopeService.canSeeRoom(managerId, visitor.getBuildingId(), visitor.getRoomId())) {
+            return ApiResponses.forbidden("无权查看该范围外的访客");
+        }
+        return null;
     }
 }

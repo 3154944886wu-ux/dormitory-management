@@ -89,6 +89,7 @@
         <el-descriptions-item label="请假原因">{{ currentRequest.reason }}</el-descriptions-item>
         <el-descriptions-item label="联系电话">{{ currentRequest.contactPhone }}</el-descriptions-item>
         <el-descriptions-item label="紧急联系人">{{ currentRequest.emergencyContact || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="外出地点">{{ currentRequest.destination || '-' }}</el-descriptions-item>
       </el-descriptions>
       
       <el-form 
@@ -129,6 +130,8 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { 
   getLeaveRequestsForApproval, 
+  getLeaveRequests,
+  getLeaveRequestsByStatus,
   approveLeaveRequest, 
   rejectLeaveRequest 
 } from '@/api/leaveRequest'
@@ -183,13 +186,17 @@ const dialogTitle = computed(() => {
 const loadRequests = async () => {
   loading.value = true
   try {
-    const res = await getLeaveRequestsForApproval({
-      page: page.value,
-      size: size.value,
-      status: filters.status
-    })
-    requests.value = res.data?.records || res.data || []
-    total.value = res.data?.total || requests.value.length
+    // 待审批(0) 用分页 pending 接口；指定其它状态用按状态查询；未选状态用分页全部查询
+    let res
+    if (filters.status === '' || filters.status === null || filters.status === undefined) {
+      res = await getLeaveRequests({ page: page.value, size: size.value })
+    } else if (String(filters.status) === '0') {
+      res = await getLeaveRequestsForApproval({ page: page.value, size: size.value })
+    } else {
+      res = await getLeaveRequestsByStatus(filters.status)
+    }
+    requests.value = res.data?.records || res.data?.list || res.data || []
+    total.value = res.total ?? res.data?.total ?? requests.value.length
   } catch (error) {
     ElMessage.error('加载请假申请列表失败')
   } finally {

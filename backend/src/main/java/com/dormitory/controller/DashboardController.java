@@ -1,15 +1,21 @@
 package com.dormitory.controller;
 
 import com.dormitory.mapper.*;
-import com.dormitory.model.Repair;
-import com.dormitory.model.UtilityFee;
+import com.dormitory.model.*;
+import com.dormitory.service.ManagerScopeService;
+import com.dormitory.utils.AuthRoles;
+import com.dormitory.utils.DashboardFees;
+import com.dormitory.utils.DashboardOverview;
+import com.dormitory.utils.RepairCounts;
+import com.dormitory.utils.RoomFill;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
-import java.util.*;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/dashboard")
@@ -24,6 +30,8 @@ public class DashboardController {
     private final VisitorMapper visitorMapper;
     private final DormBatchMapper dormBatchMapper;
     private final AllocationResultMapper allocationResultMapper;
+    private final ManagerScopeService managerScopeService;
+    private final UserMapper userMapper;
 
     public DashboardController(BuildingMapper buildingMapper,
                               RoomMapper roomMapper,
@@ -32,7 +40,9 @@ public class DashboardController {
                               RepairMapper repairMapper,
                               VisitorMapper visitorMapper,
                               DormBatchMapper dormBatchMapper,
-                              AllocationResultMapper allocationResultMapper) {
+                              AllocationResultMapper allocationResultMapper,
+                              ManagerScopeService managerScopeService,
+                              UserMapper userMapper) {
         this.buildingMapper = buildingMapper;
         this.roomMapper = roomMapper;
         this.studentMapper = studentMapper;
@@ -41,184 +51,145 @@ public class DashboardController {
         this.visitorMapper = visitorMapper;
         this.dormBatchMapper = dormBatchMapper;
         this.allocationResultMapper = allocationResultMapper;
+        this.managerScopeService = managerScopeService;
+        this.userMapper = userMapper;
     }
-    
-    /**
-     * 获取概览数据
-     */
+
     @GetMapping("/overview")
-    public ResponseEntity<Map<String, Object>> getOverview() {
-        Map<String, Object> data = new HashMap<>();
-        
-        // 楼栋统计
-        int buildingCount = buildingMapper.count();
-        data.put("buildingCount", buildingCount);
-        
-        // 房间统计
-        int totalRooms = roomMapper.count();
-        int freeRooms = roomMapper.countFree();
-        int partialRooms = roomMapper.countPartial();
-        int fullRooms = roomMapper.countFull();
-        data.put("roomCount", totalRooms);
-        data.put("freeRooms", freeRooms);
-        data.put("partialRooms", partialRooms);
-        data.put("fullRooms", fullRooms);
-        
-        // 学生统计
-        int studentCount = studentMapper.count();
-        data.put("studentCount", studentCount);
-        
-        // 报修统计
-        int pendingRepairs = repairMapper.countByStatus(0);
-        int processingRepairs = repairMapper.countByStatus(1);
-        int completedRepairs = repairMapper.countByStatus(2);
-        data.put("pendingRepairs", pendingRepairs);
-        data.put("processingRepairs", processingRepairs);
-        data.put("completedRepairs", completedRepairs);
-        
-        // 访客统计
-        int activeVisitors = visitorMapper.countActive();
-        data.put("activeVisitors", activeVisitors);
-        
-        Map<String, Object> result = new HashMap<>();
-        result.put("code", 200);
-        result.put("data", data);
-        return ResponseEntity.ok(result);
-    }
-    
-    /**
-     * 获取入住统计
-     */
-    @GetMapping("/accommodation")
-    public ResponseEntity<Map<String, Object>> getAccommodationStats() {
-        Map<String, Object> data = new HashMap<>();
-        
-        int totalRooms = roomMapper.count();
-        int occupiedRooms = roomMapper.countOccupied();
-        int studentCount = studentMapper.count();
-        int buildingCount = buildingMapper.count();
-        
-        data.put("totalRooms", totalRooms);
-        data.put("occupiedRooms", occupiedRooms);
-        data.put("vacantRooms", totalRooms - occupiedRooms);
-        data.put("studentCount", studentCount);
-        data.put("buildingCount", buildingCount);
-        
-        // 计算入住率
-        double occupancyRate = totalRooms > 0 ? (double) occupiedRooms / totalRooms * 100 : 0;
-        data.put("occupancyRate", String.format("%.1f", occupancyRate));
-        
-        Map<String, Object> result = new HashMap<>();
-        result.put("code", 200);
-        result.put("data", data);
-        return ResponseEntity.ok(result);
-    }
-    
-    /**
-     * 获取报修统计
-     */
-    @GetMapping("/repair")
-    public ResponseEntity<Map<String, Object>> getRepairStats() {
-        Map<String, Object> data = new HashMap<>();
-        
-        // 按状态统计
-        int pending = repairMapper.countByStatus(0);
-        int processing = repairMapper.countByStatus(1);
-        int completed = repairMapper.countByStatus(2);
-        int total = pending + processing + completed;
-        
-        data.put("pending", pending);
-        data.put("processing", processing);
-        data.put("completed", completed);
-        data.put("total", total);
-        
-        // 最近报修列表（取前5条）
-        List<Repair> recentRepairs = repairMapper.findAll();
-        if (recentRepairs.size() > 5) {
-            recentRepairs = recentRepairs.subList(0, 5);
+    public ResponseEntity<Map<String, Object>> getOverview(Authentication auth) {
+        ScopedSnapshot snap = snapshot(auth);
+        Map<Long, Integer> occupancy = RoomFill.occupancyByRoom(snap.allResidents);
+        Map<String, Object> rooms = RoomFill.summarize(snap.rooms, occupancy);
+        int activeVisitors = 0;
+        for (Visitor visitor : snap.visitors) {
+            if (visitor != null && visitor.getStatus() != null && visitor.getStatus() == 1) {
+                activeVisitors++;
+            }
         }
-        data.put("recentRepairs", recentRepairs);
-        
-        Map<String, Object> result = new HashMap<>();
-        result.put("code", 200);
-        result.put("data", data);
-        return ResponseEntity.ok(result);
+        return ok(DashboardOverview.overview(
+                snap.buildings.size(),
+                rooms,
+                RoomFill.residing(snap.students),
+                RepairCounts.overview(snap.repairs),
+                activeVisitors));
     }
-    
-    /**
-     * 获取水电费统计
-     */
+
+    @GetMapping("/accommodation")
+    public ResponseEntity<Map<String, Object>> getAccommodationStats(Authentication auth) {
+        ScopedSnapshot snap = snapshot(auth);
+        Map<String, Object> rooms = RoomFill.summarize(snap.rooms, RoomFill.occupancyByRoom(snap.allResidents));
+        return ok(DashboardOverview.accommodation(snap.buildings.size(), rooms, RoomFill.residing(snap.students)));
+    }
+
+    @GetMapping("/repair")
+    public ResponseEntity<Map<String, Object>> getRepairStats(Authentication auth) {
+        ScopedSnapshot snap = snapshot(auth);
+        Map<String, Object> data = RepairCounts.panel(snap.repairs);
+        List<Repair> recent = snap.repairs.size() > 5 ? snap.repairs.subList(0, 5) : snap.repairs;
+        data.put("recentRepairs", recent);
+        return ok(data);
+    }
+
     @GetMapping("/utility")
-    public ResponseEntity<Map<String, Object>> getUtilityStats() {
+    public ResponseEntity<Map<String, Object>> getUtilityStats(Authentication auth) {
+        ScopedSnapshot snap = snapshot(auth);
+        List<UtilityFee> fees = DashboardFees.currentCalendarMonth(snap.fees);
         Map<String, Object> data = new HashMap<>();
-        
-        // 获取所有水电费记录
-        List<UtilityFee> allFees = utilityFeeMapper.findAll();
-        
-        // 统计总数
-        int total = allFees.size();
-        data.put("total", total);
-        
-        // 按状态统计
-        long unpaid = allFees.stream().filter(f -> f.getStatus() == 0).count();
-        long paid = allFees.stream().filter(f -> f.getStatus() == 1).count();
+        data.put("total", fees.size());
+        long unpaid = fees.stream().filter(f -> f.getStatus() != null && f.getStatus() == 0).count();
+        long paid = fees.stream().filter(f -> f.getStatus() != null && f.getStatus() == 1).count();
         data.put("unpaid", unpaid);
         data.put("paid", paid);
-        
-        // 计算总金额
-        java.math.BigDecimal totalAmount = allFees.stream()
-            .map(f -> f.getTotalFee() != null ? f.getTotalFee() : java.math.BigDecimal.ZERO)
-            .reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add);
-        java.math.BigDecimal paidAmount = allFees.stream()
-            .filter(f -> f.getStatus() == 1)
-            .map(f -> f.getTotalFee() != null ? f.getTotalFee() : java.math.BigDecimal.ZERO)
-            .reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add);
-        java.math.BigDecimal unpaidAmount = totalAmount.subtract(paidAmount);
-        
+        java.math.BigDecimal totalAmount = fees.stream()
+                .map(f -> f.getTotalFee() != null ? f.getTotalFee() : java.math.BigDecimal.ZERO)
+                .reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add);
+        java.math.BigDecimal paidAmount = fees.stream()
+                .filter(f -> f.getStatus() != null && f.getStatus() == 1)
+                .map(f -> f.getTotalFee() != null ? f.getTotalFee() : java.math.BigDecimal.ZERO)
+                .reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add);
         data.put("totalAmount", totalAmount);
         data.put("paidAmount", paidAmount);
-        data.put("unpaidAmount", unpaidAmount);
-        
-        // 最近账单（取前5条）
-        List<UtilityFee> recentFees = allFees.size() > 5 ? allFees.subList(0, 5) : allFees;
-        data.put("recentFees", recentFees);
-        
-        Map<String, Object> result = new HashMap<>();
-        result.put("code", 200);
-        result.put("data", data);
-        return ResponseEntity.ok(result);
+        data.put("unpaidAmount", totalAmount.subtract(paidAmount));
+        data.putAll(DashboardFees.summarize(fees));
+        data.put("recentFees", fees.size() > 5 ? fees.subList(0, 5) : fees);
+        return ok(data);
     }
-    
-    /**
-     * 选宿统计
-     */
+
     @GetMapping("/dorm-stats")
-    public ResponseEntity<Map<String, Object>> getDormStats() {
-        Map<String, Object> data = new HashMap<>();
+    public ResponseEntity<Map<String, Object>> getDormStats(Authentication auth) {
+        ScopedSnapshot snap = snapshot(auth);
+        int activeBatches = managerUserId(auth) == null
+                ? dormBatchMapper.countActive()
+                : DashboardOverview.distinctBatchCount(snap.allocations);
+        return ok(DashboardOverview.dormStats(snap.allocations, activeBatches));
+    }
 
-        int activeBatches = dormBatchMapper.countActive();
-        data.put("activeBatches", activeBatches);
+    @GetMapping("/stats")
+    public ResponseEntity<Map<String, Object>> getStats(Authentication auth) {
+        return getOverview(auth);
+    }
 
-        int totalAllocated = allocationResultMapper.countAll();
-        data.put("totalAllocated", totalAllocated);
+    private ScopedSnapshot snapshot(Authentication auth) {
+        Long managerId = managerUserId(auth);
+        List<Building> buildings = buildingMapper.findAll();
+        List<Room> rooms = roomMapper.findAll();
+        List<Student> students = studentMapper.findAll();
+        List<Repair> repairs = repairMapper.findAll();
+        List<Visitor> visitors = visitorMapper.findAll();
+        List<UtilityFee> fees = utilityFeeMapper.findAll();
+        List<AllocationResult> allocations = allocationResultMapper.findAll();
+        if (managerId == null) {
+            return new ScopedSnapshot(buildings, rooms, students, students, repairs, visitors, fees, allocations);
+        }
+        if (!managerScopeService.hasScope(managerId)) {
+            return ScopedSnapshot.empty();
+        }
+        buildings = managerScopeService.filterVisibleByBuilding(managerId, buildings, Building::getId);
+        rooms = managerScopeService.filterVisibleByBuilding(managerId, rooms, Room::getBuildingId);
+        List<Student> visibleStudents = managerScopeService.filterVisible(
+                managerId, students, Student::getBuildingId, Student::getClassName);
+        repairs = managerScopeService.filterVisible(managerId, repairs, Repair::getBuildingId, Repair::getClassName);
+        visitors = managerScopeService.filterVisibleByBuilding(managerId, visitors, Visitor::getBuildingId);
+        fees = managerScopeService.filterVisibleByBuilding(managerId, fees, UtilityFee::getBuildingId);
+        allocations = managerScopeService.filterVisible(
+                managerId, allocations, AllocationResult::getBuildingId, AllocationResult::getClassName);
+        java.util.Set<Long> visibleRoomIds = rooms.stream()
+                .map(Room::getId)
+                .filter(java.util.Objects::nonNull)
+                .collect(java.util.stream.Collectors.toSet());
+        List<Student> residentsInVisibleRooms = students.stream()
+                .filter(s -> s.getRoomId() != null && visibleRoomIds.contains(s.getRoomId()))
+                .toList();
+        return new ScopedSnapshot(buildings, rooms, visibleStudents, residentsInVisibleRooms,
+                repairs, visitors, fees, allocations);
+    }
 
-        java.math.BigDecimal avgScore = allocationResultMapper.avgTotalMatchScore();
-        data.put("avgMatchScore", avgScore != null ? String.format("%.1f", avgScore) : "0.0");
+    private Long managerUserId(Authentication auth) {
+        if (!AuthRoles.isManagerOnly(auth)) {
+            return null;
+        }
+        User user = userMapper.findByUsername(auth.getName());
+        return user == null ? null : user.getId();
+    }
 
-        int pendingConfirm = allocationResultMapper.countByStatus("recommended");
-        data.put("pendingConfirm", pendingConfirm);
-
+    private ResponseEntity<Map<String, Object>> ok(Map<String, Object> data) {
         Map<String, Object> result = new HashMap<>();
         result.put("code", 200);
         result.put("data", data);
         return ResponseEntity.ok(result);
     }
 
-    /**
-     * 获取统计数据（兼容旧接口）
-     */
-    @GetMapping("/stats")
-    public ResponseEntity<Map<String, Object>> getStats() {
-        return getOverview();
+    private record ScopedSnapshot(List<Building> buildings,
+                                  List<Room> rooms,
+                                  List<Student> students,
+                                  List<Student> allResidents,
+                                  List<Repair> repairs,
+                                  List<Visitor> visitors,
+                                  List<UtilityFee> fees,
+                                  List<AllocationResult> allocations) {
+        static ScopedSnapshot empty() {
+            return new ScopedSnapshot(List.of(), List.of(), List.of(), List.of(),
+                    List.of(), List.of(), List.of(), List.of());
+        }
     }
 }

@@ -22,4 +22,5 @@ public class Visitor {
     // 关联字段
     private String buildingName;     // 楼栋名称
     private String roomNumber;       // 房间号
+    private Long buildingId;
 }

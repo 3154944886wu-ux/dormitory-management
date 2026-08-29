@@ -4,6 +4,8 @@ import com.dormitory.mapper.UserMapper;
 import com.dormitory.model.User;
 import com.dormitory.utils.AuthUserState;
 import com.dormitory.utils.JwtUtils;
+import com.dormitory.utils.SessionValidity;
+import io.jsonwebtoken.Claims;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -38,11 +40,13 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             String token = authHeader.substring(7);
 
             try {
-                var claims = jwtUtils.parseToken(token);
+                Claims claims = jwtUtils.parseToken(token);
                 String username = claims.getSubject();
-                User user = userMapper.findByUsername(username);
+                User user = username == null ? null : userMapper.findByUsername(username);
+                String tokenPv = claims.get("pv", String.class);
                 List<GrantedAuthority> authorities = AuthUserState.authorities(user);
-                if (!authorities.isEmpty()) {
+                if (!authorities.isEmpty()
+                        && SessionValidity.passwordVersionMatches(user.getPassword(), tokenPv)) {
                     var authentication = new UsernamePasswordAuthenticationToken(username, null, authorities);
                     SecurityContextHolder.getContext().setAuthentication(authentication);
                 }

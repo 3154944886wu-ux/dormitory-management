@@ -208,6 +208,7 @@ CREATE TABLE IF NOT EXISTS leave_requests (
     start_time DATETIME NOT NULL COMMENT '开始时间',
     end_time DATETIME NOT NULL COMMENT '结束时间',
     contact_phone VARCHAR(20) COMMENT '联系电话',
+    emergency_contact VARCHAR(100) COMMENT '紧急联系人',
     destination VARCHAR(200) COMMENT '去向',
     attachment VARCHAR(500) COMMENT '附件URL(请假条等)',
     status TINYINT DEFAULT 0 COMMENT '状态: 0待审批, 1已批准, 2已拒绝, 3已撤销, 4已销假',
@@ -261,7 +262,8 @@ CREATE TABLE IF NOT EXISTS check_exceptions (
     create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
     update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE,
-    FOREIGN KEY (check_record_id) REFERENCES check_in_records(id) ON DELETE SET NULL
+    FOREIGN KEY (check_record_id) REFERENCES check_in_records(id) ON DELETE SET NULL,
+    UNIQUE KEY uk_student_date_type (student_id, exception_date, exception_type)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='归寝异常记录表';
 
 -- 公告表
@@ -292,6 +294,8 @@ CREATE TABLE IF NOT EXISTS inspection_plans (
     inspector_ids VARCHAR(500) COMMENT '检查人员ID列表，逗号分隔',
     total_rooms INT DEFAULT 0 COMMENT '总房间数',
     completed_rooms INT DEFAULT 0 COMMENT '已完成房间数',
+    creator_id BIGINT COMMENT '创建人ID',
+    floor_range VARCHAR(50) COMMENT '楼层范围',
     create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
     update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='安全卫生检查计划表';
@@ -321,7 +325,8 @@ CREATE TABLE IF NOT EXISTS inspection_records (
     update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (plan_id) REFERENCES inspection_plans(id) ON DELETE SET NULL,
     FOREIGN KEY (building_id) REFERENCES buildings(id) ON DELETE CASCADE,
-    FOREIGN KEY (room_id) REFERENCES rooms(id) ON DELETE CASCADE
+    FOREIGN KEY (room_id) REFERENCES rooms(id) ON DELETE CASCADE,
+    UNIQUE KEY uk_plan_room (plan_id, room_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='安全卫生检查记录表';
 
 -- ================================================================

@@ -2,6 +2,7 @@ package com.dormitory.service;
 
 import com.dormitory.mapper.*;
 import com.dormitory.model.*;
+import com.dormitory.utils.GenderMatcher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -118,7 +119,9 @@ public class RelocationService {
     public RelocationApplication reject(Long applicationId, Long adminUserId, String comment) {
         RelocationApplication app = relocationAppMapper.findById(applicationId);
         if (app == null) throw new RuntimeException("申请不存在");
-        if (!"pending".equals(app.getStatus())) throw new RuntimeException("只有待审核的申请才能拒绝");
+        if (!"pending".equals(app.getStatus()) && !"approved".equals(app.getStatus())) {
+            throw new RuntimeException("只有待审核或已通过的申请才能拒绝");
+        }
 
         app.setStatus("rejected");
         app.setReviewedBy(adminUserId);
@@ -143,15 +146,28 @@ public class RelocationService {
 
         Student student = studentMapper.findById(app.getStudentId());
         if (student == null) throw new RuntimeException("学生不存在");
+        if (student.getStatus() == null || student.getStatus() != 1) {
+            throw new RuntimeException("学生已退宿，无法执行调宿");
+        }
+        if (app.getCurrentRoomId() != null && student.getRoomId() != null
+                && !app.getCurrentRoomId().equals(student.getRoomId())) {
+            throw new RuntimeException("学生当前房间已变化，请重新申请调宿");
+        }
 
         Room newRoom = roomMapper.findById(newRoomId);
         if (newRoom == null) throw new RuntimeException("目标房间不存在");
         if (newRoom.getIsActive() != 1) throw new RuntimeException("目标房间已停用");
-        if (newRoom.getCurrentCount() >= newRoom.getCapacity())
+        boolean sameRoom = student.getRoomId() != null && student.getRoomId().equals(newRoomId);
+        int live = studentMapper.countByRoomId(newRoomId);
+        if (!sameRoom && live >= newRoom.getCapacity()) {
             throw new RuntimeException("目标房间已满");
+        }
 
         Building building = buildingMapper.findById(newRoom.getBuildingId());
-        if (!isGenderMatch(student.getGender(), building.getGenderType()))
+        if (building == null) {
+            throw new RuntimeException("目标楼栋不存在");
+        }
+        if (!GenderMatcher.isCompatible(student.getGender(), building.getGenderType()))
             throw new RuntimeException("学生性别与目标楼栋类型不匹配");
 
         Bed newBed = bedMapper.findById(newBedId);
@@ -160,41 +176,43 @@ public class RelocationService {
         if (newBed.getIsOccupied() == 1)
             throw new RuntimeException("该床位已被占用");
 
-        // 释放旧资源
-        releaseOldResources(student, app.getCurrentBedId());
-
-        // 占用新资源
-        int inc = roomMapper.incrementCount(newRoomId);
-        if (inc == 0) {
-            throw new RuntimeException("目标房间已满，无法调宿");
+        int cas = relocationAppMapper.markExecuted(applicationId, adminUserId, newRoomId, newBedId);
+        if (cas == 0) {
+            throw new RuntimeException("申请状态已变化，无法执行");
         }
-        bedMapper.updateOccupied(newBedId, 1);
+
+        Long currentBedId = studentCurrentBedId(student);
+        releaseOldResources(student, currentBedId);
+
+        // 占用新资源：先条件占床，防止并发下重复占用同一床位
+        int occupied = bedMapper.tryOccupy(newBedId);
+        if (occupied == 0) {
+            throw new RuntimeException("该床位已被占用");
+        }
+        if (!sameRoom) {
+            int inc = roomMapper.incrementCount(newRoomId);
+            if (inc == 0) {
+                throw new RuntimeException("目标房间已满，无法调宿");
+            }
+        }
 
         // 更新学生
         Long oldRoomId = student.getRoomId();
         student.setRoomId(newRoomId);
         student.setBedNumber(newBed.getBedNumber());
         studentMapper.update(student);
+        roomMapper.setCurrentCount(newRoomId, studentMapper.countByRoomId(newRoomId));
+        if (oldRoomId != null && !oldRoomId.equals(newRoomId)) {
+            roomMapper.setCurrentCount(oldRoomId, studentMapper.countByRoomId(oldRoomId));
+        }
 
-        // 更新 AllocationResult: 旧记录标 adjusted，新建 manual_assigned
-        AllocationResult oldResult = allocationResultMapper
+        // 更新 AllocationResult：原地更新为 manual_assigned，避免违反 (student_id, batch_id) 唯一约束
+        AllocationResult result = allocationResultMapper
                 .findByStudentIdAndBatchId(student.getId(), app.getBatchId());
-        if (oldResult != null) {
-            oldResult.setStatus("adjusted");
-            allocationResultMapper.update(oldResult);
-
-            AllocationResult newResult = new AllocationResult();
-            newResult.setStudentId(student.getId());
-            newResult.setBatchId(app.getBatchId());
-            newResult.setRoomId(newRoomId);
-            newResult.setBedId(newBedId);
-            newResult.setMatchScore(oldResult.getMatchScore());
-            newResult.setStatus("manual_assigned");
-            allocationResultMapper.insert(newResult);
-
+        if (result != null) {
             // 从旧室友组中移除
-            if (oldResult.getRoommateGroupId() != null) {
-                RoommateGroup oldGroup = roommateGroupMapper.findById(oldResult.getRoommateGroupId());
+            if (result.getRoommateGroupId() != null) {
+                RoommateGroup oldGroup = roommateGroupMapper.findById(result.getRoommateGroupId());
                 if (oldGroup != null) {
                     List<Long> members = oldGroup.getMemberIdList();
                     members.remove(student.getId());
@@ -206,8 +224,9 @@ public class RelocationService {
             // 加入新房间的室友组（或新建）
             List<RoommateGroup> newRoomGroups = roommateGroupMapper.findByRoomId(newRoomId);
             RoommateGroup targetGroup = null;
+            int roomCapacity = newRoom.getCapacity() != null ? newRoom.getCapacity() : 4;
             for (RoommateGroup rg : newRoomGroups) {
-                if (rg.getMemberIdList() != null && rg.getMemberIdList().size() < 4) {
+                if (rg.getMemberIdList() != null && rg.getMemberIdList().size() < roomCapacity) {
                     targetGroup = rg;
                     break;
                 }
@@ -224,14 +243,14 @@ public class RelocationService {
                 targetGroup.setMemberIdList(new ArrayList<>(List.of(student.getId())));
                 roommateGroupMapper.insert(targetGroup);
             }
-        }
 
-        // 更新申请
-        app.setStatus("executed");
-        app.setExecutedBy(adminUserId);
-        app.setNewRoomId(newRoomId);
-        app.setNewBedId(newBedId);
-        relocationAppMapper.update(app);
+            // 原地更新分配结果并关联到新室友组
+            result.setRoomId(newRoomId);
+            result.setBedId(newBedId);
+            result.setStatus("manual_assigned");
+            result.setRoommateGroupId(targetGroup.getId());
+            allocationResultMapper.update(result);
+        }
 
         writeLog(student.getId(), "admin", String.valueOf(adminUserId),
                 "执行调换", "{\"applicationId\":" + applicationId
@@ -260,25 +279,40 @@ public class RelocationService {
         return relocationAppMapper.findById(id);
     }
 
+    public void cancelActiveByStudent(Long studentId) {
+        if (studentId == null) {
+            return;
+        }
+        for (RelocationApplication app : relocationAppMapper.findByStudentId(studentId)) {
+            if ("pending".equals(app.getStatus()) || "approved".equals(app.getStatus())) {
+                relocationAppMapper.updateStatus(app.getId(), "cancelled");
+            }
+        }
+    }
+
+    private Long studentCurrentBedId(Student student) {
+        if (student.getRoomId() == null || student.getBedNumber() == null) {
+            return null;
+        }
+        for (Bed bed : bedMapper.findByRoomId(student.getRoomId())) {
+            if (student.getBedNumber().equals(bed.getBedNumber())) {
+                return bed.getId();
+            }
+        }
+        return null;
+    }
+
     private void releaseOldResources(Student student, Long currentBedId) {
         if (student.getRoomId() != null) {
             int dec = roomMapper.decrementCount(student.getRoomId());
             if (dec == 0) {
-                System.err.println("警告: 调宿释放时房间[" + student.getRoomId() + "]人数减减失败");
+                roomMapper.setCurrentCount(student.getRoomId(),
+                        Math.max(0, studentMapper.countByRoomId(student.getRoomId()) - 1));
             }
         }
         if (currentBedId != null) {
             bedMapper.updateOccupied(currentBedId, 0);
         }
-    }
-
-    private boolean isGenderMatch(String studentGender, String buildingType) {
-        if (buildingType == null) return true;
-        String lower = buildingType.toLowerCase();
-        if ("男".equals(studentGender) && "male".equals(lower)) return true;
-        if ("女".equals(studentGender) && "female".equals(lower)) return true;
-        if ("mixed".equals(lower)) return true;
-        return false;
     }
 
     private void writeLog(Long studentId, String operatorType, String operatorId,

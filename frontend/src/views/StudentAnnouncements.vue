@@ -37,7 +37,7 @@
           </div>
           <div class="item-content">{{ item.content }}</div>
           <div class="item-footer">
-            <span class="author">发布人：{{ item.author }}</span>
+            <span class="author">发布人：{{ item.publisherName || item.author || '管理员' }}</span>
             <span class="time">{{ item.createTime }}</span>
           </div>
         </div>
@@ -64,7 +64,7 @@
       <div class="detail-content" v-if="currentAnnouncement">
         <h3>{{ currentAnnouncement.title }}</h3>
         <div class="meta">
-          <span>发布人：{{ currentAnnouncement.author }}</span>
+          <span>发布人：{{ currentAnnouncement.publisherName || currentAnnouncement.author || '管理员' }}</span>
           <span>发布时间：{{ currentAnnouncement.createTime }}</span>
         </div>
         <el-divider />
@@ -100,8 +100,10 @@ const loadAnnouncements = async () => {
         title: searchText.value
       }
     })
-    announcements.value = res.data?.list || res.data || []
-    total.value = res.data?.total || 0
+    const payload = res.data
+    const list = Array.isArray(payload) ? payload : (payload?.list || [])
+    announcements.value = list
+    total.value = Array.isArray(payload) ? list.length : (payload?.total || list.length)
   } catch (error) {
     console.error('加载公告失败:', error)
     ElMessage.error('加载公告失败')

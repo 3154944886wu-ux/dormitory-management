@@ -10,7 +10,8 @@ public class Room {
     private String roomNumber;      // 房间号，如 "101", "201"
     private Integer floor;          // 楼层
     private Integer capacity;       // 容纳人数（床位数）
-    private Integer currentCount;   // 当前入住人数
+    private Integer currentCount;   // 当前入住人数（选宿 CAS 用列，可能漂移）
+    private Integer occupancy;      // 实际在住人数（查询时 COUNT 在住学生）
     private Integer status;         // 1可用, 0停用
     private String roomType;        // 房间规格(如4人间/2人间)
     private Integer windowBedsCount;    // 靠窗床位数量
@@ -24,16 +25,22 @@ public class Room {
     private LocalDateTime createTime;
     private LocalDateTime updateTime;
     
-    // 计算剩余床位
-    public Integer getAvailableBeds() {
-        if (capacity != null && currentCount != null) {
-            return capacity - currentCount;
+    /** 闸门用实际在住人数，缺省才回退到 current_count。 */
+    public int usedCount() {
+        if (occupancy != null) {
+            return occupancy;
         }
-        return capacity != null ? capacity : 0;
+        return currentCount != null ? currentCount : 0;
+    }
+
+    public Integer getAvailableBeds() {
+        if (capacity == null) {
+            return 0;
+        }
+        return Math.max(0, capacity - usedCount());
     }
     
-    // 是否满员
     public Boolean isFull() {
-        return currentCount != null && capacity != null && currentCount >= capacity;
+        return capacity != null && usedCount() >= capacity;
     }
 }

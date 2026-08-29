@@ -1,0 +1,24 @@
+spring:
+  jackson:
+    time-zone: Asia/Shanghai
+  datasource:
+    url: jdbc:mysql://127.0.0.1:3306/dormitory_it?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&useSSL=false
+    username: root
+    password: ""
+  sql:
+    init:
+      mode: never
+  task:
+    scheduling:
+      enabled: false
+
+jwt:
+  secret: test-jwt-secret-must-be-32-chars-min-ok
+  expiration: 3600000
+
+app:
+  init-admin:
+    enabled: false
+  seed-demo:
+    enabled: false
+    allow-data-wipe: false

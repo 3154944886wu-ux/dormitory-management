@@ -1,9 +1,16 @@
 package com.dormitory.controller;
 
 import com.dormitory.mapper.StudentMapper;
+import com.dormitory.mapper.UserMapper;
 import com.dormitory.model.Student;
+import com.dormitory.model.User;
 import com.dormitory.model.UtilityFee;
+import com.dormitory.service.ManagerScopeService;
 import com.dormitory.service.UtilityFeeService;
+import com.dormitory.utils.ApiResponses;
+import com.dormitory.utils.AuthRoles;
+import com.dormitory.utils.BillingPeriod;
+import com.dormitory.utils.FeeTotal;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
@@ -20,10 +27,17 @@ public class UtilityFeeController {
     
     private final UtilityFeeService feeService;
     private final StudentMapper studentMapper;
+    private final ManagerScopeService managerScopeService;
+    private final UserMapper userMapper;
 
-    public UtilityFeeController(UtilityFeeService feeService, StudentMapper studentMapper) {
+    public UtilityFeeController(UtilityFeeService feeService,
+                                StudentMapper studentMapper,
+                                ManagerScopeService managerScopeService,
+                                UserMapper userMapper) {
         this.feeService = feeService;
         this.studentMapper = studentMapper;
+        this.managerScopeService = managerScopeService;
+        this.userMapper = userMapper;
     }
 
     @GetMapping
@@ -51,6 +65,7 @@ public class UtilityFeeController {
         } else {
             fees = feeService.findAll();
         }
+        fees = filterForManager(auth, fees);
 
         Map<String, Object> result = new HashMap<>();
         result.put("code", 200);
@@ -76,6 +91,11 @@ public class UtilityFeeController {
                 result.put("message", "无权查看该费用");
                 return ResponseEntity.status(403).body(result);
             }
+        } else {
+            ResponseEntity<Map<String, Object>> denied = denyIfOutOfScope(auth, fee);
+            if (denied != null) {
+                return denied;
+            }
         }
 
         result.put("code", 200);
@@ -99,9 +119,9 @@ public class UtilityFeeController {
             // 月份: "YYYY-MM" -> year, month
             String monthStr = (String) body.get("month");
             if (monthStr == null || monthStr.isEmpty()) throw new RuntimeException("请选择月份");
-            String[] parts = monthStr.split("-");
-            fee.setYear(Integer.parseInt(parts[0]));
-            fee.setMonth(Integer.parseInt(parts[1]));
+            int[] yearMonth = BillingPeriod.yearMonth(monthStr);
+            fee.setYear(yearMonth[0]);
+            fee.setMonth(yearMonth[1]);
 
             // 直接传入的金额
             Object electricFeeObj = body.get("electricFee");
@@ -111,7 +131,7 @@ public class UtilityFeeController {
 
             fee.setElectricityFee(electricFee);
             fee.setWaterFee(waterFee);
-            fee.setTotalFee(electricFee.add(waterFee));
+            fee.setTotalFee(FeeTotal.of(electricFee, waterFee));
 
             // 设置默认读数（避免计算错误）
             fee.setElectricityStart(BigDecimal.ZERO);
@@ -154,9 +174,9 @@ public class UtilityFeeController {
             // 月份
             String monthStr = (String) body.get("month");
             if (monthStr != null && !monthStr.isEmpty()) {
-                String[] parts = monthStr.split("-");
-                fee.setYear(Integer.parseInt(parts[0]));
-                fee.setMonth(Integer.parseInt(parts[1]));
+                int[] yearMonth = BillingPeriod.yearMonth(monthStr);
+                fee.setYear(yearMonth[0]);
+                fee.setMonth(yearMonth[1]);
             }
 
             // 直接传入的金额
@@ -164,7 +184,7 @@ public class UtilityFeeController {
             Object waterFeeObj = body.get("waterFee");
             if (electricFeeObj != null) fee.setElectricityFee(new BigDecimal(electricFeeObj.toString()));
             if (waterFeeObj != null) fee.setWaterFee(new BigDecimal(waterFeeObj.toString()));
-            fee.setTotalFee(fee.getElectricityFee().add(fee.getWaterFee()));
+            fee.setTotalFee(FeeTotal.of(fee.getElectricityFee(), fee.getWaterFee()));
 
             // 状态
             Object statusObj = body.get("status");
@@ -248,5 +268,33 @@ public class UtilityFeeController {
             throw new RuntimeException("当前账号未关联学生信息");
         }
         return student;
+    }
+
+    private Long managerUserId(Authentication auth) {
+        if (!AuthRoles.isManagerOnly(auth)) {
+            return null;
+        }
+        User user = userMapper.findByUsername(auth.getName());
+        return user == null ? null : user.getId();
+    }
+
+    private List<UtilityFee> filterForManager(Authentication auth, List<UtilityFee> fees) {
+        Long managerId = managerUserId(auth);
+        if (managerId == null) {
+            return fees;
+        }
+        return managerScopeService.filterVisibleByRoom(managerId, fees,
+                UtilityFee::getBuildingId, UtilityFee::getRoomId);
+    }
+
+    private ResponseEntity<Map<String, Object>> denyIfOutOfScope(Authentication auth, UtilityFee fee) {
+        Long managerId = managerUserId(auth);
+        if (managerId == null) {
+            return null;
+        }
+        if (!managerScopeService.canSeeRoom(managerId, fee.getBuildingId(), fee.getRoomId())) {
+            return ApiResponses.forbidden("无权查看该范围外的水电费");
+        }
+        return null;
     }
 }

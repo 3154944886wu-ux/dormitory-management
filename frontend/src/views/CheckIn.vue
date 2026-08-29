@@ -39,15 +39,15 @@
         size="large"
         class="check-button"
         :loading="checking || locating"
-        :disabled="todayStatus.checkedIn"
+        :disabled="todayStatus.checkedIn || todayStatus.status === 3 || todayStatus.status == null"
         @click="handleCheckIn"
       >
-        {{ todayStatus.checkedIn ? '今日已打卡' : '获取定位并打卡' }}
+        {{ checkButtonText }}
       </el-button>
 
       <div v-if="rule" class="rule">
-        <div>打卡时段：{{ rule.checkStartTime }} - {{ rule.checkEndTime }}</div>
-        <div>未归截止：{{ rule.absentDeadline || '-' }}（超过结束至未归前为晚归）</div>
+        <div>打卡时段：{{ rule.checkStartTime }} 起至未归截止 {{ rule.absentDeadline || '-' }}</div>
+        <div>{{ rule.checkEndTime }} 前为已归，之后至未归截止为晚归</div>
         <div>围栏半径：{{ rule.allowedRadius || 500 }} 米</div>
         <div>最大定位误差：{{ rule.maxLocationAccuracy || 200 }} 米</div>
       </div>
@@ -83,7 +83,6 @@
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { checkIn, getMyRecords, getTodayStatus } from '@/api/checkIn'
-import { getActiveRules } from '@/api/checkRule'
 
 const currentTime = ref('')
 const currentDate = ref('')
@@ -92,7 +91,7 @@ const locating = ref(false)
 const loading = ref(false)
 const currentLocation = ref(null)
 const locationError = ref('')
-const todayStatus = ref({ checkedIn: false, status: 2 })
+const todayStatus = ref({ checkedIn: false, status: 0 })
 const records = ref([])
 const rule = ref(null)
 
@@ -109,10 +108,26 @@ const statusInfo = (status) => {
 }
 
 const statusMeta = computed(() => {
-  if (!todayStatus.value.checkedIn && todayStatus.value.status === 0) {
-    return { text: '待打卡', type: 'info' }
+  if (todayStatus.value.status === 3) {
+    return statusInfo(3)
+  }
+  if (!todayStatus.value.checkedIn && (todayStatus.value.status === 0 || todayStatus.value.status === 1)) {
+    return todayStatus.value.status === 1
+      ? statusInfo(1)
+      : { text: '待打卡', type: 'info' }
+  }
+  if (!todayStatus.value.checkedIn && (todayStatus.value.status === null || todayStatus.value.status === undefined)) {
+    return { text: '非打卡时段', type: 'info' }
   }
   return statusInfo(todayStatus.value.status)
+})
+
+const checkButtonText = computed(() => {
+  if (todayStatus.value.status === 3) return '请假中无需打卡'
+  if (todayStatus.value.checkedIn) return '今日已打卡'
+  if (todayStatus.value.status === null || todayStatus.value.status === undefined) return '非打卡时段'
+  if (rule.value && rule.value.requireLocation === 0) return '立即打卡'
+  return '获取定位并打卡'
 })
 
 const updateClock = () => {
@@ -161,7 +176,10 @@ const getLocation = () => new Promise((resolve, reject) => {
 const handleCheckIn = async () => {
   checking.value = true
   try {
-    const location = await getLocation()
+    const requireLocation = rule.value == null || rule.value.requireLocation !== 0
+    const location = requireLocation
+      ? await getLocation()
+      : { latitude: null, longitude: null, accuracy: null }
     const res = await checkIn({
       checkType: 0,
       latitude: location.latitude,
@@ -180,7 +198,11 @@ const handleCheckIn = async () => {
 
 const loadTodayStatus = async () => {
   const res = await getTodayStatus()
-  todayStatus.value = res.data || { checkedIn: false, status: 2 }
+  const data = res.data || { checkedIn: false, status: 0 }
+  todayStatus.value = data
+  if (data.rule) {
+    rule.value = data.rule
+  }
 }
 
 const loadRecords = async () => {
@@ -193,11 +215,6 @@ const loadRecords = async () => {
   }
 }
 
-const loadRule = async () => {
-  const res = await getActiveRules()
-  rule.value = (res.data || [])[0] || null
-}
-
 const formatDateTime = (value) => {
   if (!value) return '-'
   return new Date(value).toLocaleString('zh-CN')
@@ -208,7 +225,6 @@ onMounted(() => {
   timer = setInterval(updateClock, 1000)
   loadTodayStatus()
   loadRecords()
-  loadRule()
 })
 
 onUnmounted(() => {

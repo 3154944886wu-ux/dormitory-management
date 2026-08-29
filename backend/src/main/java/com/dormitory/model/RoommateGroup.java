@@ -2,8 +2,8 @@ package com.dormitory.model;
 
 import lombok.Data;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -17,7 +17,7 @@ public class RoommateGroup {
 
     public List<Long> getMemberIdList() {
         if (memberIds == null || memberIds.isBlank()) {
-            return Collections.emptyList();
+            return new ArrayList<>();
         }
         return Arrays.stream(memberIds.split(","))
                 .map(String::trim)

@@ -2,7 +2,11 @@ package com.dormitory.service;
 
 import com.dormitory.mapper.*;
 import com.dormitory.model.*;
-import org.springframework.scheduling.annotation.Async;
+import com.dormitory.utils.BedSelection;
+import com.dormitory.utils.GenderMatcher;
+import com.dormitory.utils.MatchingCapacity;
+import com.dormitory.utils.MatchingGroups;
+import com.dormitory.utils.MatchingMajors;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -50,7 +54,6 @@ public class MatchingService {
         this.notificationMapper = notificationMapper;
     }
 
-    @Async("matchingExecutor")
     @Transactional
     public void executeMatching(Long batchId) {
         DormBatch batch = batchMapper.findById(batchId);
@@ -59,7 +62,10 @@ public class MatchingService {
             throw new RuntimeException("只有 running 状态的批次才能执行匹配");
         }
 
-        batchMapper.updateStatus(batch.getId(), "matching");
+        int claimed = batchMapper.updateStatusIf(batch.getId(), "running", "matching");
+        if (claimed == 0) {
+            throw new RuntimeException("批次状态已变化，无法执行匹配");
+        }
 
         try {
             // 清理旧的匹配数据（防止重复运行时数据叠加）
@@ -130,6 +136,8 @@ public class MatchingService {
 
             List<RoommateGroup> allGroups = new ArrayList<>();
             List<AllocationResult> allResults = new ArrayList<>();
+            Set<Long> reservedBedIds = new HashSet<>();
+            Map<Long, Integer> roomExtraOccupants = new HashMap<>();
 
             // 3. 对每个性别组执行匹配
             for (Map.Entry<String, List<Student>> entry : byGender.entrySet()) {
@@ -166,9 +174,12 @@ public class MatchingService {
 
                 // 处理已提交学生
                 if (!submitted.isEmpty()) {
+                    List<Room> capacityRooms = new ArrayList<>();
+                    capacityRooms.addAll(compatibleEmptyRooms);
+                    capacityRooms.addAll(compatiblePartialRooms);
                     List<StudentGroup> groups = matchSubmitted(submitted, matchQuestions, optionMap,
-                            questionMap, studentAnswers, batch);
-                    assignRoomsAndBeds(groups, compatibleEmptyRooms, compatiblePartialRooms, batch, buildingMap);
+                            questionMap, studentAnswers, batch, capacityRooms);
+                    assignRoomsAndBeds(groups, compatibleEmptyRooms, compatiblePartialRooms, batch, buildingMap, reservedBedIds, roomExtraOccupants);
                     for (StudentGroup g : groups) {
                         RoommateGroup rg = createRoommateGroup(g, batch.getId());
                         allGroups.add(rg);
@@ -182,7 +193,7 @@ public class MatchingService {
                 if (!unsubmitted.isEmpty()) {
                     List<StudentGroup> groups = matchUnsubmitted(unsubmitted, batch,
                             compatibleEmptyRooms, buildingMap);
-                    assignRoomsAndBeds(groups, compatibleEmptyRooms, compatiblePartialRooms, batch, buildingMap);
+                    assignRoomsAndBeds(groups, compatibleEmptyRooms, compatiblePartialRooms, batch, buildingMap, reservedBedIds, roomExtraOccupants);
                     for (StudentGroup g : groups) {
                         RoommateGroup rg = createRoommateGroup(g, batch.getId());
                         allGroups.add(rg);
@@ -215,8 +226,11 @@ public class MatchingService {
 
             batchMapper.updateStatus(batch.getId(), "confirming");
         } catch (Exception e) {
-            batchMapper.updateStatus(batch.getId(), "running");
-            throw new RuntimeException("匹配失败: " + e.getMessage(), e);
+            batchMapper.updateStatusIf(batch.getId(), "matching", "running");
+            if (e instanceof RuntimeException runtime) {
+                throw runtime;
+            }
+            throw new RuntimeException(e.getMessage(), e);
         }
     }
 
@@ -225,10 +239,10 @@ public class MatchingService {
                                               Map<Long, QuestionOption> optionMap,
                                               Map<Long, Questionnaire> questionMap,
                                               Map<Long, Map<Long, Long>> studentAnswers,
-                                              DormBatch batch) {
+                                              DormBatch batch,
+                                              List<Room> rooms) {
 
-        // 确定房间容量（取房源池中最常见的容量）
-        int capacity = 4; // 默认4人间
+        int capacity = MatchingCapacity.mostCommon(rooms, 4);
 
         // 计算两两匹配度
         int n = students.size();
@@ -253,6 +267,10 @@ public class MatchingService {
                 if (grouped[i]) continue;
                 for (int j = i + 1; j < n; j++) {
                     if (grouped[j]) continue;
+                    if (!MatchingMajors.canGroup(batch.getAllowMixMajor(),
+                            students.get(i).getMajorId(), students.get(j).getMajorId())) {
+                        continue;
+                    }
                     if (scores[i][j] > bestScore) {
                         bestScore = scores[i][j];
                         bestI = i;
@@ -275,6 +293,10 @@ public class MatchingService {
                 int bestK = -1;
                 for (int k = 0; k < n; k++) {
                     if (grouped[k]) continue;
+                    if (!MatchingMajors.canGroup(batch.getAllowMixMajor(),
+                            group.students.get(0).getMajorId(), students.get(k).getMajorId())) {
+                        continue;
+                    }
                     double avg = 0;
                     for (Student member : group.students) {
                         int idx = students.indexOf(member);
@@ -300,14 +322,42 @@ public class MatchingService {
             if (!grouped[i]) leftover.add(students.get(i));
         }
         if (!leftover.isEmpty()) {
-            StudentGroup lastGroup;
-            if (groups.isEmpty()) {
-                lastGroup = new StudentGroup();
-                groups.add(lastGroup);
-            } else {
-                lastGroup = groups.get(groups.size() - 1);
+            List<Student> still = new ArrayList<>();
+            for (Student s : leftover) {
+                boolean placed = false;
+                for (StudentGroup g : groups) {
+                    if (g.students.size() >= capacity) {
+                        continue;
+                    }
+                    if (!MatchingMajors.canGroup(batch.getAllowMixMajor(),
+                            g.students.get(0).getMajorId(), s.getMajorId())) {
+                        continue;
+                    }
+                    g.students.add(s);
+                    placed = true;
+                    break;
+                }
+                if (!placed) {
+                    still.add(s);
+                }
             }
-            lastGroup.students.addAll(leftover);
+            if (!still.isEmpty()) {
+                List<List<Student>> extraGroups = new ArrayList<>();
+                if (batch.getAllowMixMajor() != null && batch.getAllowMixMajor() == 0) {
+                    still.stream()
+                            .collect(Collectors.groupingBy(s -> s.getMajorId() != null ? s.getMajorId() : 0))
+                            .values()
+                            .forEach(majorLeft -> extraGroups.addAll(
+                                    MatchingGroups.packIsolated(majorLeft, capacity)));
+                } else {
+                    extraGroups.addAll(MatchingGroups.packIsolated(still, capacity));
+                }
+                for (List<Student> extra : extraGroups) {
+                    StudentGroup g = new StudentGroup();
+                    g.students.addAll(extra);
+                    groups.add(g);
+                }
+            }
         }
 
         // 计算每个学生在组内的平均匹配度得分
@@ -362,7 +412,7 @@ public class MatchingService {
     private List<StudentGroup> matchUnsubmitted(List<Student> students, DormBatch batch,
                                                  List<Room> rooms,
                                                  Map<Long, Building> buildingMap) {
-        int capacity = 4;
+        int capacity = MatchingCapacity.mostCommon(rooms, 4);
         List<StudentGroup> groups = new ArrayList<>();
 
         if (batch.getAllowMixMajor() != null && batch.getAllowMixMajor() == 0) {
@@ -390,11 +440,22 @@ public class MatchingService {
         return groups;
     }
 
+    private List<StudentGroup> splitIntoCapacityGroups(List<Student> students, int capacity) {
+        int size = capacity > 0 ? capacity : 4;
+        List<StudentGroup> groups = new ArrayList<>();
+        for (int i = 0; i < students.size(); i += size) {
+            StudentGroup group = new StudentGroup();
+            group.students.addAll(students.subList(i, Math.min(i + size, students.size())));
+            groups.add(group);
+        }
+        return groups;
+    }
+
     private void assignRoomsAndBeds(List<StudentGroup> groups, List<Room> emptyRooms,
                                      List<Room> partialRooms, DormBatch batch,
-                                     Map<Long, Building> buildingMap) {
-        // 跟踪每个房间在本次匹配中已分配的额外人数（不修改数据库 current_count）
-        Map<Long, Integer> roomExtraOccupants = new HashMap<>();
+                                     Map<Long, Building> buildingMap,
+                                     Set<Long> reservedBedIds,
+                                     Map<Long, Integer> roomExtraOccupants) {
         boolean preferSameFloor = batch.getPreferSameFloor() != null
                 && batch.getPreferSameFloor() == 1;
 
@@ -415,6 +476,7 @@ public class MatchingService {
                 Map<Integer, List<Room>> byFloor = emptyRooms.stream()
                         .filter(r -> r.getAvailableBeds()
                                 - roomExtraOccupants.getOrDefault(r.getId(), 0) >= needed)
+                        .filter(r -> roomMajorsCompatible(r, group, batch, groups))
                         .collect(Collectors.groupingBy(Room::getFloor));
                 for (Map.Entry<Integer, List<Room>> fe : byFloor.entrySet()) {
                     if (fe.getValue().size() >= groups.size()) {
@@ -425,12 +487,12 @@ public class MatchingService {
             }
 
             if (assigned == null) {
-                assigned = findFirstSuitable(emptyRooms, needed, roomExtraOccupants);
+                assigned = findFirstSuitable(emptyRooms, group, batch, groups, roomExtraOccupants);
             }
 
             // Round 2: 空房不足，从未满房补位
             if (assigned == null) {
-                assigned = findFirstSuitable(partialRooms, needed, roomExtraOccupants);
+                assigned = findFirstSuitable(partialRooms, group, batch, groups, roomExtraOccupants);
             }
 
             if (assigned == null) {
@@ -441,59 +503,82 @@ public class MatchingService {
             roomExtraOccupants.merge(assigned.getId(), needed, Integer::sum);
 
             // 分配床位
-            assignBeds(group, assigned);
+            assignBeds(group, assigned, reservedBedIds);
         }
     }
 
-    private Room findFirstSuitable(List<Room> rooms, int needed, Map<Long, Integer> roomExtra) {
+    private Room findFirstSuitable(List<Room> rooms, StudentGroup group, DormBatch batch,
+                                   List<StudentGroup> assigned, Map<Long, Integer> roomExtra) {
+        int needed = group.students.size();
         for (Room r : rooms) {
             int extra = roomExtra.getOrDefault(r.getId(), 0);
-            if (r.getAvailableBeds() - extra >= needed) {
+            if (r.getAvailableBeds() - extra >= needed && roomMajorsCompatible(r, group, batch, assigned)) {
                 return r;
             }
         }
         return null;
     }
 
-    private void assignBeds(StudentGroup group, Room room) {
-        List<Bed> availableBeds = bedMapper.findAvailableByRoomId(room.getId());
-        // 分类床位
-        List<Bed> windowBeds = availableBeds.stream()
-                .filter(b -> "window".equals(b.getBedType()))
-                .collect(Collectors.toList());
-        List<Bed> corridorBeds = availableBeds.stream()
-                .filter(b -> "corridor".equals(b.getBedType()))
-                .collect(Collectors.toList());
+    private boolean roomMajorsCompatible(Room room, StudentGroup group, DormBatch batch,
+                                         List<StudentGroup> assigned) {
+        Integer majorId = group.students.isEmpty() ? null : group.students.get(0).getMajorId();
+        return roomMajorsCompatible(room, majorId, batch, batch.getId(), null, assigned);
+    }
 
-        group.beds = new ArrayList<>();
-
-        // 读学生床位偏好（从 student_answer 的 bed 类题目）
-        for (Student student : group.students) {
-            String preference = getStudentBedPreference(student);
-            Bed assigned = null;
-
-            if ("window".equals(preference) && !windowBeds.isEmpty()) {
-                assigned = windowBeds.remove(0);
-            } else if ("corridor".equals(preference) && !corridorBeds.isEmpty()) {
-                assigned = corridorBeds.remove(0);
+    private boolean roomMajorsCompatible(Room room, Integer majorId, DormBatch batch, Long batchId,
+                                         Long excludeStudentId, List<StudentGroup> assigned) {
+        if (room == null) {
+            return false;
+        }
+        Integer allow = batch == null ? null : batch.getAllowMixMajor();
+        for (Student occ : studentMapper.findByRoomId(room.getId())) {
+            if (excludeStudentId != null && excludeStudentId.equals(occ.getId())) {
+                continue;
             }
-
-            if (assigned == null) {
-                // 偏好不满足或无偏好，先取 window 再取 corridor
-                if (!windowBeds.isEmpty()) {
-                    assigned = windowBeds.remove(0);
-                } else if (!corridorBeds.isEmpty()) {
-                    assigned = corridorBeds.remove(0);
+            if (!MatchingMajors.canGroup(allow, majorId, occ.getMajorId())) {
+                return false;
+            }
+        }
+        if (batchId != null) {
+            for (AllocationResult ar : allocationResultMapper.findByRoomIdAndBatchId(room.getId(), batchId)) {
+                if (excludeStudentId != null && excludeStudentId.equals(ar.getStudentId())) {
+                    continue;
+                }
+                Student other = studentMapper.findById(ar.getStudentId());
+                if (other != null && !MatchingMajors.canGroup(allow, majorId, other.getMajorId())) {
+                    return false;
                 }
             }
+        }
+        if (assigned != null) {
+            for (StudentGroup g : assigned) {
+                if (g.room == null || g.room.getId() == null || !g.room.getId().equals(room.getId())) {
+                    continue;
+                }
+                if (g.students.isEmpty()) {
+                    continue;
+                }
+                if (!MatchingMajors.canGroup(allow, majorId, g.students.get(0).getMajorId())) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
 
+    private void assignBeds(StudentGroup group, Room room, Set<Long> reservedBedIds) {
+        List<Bed> availableBeds = bedMapper.findAvailableByRoomId(room.getId());
+        group.beds = new ArrayList<>();
+        for (Student student : group.students) {
+            String preference = getStudentBedPreference(student);
+            Bed assigned = BedSelection.pick(availableBeds, reservedBedIds, preference);
             if (assigned == null) {
                 throw new RuntimeException("房间[" + room.getRoomNumber() + "]无可用床位");
             }
-
             group.beds.add(assigned);
-            // 匹配阶段仅做逻辑推荐，不占用床位、不更新学生记录、不增加房间人数
-            // 实际占用在 confirmAllocation() 或 confirmAllRecommendations() 时执行
+            if (assigned.getId() != null) {
+                reservedBedIds.add(assigned.getId());
+            }
         }
     }
 
@@ -604,6 +689,9 @@ public class MatchingService {
 
         for (Room room : compatibleRooms) {
             if (room.getAvailableBeds() <= 0) continue;
+            if (!roomMajorsCompatible(room, student.getMajorId(), batch, batchId, studentId, null)) {
+                continue;
+            }
             // 获取该房间已入住的学生
             List<Student> occupants = studentMapper.findByRoomId(room.getId());
             if (occupants.isEmpty()) {
@@ -633,30 +721,49 @@ public class MatchingService {
             }
         }
 
-        Room targetRoom = bestRoom != null ? bestRoom : compatibleRooms.get(0);
+        Room targetRoom = bestRoom;
+        if (targetRoom == null) {
+            for (Room room : compatibleRooms) {
+                if (roomMajorsCompatible(room, student.getMajorId(), batch, batchId, studentId, null)) {
+                    targetRoom = room;
+                    break;
+                }
+            }
+        }
+        if (targetRoom == null) {
+            throw new RuntimeException("无符合专业限制的可用房间");
+        }
 
         List<Bed> availableBeds = bedMapper.findAvailableByRoomId(targetRoom.getId());
         if (availableBeds.isEmpty()) {
             throw new RuntimeException("房间[" + targetRoom.getRoomNumber() + "]无可用床位");
         }
 
-        String preference = getStudentBedPreference(student);
-        Bed assigned = null;
-        for (Bed b : availableBeds) {
-            if (preference != null && preference.equals(b.getBedType())) {
-                assigned = b;
-                break;
+        // 排除本批次内已被其他学生推荐/分配的床位，避免重复推荐同一床位
+        Set<Long> reservedBedIds = new HashSet<>();
+        for (AllocationResult ar : allocationResultMapper.findByRoomIdAndBatchId(targetRoom.getId(), batchId)) {
+            if (ar.getBedId() != null && !ar.getStudentId().equals(studentId)) {
+                reservedBedIds.add(ar.getBedId());
             }
         }
-        if (assigned == null) assigned = availableBeds.get(0);
+
+        String preference = getStudentBedPreference(student);
+        Bed assigned = BedSelection.pick(availableBeds, reservedBedIds, preference);
+        if (assigned == null) {
+            throw new RuntimeException("房间[" + targetRoom.getRoomNumber() + "]无可用床位（本批次床位已被占用）");
+        }
 
         // 匹配阶段仅更新逻辑推荐，不占用物理资源（床位/房间在确认时占用）
 
         // 加入新房间的室友组（或新建）
         List<RoommateGroup> roomGroups = roommateGroupMapper.findByRoomId(targetRoom.getId());
         RoommateGroup targetGroup = null;
+        int roomCapacity = targetRoom.getCapacity() != null ? targetRoom.getCapacity() : 4;
         for (RoommateGroup rg : roomGroups) {
-            if (rg.getMemberIdList() != null && rg.getMemberIdList().size() < 4) {
+            if (rg.getBatchId() != null && !rg.getBatchId().equals(batchId)) {
+                continue;
+            }
+            if (rg.getMemberIdList() != null && rg.getMemberIdList().size() < roomCapacity) {
                 targetGroup = rg;
                 break;
             }
@@ -686,13 +793,7 @@ public class MatchingService {
     }
 
     private boolean isGenderCompatible(Building building, String gender) {
-        if (building.getGenderType() == null) return true;
-        return switch (building.getGenderType()) {
-            case "MALE" -> "男".equals(gender);
-            case "FEMALE" -> "女".equals(gender);
-            case "MIXED" -> true;
-            default -> true;
-        };
+        return GenderMatcher.isCompatible(gender, building == null ? null : building.getGenderType());
     }
 
     // ---- 内部数据结构 ----

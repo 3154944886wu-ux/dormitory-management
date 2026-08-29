@@ -116,6 +116,8 @@ const handleLogin = async () => {
     const res = await authAPI.login(form)
     localStorage.setItem('token', res.data.token)
     localStorage.setItem('user', JSON.stringify(res.data.user))
+    // 登录成功后清除 401 跳转标志，确保后续会话过期时仍能正常跳转登录
+    sessionStorage.removeItem('_redirecting')
     ElMessage.success('登录成功')
     const role = (res.data.user.role || 'student').toLowerCase()
     router.push(role === 'admin' ? '/admin/dashboard' : (role === 'manager' ? '/manager/exceptions' : '/student/home'))

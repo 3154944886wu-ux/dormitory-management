@@ -45,15 +45,15 @@ public interface InspectionPlanMapper {
     List<InspectionPlan> findByType(String type);
 
     @Insert("INSERT INTO inspection_plans (name, description, inspection_type, status, scheduled_date, " +
-            "building_ids, inspector_ids, total_rooms, completed_rooms, creator_id, create_time, update_time) " +
+            "building_ids, inspector_ids, total_rooms, completed_rooms, creator_id, floor_range, create_time, update_time) " +
             "VALUES (#{name}, #{description}, #{inspectionType}, #{status}, #{scheduledDate}, " +
-            "#{buildingIds}, #{inspectorIds}, #{totalRooms}, #{completedRooms}, #{creatorId}, NOW(), NOW())")
+            "#{buildingIds}, #{inspectorIds}, #{totalRooms}, #{completedRooms}, #{creatorId}, #{floorRange}, NOW(), NOW())")
     @Options(useGeneratedKeys = true, keyProperty = "id")
     int insert(InspectionPlan plan);
 
     @Update("UPDATE inspection_plans SET name = #{name}, description = #{description}, " +
             "inspection_type = #{inspectionType}, scheduled_date = #{scheduledDate}, " +
-            "building_ids = #{buildingIds}, inspector_ids = #{inspectorIds}, " +
+            "building_ids = #{buildingIds}, inspector_ids = #{inspectorIds}, floor_range = #{floorRange}, " +
             "update_time = NOW() WHERE id = #{id}")
     int update(InspectionPlan plan);
 
@@ -62,6 +62,9 @@ public interface InspectionPlanMapper {
 
     @Update("UPDATE inspection_plans SET completed_rooms = completed_rooms + 1, update_time = NOW() WHERE id = #{id}")
     int incrementCompletedRooms(@Param("id") Long id);
+
+    @Update("UPDATE inspection_plans SET completed_rooms = GREATEST(completed_rooms - 1, 0), update_time = NOW() WHERE id = #{id}")
+    int decrementCompletedRooms(@Param("id") Long id);
 
     @Delete("DELETE FROM inspection_plans WHERE id = #{id}")
     int delete(Long id);

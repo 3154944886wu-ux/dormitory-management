@@ -2,6 +2,9 @@ package com.dormitory.controller;
 
 import com.dormitory.service.DormSelectionService;
 import com.dormitory.service.NotificationService;
+import com.dormitory.utils.ApiResponses;
+import com.dormitory.utils.SurveyAnswers;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
@@ -26,7 +29,7 @@ public class DormSelectionController {
 
     /** 学生查看自己的通知 */
     @GetMapping("/my-notifications")
-    public Map<String, Object> myNotifications(Authentication authentication) {
+    public ResponseEntity<Map<String, Object>> myNotifications(Authentication authentication) {
         Map<String, Object> result = new HashMap<>();
         try {
             List<?> notifications = notificationService.getMyNotifications(authentication.getName());
@@ -36,11 +39,11 @@ public class DormSelectionController {
             result.put("code", 400);
             result.put("message", e.getMessage());
         }
-        return result;
+        return ApiResponses.json(result);
     }
 
     @GetMapping("/my-survey")
-    public Map<String, Object> mySurvey(Authentication authentication) {
+    public ResponseEntity<Map<String, Object>> mySurvey(Authentication authentication) {
         Map<String, Object> result = new HashMap<>();
         try {
             Map<String, Object> data = dormSelectionService.mySurvey(authentication.getName());
@@ -50,11 +53,11 @@ public class DormSelectionController {
             result.put("code", 400);
             result.put("message", e.getMessage());
         }
-        return result;
+        return ApiResponses.json(result);
     }
 
     @PostMapping("/submit-answers")
-    public Map<String, Object> submitAnswers(Authentication authentication,
+    public ResponseEntity<Map<String, Object>> submitAnswers(Authentication authentication,
                                               @RequestBody Map<String, Object> body) {
         Map<String, Object> result = new HashMap<>();
         try {
@@ -63,13 +66,13 @@ public class DormSelectionController {
             if (answersList == null || answersList.isEmpty()) {
                 result.put("code", 400);
                 result.put("message", "答案不能为空");
-                return result;
+                return ApiResponses.json(result);
             }
 
             List<DormSelectionService.AnswerItem> answers = answersList.stream().map(m -> {
                 DormSelectionService.AnswerItem item = new DormSelectionService.AnswerItem();
-                item.setQId(Long.valueOf(m.get("qId").toString()));
-                item.setOptionId(Long.valueOf(m.get("optionId").toString()));
+                item.setQId(SurveyAnswers.requireId(m, "qId"));
+                item.setOptionId(SurveyAnswers.requireId(m, "optionId"));
                 return item;
             }).toList();
 
@@ -81,11 +84,11 @@ public class DormSelectionController {
             result.put("code", 400);
             result.put("message", e.getMessage());
         }
-        return result;
+        return ApiResponses.json(result);
     }
 
     @PostMapping("/confirm-allocation")
-    public Map<String, Object> confirmAllocation(Authentication authentication) {
+    public ResponseEntity<Map<String, Object>> confirmAllocation(Authentication authentication) {
         Map<String, Object> result = new HashMap<>();
         try {
             Map<String, Object> data = dormSelectionService.confirmAllocation(authentication.getName());
@@ -96,11 +99,11 @@ public class DormSelectionController {
             result.put("code", 400);
             result.put("message", e.getMessage());
         }
-        return result;
+        return ApiResponses.json(result);
     }
 
     @PostMapping("/request-reallocation")
-    public Map<String, Object> requestReallocation(Authentication authentication) {
+    public ResponseEntity<Map<String, Object>> requestReallocation(Authentication authentication) {
         Map<String, Object> result = new HashMap<>();
         try {
             Map<String, Object> data = dormSelectionService.requestReallocation(authentication.getName());
@@ -111,6 +114,6 @@ public class DormSelectionController {
             result.put("code", 400);
             result.put("message", e.getMessage());
         }
-        return result;
+        return ApiResponses.json(result);
     }
 }

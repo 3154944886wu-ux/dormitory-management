@@ -90,10 +90,10 @@
           </el-descriptions-item>
         </el-descriptions>
 
-        <div v-if="roommates.length > 0" class="roommate-section">
+        <div v-if="dormRoommates.length > 0" class="roommate-section">
           <h4 class="roommate-title">室友信息</h4>
           <div class="roommate-grid">
-            <div v-for="(rm, idx) in roommates" :key="idx" class="roommate-card">
+            <div v-for="(rm, idx) in dormRoommates" :key="idx" class="roommate-card">
               <div class="roommate-card-header">
                 <span class="roommate-index">室友 {{ idx + 1 }}</span>
                 <span class="roommate-major">{{ rm.majorName }}</span>
@@ -109,8 +109,8 @@
         <div v-if="batchConfirming && allocation.status === 'recommended'" class="action-bar">
           <el-alert title="你的宿舍推荐已生成！请在截止时间前确认或调整" type="success" show-icon :closable="true" style="margin-bottom: 16px;" />
           <el-button type="primary" @click="handleConfirm" :loading="confirmLoading">确认入住</el-button>
-          <el-button type="warning" @click="handleReallocate" :loading="reallocateLoading" :disabled="reallocationUsed >= 1">换一个宿舍</el-button>
-          <span v-if="reallocationUsed >= 1" class="text-hint">(已使用重新匹配机会)</span>
+          <el-button type="warning" @click="handleReallocate" :loading="reallocateLoading" :disabled="reallocationUsed >= maxReallocation">换一个宿舍</el-button>
+          <span v-if="reallocationUsed >= maxReallocation" class="text-hint">(已使用重新匹配机会)</span>
         </div>
 
         <div v-if="allocation && (allocation.status === 'confirmed' || allocation.status === 'auto_confirmed')" class="action-bar">
@@ -182,6 +182,17 @@
         </el-table-column>
         <el-table-column prop="inspectorName" label="检查人" width="100" />
         <el-table-column prop="remark" label="备注" min-width="120" show-overflow-tooltip />
+        <el-table-column label="操作" width="110">
+          <template #default="{ row }">
+            <el-button
+              v-if="row.rectificationStatus === 'PENDING'"
+              type="primary"
+              link
+              size="small"
+              @click="openRectify(row)"
+            >提交整改</el-button>
+          </template>
+        </el-table-column>
       </el-table>
       <el-empty v-if="!loadingInspections && inspectionRecords.length === 0" description="暂无检查记录" :image-size="80" />
     </el-card>
@@ -211,6 +222,18 @@
         <el-button type="primary" @click="handleRelocationApply" :loading="relocationApplying">提交申请</el-button>
       </template>
     </el-dialog>
+
+    <el-dialog v-model="showRectifyDialog" title="提交整改" width="480px">
+      <el-form :model="rectifyForm" label-width="90px">
+        <el-form-item label="整改说明" required>
+          <el-input v-model="rectifyForm.rectifyRemark" type="textarea" :rows="4" placeholder="请填写整改说明" maxlength="300" show-word-limit />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="showRectifyDialog = false">取消</el-button>
+        <el-button type="primary" :loading="rectifySubmitting" @click="handleRectify">提交</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -221,7 +244,7 @@ import { Loading, Clock } from '@element-plus/icons-vue'
 import { studentAPI } from '@/api/student'
 import { dormSelectionAPI } from '@/api/dormSelection'
 import { relocationAPI } from '@/api/relocation'
-import { getRecordsByRoom } from '@/api/inspection'
+import { getRecordsByRoom, submitRectification } from '@/api/inspection'
 
 // --- 选宿状态 ---
 const loading = ref(true)
@@ -230,11 +253,12 @@ const confirmLoading = ref(false)
 const reallocateLoading = ref(false)
 const formRef = ref(null)
 const student = reactive({ dormBatchId: null })
-const batch = reactive({ id: null, name: '', startTime: '', endTime: '', confirmDeadline: '', matchStatus: '' })
+const batch = reactive({ id: null, name: '', startTime: '', endTime: '', confirmDeadline: '', matchStatus: '', maxReallocation: 1 })
 const allocation = ref(null)
 const questions = ref([])
 const hasSubmitted = ref(false)
 const reallocationUsed = ref(0)
+const maxReallocation = computed(() => Number(batch.maxReallocation) > 0 ? Number(batch.maxReallocation) : 1)
 const formData = reactive({})
 const dormRoommates = ref([]) // roommates from dorm selection
 const buildingName = ref('')
@@ -246,6 +270,9 @@ const loadingInspections = ref(false)
 const showRelocationDialog = ref(false)
 const relocationApplying = ref(false)
 const relocationForm = reactive({ reason: '' })
+const showRectifyDialog = ref(false)
+const rectifySubmitting = ref(false)
+const rectifyForm = reactive({ id: null, rectifyRemark: '' })
 
 const batchRunning = computed(() => batch.matchStatus === 'running')
 const batchConfirming = computed(() => batch.matchStatus === 'confirming')
@@ -373,8 +400,7 @@ const loadRoomData = async () => {
   try {
     const roomRes = await studentAPI.getMyRoom()
     roomInfo.value = roomRes.data
-    roommates.value = []
-    // roommates endpoint not available; loaded via other means if needed
+    roommates.value = roomRes.data?.roommates || []
 
     // 加载该房间的检查记录
     if (roomInfo.value?.roomId) {
@@ -390,6 +416,32 @@ const loadInspections = async (roomId) => {
     inspectionRecords.value = res.data || []
   } catch { /* ignore */ }
   finally { loadingInspections.value = false }
+}
+
+const openRectify = (row) => {
+  rectifyForm.id = row.id
+  rectifyForm.rectifyRemark = ''
+  showRectifyDialog.value = true
+}
+
+const handleRectify = async () => {
+  if (!rectifyForm.rectifyRemark.trim()) {
+    ElMessage.warning('请填写整改说明')
+    return
+  }
+  rectifySubmitting.value = true
+  try {
+    await submitRectification(rectifyForm.id, { rectifyRemark: rectifyForm.rectifyRemark })
+    ElMessage.success('整改已提交')
+    showRectifyDialog.value = false
+    if (roomInfo.value?.roomId) {
+      loadInspections(roomInfo.value.roomId)
+    }
+  } catch (error) {
+    ElMessage.error(error.message || '提交整改失败')
+  } finally {
+    rectifySubmitting.value = false
+  }
 }
 
 onMounted(() => {

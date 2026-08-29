@@ -8,8 +8,8 @@ import java.util.List;
 @Mapper
 public interface RepairMapper {
     
-    @Select("SELECT r.*, s.name as student_name, s.student_no, " +
-             "rm.room_number, b.name as building_name " +
+    @Select("SELECT r.*, s.name as student_name, s.student_no, s.class_name as className, " +
+             "rm.room_number, rm.building_id as buildingId, b.name as building_name " +
              "FROM repairs r " +
              "LEFT JOIN students s ON r.student_id = s.id " +
              "LEFT JOIN rooms rm ON r.room_id = rm.id " +
@@ -17,8 +17,8 @@ public interface RepairMapper {
              "ORDER BY r.status, r.create_time DESC")
     List<Repair> findAll();
     
-    @Select("SELECT r.*, s.name as student_name, s.student_no, " +
-             "rm.room_number, b.name as building_name " +
+    @Select("SELECT r.*, s.name as student_name, s.student_no, s.class_name as className, " +
+             "rm.room_number, rm.building_id as buildingId, b.name as building_name " +
              "FROM repairs r " +
              "LEFT JOIN students s ON r.student_id = s.id " +
              "LEFT JOIN rooms rm ON r.room_id = rm.id " +
@@ -26,8 +26,8 @@ public interface RepairMapper {
              "WHERE r.id = #{id}")
     Repair findById(Long id);
     
-    @Select("SELECT r.*, s.name as student_name, s.student_no, " +
-             "rm.room_number, b.name as building_name " +
+    @Select("SELECT r.*, s.name as student_name, s.student_no, s.class_name as className, " +
+             "rm.room_number, rm.building_id as buildingId, b.name as building_name " +
              "FROM repairs r " +
              "LEFT JOIN students s ON r.student_id = s.id " +
              "LEFT JOIN rooms rm ON r.room_id = rm.id " +
@@ -36,8 +36,8 @@ public interface RepairMapper {
              "ORDER BY r.create_time DESC")
     List<Repair> findByStudentId(Long studentId);
     
-    @Select("SELECT r.*, s.name as student_name, s.student_no, " +
-             "rm.room_number, b.name as building_name " +
+    @Select("SELECT r.*, s.name as student_name, s.student_no, s.class_name as className, " +
+             "rm.room_number, rm.building_id as buildingId, b.name as building_name " +
              "FROM repairs r " +
              "LEFT JOIN students s ON r.student_id = s.id " +
              "LEFT JOIN rooms rm ON r.room_id = rm.id " +
@@ -46,8 +46,8 @@ public interface RepairMapper {
              "ORDER BY r.create_time DESC")
     List<Repair> findByRoomId(Long roomId);
     
-    @Select("SELECT r.*, s.name as student_name, s.student_no, " +
-             "rm.room_number, b.name as building_name " +
+    @Select("SELECT r.*, s.name as student_name, s.student_no, s.class_name as className, " +
+             "rm.room_number, rm.building_id as buildingId, b.name as building_name " +
              "FROM repairs r " +
              "LEFT JOIN students s ON r.student_id = s.id " +
              "LEFT JOIN rooms rm ON r.room_id = rm.id " +
@@ -56,8 +56,8 @@ public interface RepairMapper {
              "ORDER BY r.create_time DESC")
     List<Repair> findByStatus(Integer status);
 
-    @Select("SELECT r.*, s.name as student_name, s.student_no, " +
-             "rm.room_number, b.name as building_name " +
+    @Select("SELECT r.*, s.name as student_name, s.student_no, s.class_name as className, " +
+             "rm.room_number, rm.building_id as buildingId, b.name as building_name " +
              "FROM repairs r " +
              "LEFT JOIN students s ON r.student_id = s.id " +
              "LEFT JOIN rooms rm ON r.room_id = rm.id " +

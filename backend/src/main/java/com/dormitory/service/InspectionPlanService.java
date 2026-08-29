@@ -1,6 +1,7 @@
 package com.dormitory.service;
 
 import com.dormitory.mapper.InspectionPlanMapper;
+import com.dormitory.mapper.InspectionRecordMapper;
 import com.dormitory.model.InspectionPlan;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -14,6 +15,9 @@ public class InspectionPlanService {
     @Autowired
     private InspectionPlanMapper planMapper;
 
+    @Autowired
+    private InspectionRecordMapper recordMapper;
+
     public InspectionPlan findById(Long id) {
         return planMapper.findById(id);
     }
@@ -23,8 +27,8 @@ public class InspectionPlanService {
     }
 
     public List<InspectionPlan> findAll(int page, int size) {
-        int offset = (page - 1) * size;
-        return planMapper.findAllPaginated(offset, size);
+        return planMapper.findAllPaginated(com.dormitory.utils.Pagination.offset(page, size),
+                com.dormitory.utils.Pagination.size(size));
     }
 
     public int count() {
@@ -92,6 +96,9 @@ public class InspectionPlanService {
         if (!"IN_PROGRESS".equals(plan.getStatus())) {
             throw new RuntimeException("只有进行中的计划才能完成");
         }
+        if (recordMapper.countPendingRectificationByPlanId(id) > 0) {
+            throw new RuntimeException("仍有待整改记录，不能完成计划");
+        }
         planMapper.updateStatus(id, "COMPLETED");
         return planMapper.findById(id);
     }
@@ -131,7 +138,7 @@ public class InspectionPlanService {
             case "SCHEDULED" -> "IN_PROGRESS".equals(newStatus) || "CANCELLED".equals(newStatus);
             case "IN_PROGRESS" -> "COMPLETED".equals(newStatus) || "CANCELLED".equals(newStatus);
             case "COMPLETED", "CANCELLED" -> false; // 终态不允许变更
-            default -> true;
+            default -> false;
         };
         if (!valid) {
             throw new RuntimeException(

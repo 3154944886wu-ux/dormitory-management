@@ -18,7 +18,7 @@
         <el-table-column prop="floor" label="楼层" width="80" />
         <el-table-column prop="capacity" label="容量" width="80" />
         <el-table-column label="已入住" width="80">
-          <template #default="{ row }"><el-tag :type="row.currentCount >= row.capacity ? 'danger' : 'success'">{{ row.currentCount }} / {{ row.capacity }}</el-tag></template>
+          <template #default="{ row }"><el-tag :type="liveOccupancy(row) >= row.capacity ? 'danger' : 'success'">{{ liveOccupancy(row) }} / {{ row.capacity }}</el-tag></template>
         </el-table-column>
         <el-table-column label="状态" width="80">
           <template #default="{ row }"><el-switch v-model="row.status" :active-value="1" :inactive-value="0" @change="handleStatusChange(row)" :disabled="!isAdmin" /></template>
@@ -85,6 +85,7 @@ const rules = {
 }
 
 const getBuildingName = (id) => buildings.value.find(b => b.id === id)?.name || '-'
+const liveOccupancy = (row) => row?.occupancy != null ? row.occupancy : (row?.currentCount || 0)
 
 const loadBuildings = async () => {
   try { const r = await buildingAPI.list(); buildings.value = r.data } catch {}

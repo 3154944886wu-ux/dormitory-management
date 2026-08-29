@@ -13,72 +13,55 @@
 - [x] 水电费管理
 - [x] 公告管理
 - [x] 数据看板
-- [x] 归寝检查模块（2026-04-17 补充 API 端点）
+- [x] 归寝检查模块
+- [x] 新生智能选宿模块（批次、问卷匹配、确认/完结）
+- [x] 安全卫生检查模块（计划、记录、整改）
+- [x] 调宿/退宿流程
+- [x] 站内通知（选宿/调宿结果）
 
 ### 🚧 进行中
 - 无
 
 ### 📋 待开发
-- [ ] 新生选宿模块
-- [ ] 安全卫生检查模块
-- [ ] 调宿/退宿流程
-- [ ] 消息通知中心
+- [ ] 消息推送（短信/邮件等站外通道）
 
 ---
 
 ## 模块详情
 
 ### 1. 归寝检查模块
-**状态**: 进行中
+**状态**: 已完成
 
 **数据库表**:
 - `check_in_records` - 归寝打卡记录
 - `leave_requests` - 请假外出申请
 - `check_rules` - 归寝时间规则
+- `check_exceptions` - 晚归/未归异常
 
 **后端**:
-- CheckInController, LeaveRequestController, CheckRuleController
-- CheckInService, LeaveRequestService, CheckRuleService
-- CheckInMapper, LeaveRequestMapper, CheckRuleMapper
+- CheckInController, LeaveRequestController, CheckRuleController, CheckExceptionController
+- CheckInService（业务日窗口）、LeaveRequestService、CheckRuleService
 
 **前端**:
 - 学生：打卡页面、请假申请页面
-- 管理员：归寝统计、异常名单、请假审批
+- 管理员/宿管：归寝统计、异常名单、请假审批
 
 ---
 
 ### 2. 新生选宿模块
-**需求**:
-- 展示可选宿舍（楼栋、房间、床位、价格）
-- 按条件筛选
-- 在线选房锁定床位
-- 选宿时间段设置
-- 选宿结果查询
+**状态**: 已完成（问卷匹配 + 批次流转）
 
 ---
 
 ### 3. 安全卫生检查模块
-**需求**:
-- 检查计划制定
-- 移动端检查记录
-- 拍照上传
-- 整改跟踪
-- 检查报表
+**状态**: 已完成
 
 ---
 
 ### 4. 调宿/退宿流程
-**需求**:
-- 调宿申请提交
-- 审批流程
-- 变更记录
-- 退宿办理
-- 退宿原因记录
+**状态**: 已完成（申请、审批、执行、退宿取消在途申请）
 
 ---
 
 ### 5. 消息通知中心
-**需求**:
-- 系统通知
-- 异常提醒推送
-- 消息已读状态
+**状态**: 站内通知已完成；站外推送待开发

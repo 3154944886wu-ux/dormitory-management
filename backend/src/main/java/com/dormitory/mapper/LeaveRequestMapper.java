@@ -9,7 +9,7 @@ import java.util.List;
 public interface LeaveRequestMapper {
     
     @Select("SELECT l.*, s.name as student_name, s.student_no, s.department, s.class_name, " +
-            "r.room_number, b.name as building_name " +
+            "r.room_number, r.building_id, b.name as building_name " +
             "FROM leave_requests l " +
             "LEFT JOIN students s ON l.student_id = s.id " +
             "LEFT JOIN rooms r ON s.room_id = r.id " +
@@ -18,7 +18,7 @@ public interface LeaveRequestMapper {
     LeaveRequest findById(@Param("id") Long id);
     
     @Select("SELECT l.*, s.name as student_name, s.student_no, s.department, s.class_name, " +
-            "r.room_number, b.name as building_name " +
+            "r.room_number, r.building_id, b.name as building_name " +
             "FROM leave_requests l " +
             "LEFT JOIN students s ON l.student_id = s.id " +
             "LEFT JOIN rooms r ON s.room_id = r.id " +
@@ -31,7 +31,7 @@ public interface LeaveRequestMapper {
     int count();
     
     @Select("SELECT l.*, s.name as student_name, s.student_no, s.department, s.class_name, " +
-            "r.room_number, b.name as building_name " +
+            "r.room_number, r.building_id, b.name as building_name " +
             "FROM leave_requests l " +
             "LEFT JOIN students s ON l.student_id = s.id " +
             "LEFT JOIN rooms r ON s.room_id = r.id " +
@@ -41,7 +41,7 @@ public interface LeaveRequestMapper {
     List<LeaveRequest> findByStudentId(@Param("studentId") Long studentId);
     
     @Select("SELECT l.*, s.name as student_name, s.student_no, s.department, s.class_name, " +
-            "r.room_number, b.name as building_name " +
+            "r.room_number, r.building_id, b.name as building_name " +
             "FROM leave_requests l " +
             "LEFT JOIN students s ON l.student_id = s.id " +
             "LEFT JOIN rooms r ON s.room_id = r.id " +
@@ -59,17 +59,27 @@ public interface LeaveRequestMapper {
             "WHERE l.student_id = #{studentId} AND l.status = 1 " +
             "AND #{now} BETWEEN l.start_time AND l.end_time")
     LeaveRequest findActiveLeaveByStudent(@Param("studentId") Long studentId, @Param("now") LocalDateTime now);
+
+    @Select("SELECT l.*, s.name as student_name, s.student_no, s.department, s.class_name, " +
+            "r.room_number, b.name as building_name " +
+            "FROM leave_requests l " +
+            "LEFT JOIN students s ON l.student_id = s.id " +
+            "LEFT JOIN rooms r ON s.room_id = r.id " +
+            "LEFT JOIN buildings b ON r.building_id = b.id " +
+            "WHERE l.student_id = #{studentId} AND l.status = 1 " +
+            "AND #{now} BETWEEN l.start_time AND l.end_time LIMIT 1")
+    LeaveRequest findCoveringLeaveByStudent(@Param("studentId") Long studentId, @Param("now") LocalDateTime now);
     
     @Insert("INSERT INTO leave_requests (student_id, leave_type, reason, start_time, end_time, " +
-            "contact_phone, destination, attachment, status) " +
+            "contact_phone, emergency_contact, destination, attachment, status) " +
             "VALUES (#{studentId}, #{leaveType}, #{reason}, #{startTime}, #{endTime}, " +
-            "#{contactPhone}, #{destination}, #{attachment}, 0)")
+            "#{contactPhone}, #{emergencyContact}, #{destination}, #{attachment}, 0)")
     @Options(useGeneratedKeys = true, keyProperty = "id")
     int insert(LeaveRequest request);
     
     @Update("UPDATE leave_requests SET status = #{status}, approver_id = #{approverId}, " +
             "approver_name = #{approverName}, approve_time = #{approveTime}, approve_note = #{approveNote} " +
-            "WHERE id = #{id}")
+            "WHERE id = #{id} AND status = 0")
     int approve(@Param("id") Long id, @Param("status") Integer status, 
                 @Param("approverId") Long approverId, @Param("approverName") String approverName,
                 @Param("approveTime") LocalDateTime approveTime, @Param("approveNote") String approveNote);
@@ -78,9 +88,17 @@ public interface LeaveRequestMapper {
     int cancel(@Param("id") Long id);
     
     @Update("UPDATE leave_requests SET status = 4, actual_return_time = #{actualReturnTime} " +
-            "WHERE id = #{id}")
+            "WHERE id = #{id} AND status = 1")
     int confirmReturn(@Param("id") Long id, @Param("actualReturnTime") LocalDateTime actualReturnTime);
     
-    @Select("SELECT COUNT(*) FROM leave_requests WHERE student_id = #{studentId} AND status IN (0, 1)")
-    int countPendingOrApprovedByStudent(@Param("studentId") Long studentId);
+    @Select("SELECT COUNT(*) FROM leave_requests WHERE student_id = #{studentId} " +
+            "AND (status = 0 OR (status = 1 AND end_time > #{now}))")
+    int countPendingOrApprovedByStudent(@Param("studentId") Long studentId, @Param("now") LocalDateTime now);
+
+    @Update("UPDATE leave_requests SET status = 3 WHERE student_id = #{studentId} AND status = 0")
+    int cancelPendingByStudent(@Param("studentId") Long studentId);
+
+    @Update("UPDATE leave_requests SET status = 4, actual_return_time = #{now} " +
+            "WHERE student_id = #{studentId} AND status = 1")
+    int closeApprovedByStudent(@Param("studentId") Long studentId, @Param("now") LocalDateTime now);
 }

@@ -11,7 +11,7 @@ import java.time.LocalDateTime;
 public class LeaveRequest {
     private Long id;
     private Long studentId;
-    private Integer leaveType;  // 0事假 1病假 2其他
+    private Integer leaveType;  // 1事假 2病假 3其他
     private String reason;
     
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
@@ -22,6 +22,7 @@ public class LeaveRequest {
     
     private String contactPhone;
     private String destination;
+    private String emergencyContact;
     private String attachment;
     private Integer status;  // 0待审批 1已批准 2已拒绝 3已撤销 4已销假
     private Long approverId;
@@ -48,4 +49,5 @@ public class LeaveRequest {
     private String className;
     private String roomNumber;
     private String buildingName;
+    private Long buildingId;   // 学生所在楼栋ID（用于宿管/辅导员范围过滤）
 }

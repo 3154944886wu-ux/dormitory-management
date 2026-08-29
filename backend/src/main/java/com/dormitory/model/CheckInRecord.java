@@ -41,4 +41,6 @@ public class CheckInRecord {
     private String studentNo;
     private String roomNumber;
     private String buildingName;
+    private Long buildingId;
+    private String className;
 }

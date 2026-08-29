@@ -3,6 +3,8 @@ package com.dormitory.controller;
 import com.dormitory.model.Questionnaire;
 import com.dormitory.model.QuestionOption;
 import com.dormitory.service.QuestionnaireService;
+import com.dormitory.utils.ApiResponses;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
@@ -22,42 +24,42 @@ public class QuestionnaireController {
 
     @GetMapping
     @PreAuthorize("hasRole('ADMIN')")
-    public Map<String, Object> list() {
+    public ResponseEntity<Map<String, Object>> list() {
         List<Questionnaire> list = questionnaireService.findAll();
         Map<String, Object> result = new HashMap<>();
         result.put("code", 200);
         result.put("data", list);
-        return result;
+        return ApiResponses.json(result);
     }
 
     @GetMapping("/with-options")
     @PreAuthorize("hasRole('ADMIN')")
-    public Map<String, Object> listWithOptions() {
+    public ResponseEntity<Map<String, Object>> listWithOptions() {
         List<Questionnaire> list = questionnaireService.findAllWithOptions();
         Map<String, Object> result = new HashMap<>();
         result.put("code", 200);
         result.put("data", list);
-        return result;
+        return ApiResponses.json(result);
     }
 
     @GetMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
-    public Map<String, Object> getById(@PathVariable Long id) {
+    public ResponseEntity<Map<String, Object>> getById(@PathVariable Long id) {
         Questionnaire q = questionnaireService.getWithOptions(id);
         Map<String, Object> result = new HashMap<>();
         if (q == null) {
             result.put("code", 404);
             result.put("message", "题目不存在");
-            return result;
+            return ApiResponses.json(result);
         }
         result.put("code", 200);
         result.put("data", q);
-        return result;
+        return ApiResponses.json(result);
     }
 
     @PostMapping
     @PreAuthorize("hasRole('ADMIN')")
-    public Map<String, Object> create(@RequestBody Map<String, Object> body) {
+    public ResponseEntity<Map<String, Object>> create(@RequestBody Map<String, Object> body) {
         Map<String, Object> result = new HashMap<>();
         try {
             Questionnaire questionnaire = parseQuestion(body);
@@ -70,12 +72,12 @@ public class QuestionnaireController {
             result.put("code", 400);
             result.put("message", e.getMessage());
         }
-        return result;
+        return ApiResponses.json(result);
     }
 
     @PutMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
-    public Map<String, Object> update(@PathVariable Long id, @RequestBody Map<String, Object> body) {
+    public ResponseEntity<Map<String, Object>> update(@PathVariable Long id, @RequestBody Map<String, Object> body) {
         Map<String, Object> result = new HashMap<>();
         try {
             Questionnaire questionnaire = parseQuestion(body);
@@ -88,12 +90,12 @@ public class QuestionnaireController {
             result.put("code", 400);
             result.put("message", e.getMessage());
         }
-        return result;
+        return ApiResponses.json(result);
     }
 
     @PutMapping("/{id}/status")
     @PreAuthorize("hasRole('ADMIN')")
-    public Map<String, Object> updateStatus(@PathVariable Long id, @RequestBody Map<String, Object> body) {
+    public ResponseEntity<Map<String, Object>> updateStatus(@PathVariable Long id, @RequestBody Map<String, Object> body) {
         Map<String, Object> result = new HashMap<>();
         try {
             Integer isActive = (Integer) body.get("isActive");
@@ -105,12 +107,12 @@ public class QuestionnaireController {
             result.put("code", 400);
             result.put("message", e.getMessage());
         }
-        return result;
+        return ApiResponses.json(result);
     }
 
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
-    public Map<String, Object> delete(@PathVariable Long id) {
+    public ResponseEntity<Map<String, Object>> delete(@PathVariable Long id) {
         Map<String, Object> result = new HashMap<>();
         try {
             questionnaireService.deleteQuestion(id);
@@ -120,7 +122,7 @@ public class QuestionnaireController {
             result.put("code", 400);
             result.put("message", e.getMessage());
         }
-        return result;
+        return ApiResponses.json(result);
     }
 
     @SuppressWarnings("unchecked")
@@ -136,6 +138,9 @@ public class QuestionnaireController {
 
     @SuppressWarnings("unchecked")
     private List<QuestionOption> parseOptions(Map<String, Object> body) {
+        if (!body.containsKey("options")) {
+            return null;
+        }
         List<Map<String, Object>> optionsData = (List<Map<String, Object>>) body.get("options");
         if (optionsData == null) {
             return List.of();

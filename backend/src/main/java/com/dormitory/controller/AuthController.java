@@ -4,7 +4,9 @@ import com.dormitory.mapper.StudentMapper;
 import com.dormitory.model.Student;
 import com.dormitory.model.User;
 import com.dormitory.service.UserService;
+import com.dormitory.utils.AuthMessages;
 import com.dormitory.utils.JwtUtils;
+import com.dormitory.utils.LoginRateLimiter;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -21,11 +23,14 @@ public class AuthController {
     private final UserService userService;
     private final JwtUtils jwtUtils;
     private final StudentMapper studentMapper;
+    private final LoginRateLimiter loginRateLimiter;
 
-    public AuthController(UserService userService, JwtUtils jwtUtils, StudentMapper studentMapper) {
+    public AuthController(UserService userService, JwtUtils jwtUtils, StudentMapper studentMapper,
+                          LoginRateLimiter loginRateLimiter) {
         this.userService = userService;
         this.jwtUtils = jwtUtils;
         this.studentMapper = studentMapper;
+        this.loginRateLimiter = loginRateLimiter;
     }
 
     @PostMapping("/register")
@@ -53,28 +58,14 @@ public class AuthController {
             return ResponseEntity.badRequest().body(result);
         }
 
-        // 检查用户名（学号）是否已被注册
-        if (userService.exists(studentNo.trim())) {
-            result.put("code", 400);
-            result.put("message", "该学号已注册");
-            return ResponseEntity.badRequest().body(result);
-        }
-
-        // 验证学生身份：学号 + 姓名
+        // 验证学生身份：学号 + 姓名（失败统一文案，避免枚举学号）
         Student student = studentMapper.findByStudentNo(studentNo.trim());
-        if (student == null) {
+        if (userService.exists(studentNo.trim())
+                || student == null
+                || !student.getName().equals(name.trim())
+                || student.getUserId() != null) {
             result.put("code", 400);
-            result.put("message", "学号不存在，请确认输入正确");
-            return ResponseEntity.badRequest().body(result);
-        }
-        if (!student.getName().equals(name.trim())) {
-            result.put("code", 400);
-            result.put("message", "姓名与学号不匹配");
-            return ResponseEntity.badRequest().body(result);
-        }
-        if (student.getUserId() != null) {
-            result.put("code", 400);
-            result.put("message", "该学生已注册账号");
+            result.put("message", AuthMessages.REGISTER_IDENTITY_FAILED);
             return ResponseEntity.badRequest().body(result);
         }
 
@@ -104,26 +95,35 @@ public class AuthController {
         String username = loginData.get("username");
         String password = loginData.get("password");
 
+        if (loginRateLimiter.isBlocked(username)) {
+            result.put("code", 429);
+            result.put("message", "登录失败次数过多，请10分钟后再试");
+            return ResponseEntity.status(429).body(result);
+        }
+
         User user = userService.findByUsername(username);
 
         if (user == null) {
+            loginRateLimiter.recordFailure(username);
             result.put("code", 401);
             result.put("message", "用户名或密码错误");
             return ResponseEntity.status(401).body(result);
         }
 
-        if (user.getStatus() == 0) {
+        if (user.getStatus() != null && user.getStatus() == 0) {
             result.put("code", 401);
             result.put("message", "账号已被禁用，请联系管理员");
             return ResponseEntity.status(401).body(result);
         }
 
         if (!userService.verifyPassword(password, user.getPassword())) {
+            loginRateLimiter.recordFailure(username);
             result.put("code", 401);
             result.put("message", "用户名或密码错误");
             return ResponseEntity.status(401).body(result);
         }
 
+        loginRateLimiter.recordSuccess(username);
         String token = jwtUtils.generateToken(user);
 
         result.put("code", 200);
@@ -195,6 +195,18 @@ public class AuthController {
 
         String oldPassword = passwordData.get("oldPassword");
         String newPassword = passwordData.get("newPassword");
+
+        if (oldPassword == null || oldPassword.isBlank()) {
+            result.put("code", 400);
+            result.put("message", "请输入原密码");
+            return ResponseEntity.badRequest().body(result);
+        }
+
+        if (newPassword == null || newPassword.length() < 6) {
+            result.put("code", 400);
+            result.put("message", "密码长度至少6位");
+            return ResponseEntity.badRequest().body(result);
+        }
 
         if (!userService.verifyPassword(oldPassword, user.getPassword())) {
             result.put("code", 400);
