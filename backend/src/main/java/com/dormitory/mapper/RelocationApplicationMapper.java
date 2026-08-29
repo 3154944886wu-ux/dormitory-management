@@ -89,6 +89,12 @@ public interface RelocationApplicationMapper {
     @Update("UPDATE relocation_application SET status = #{status}, updated_at = NOW() WHERE id = #{id}")
     int updateStatus(@Param("id") Long id, @Param("status") String status);
 
+    @Update("UPDATE relocation_application SET status = 'executed', executed_by = #{executedBy}, " +
+            "new_room_id = #{newRoomId}, new_bed_id = #{newBedId}, updated_at = NOW() " +
+            "WHERE id = #{id} AND status = 'approved'")
+    int markExecuted(@Param("id") Long id, @Param("executedBy") Long executedBy,
+                     @Param("newRoomId") Long newRoomId, @Param("newBedId") Long newBedId);
+
     @Delete("DELETE FROM relocation_application WHERE id = #{id}")
     int deleteById(Long id);
 

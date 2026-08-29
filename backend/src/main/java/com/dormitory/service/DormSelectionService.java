@@ -154,6 +154,7 @@ public class DormSelectionService {
             // 检查是否已重新匹配过
             int reallocated = countReallocations(allocation);
             batchData.put("reallocationUsed", reallocated);
+            batchData.put("maxReallocation", batch.getMaxReallocation() != null ? batch.getMaxReallocation() : 1);
 
             // 入住后调换信息
             if (student.getStatus() != null && student.getStatus() == 1 && student.getRoomId() != null) {
@@ -420,8 +421,12 @@ public class DormSelectionService {
     private void updateStudentRoom(Student student, AllocationResult allocation) {
         student.setRoomId(allocation.getRoomId());
         student.setBedNumber(allocation.getBedNumber());
+        student.setStatus(1);
         student.setCheckInDate(LocalDateTime.now());
         studentMapper.update(student);
+        if (student.getRoomId() != null) {
+            roomMapper.setCurrentCount(student.getRoomId(), studentMapper.countByRoomId(student.getRoomId()));
+        }
     }
 
     private boolean alreadyOccupyingBed(Student student, AllocationResult allocation) {

@@ -32,6 +32,13 @@ public final class CheckAbsentWindow {
             if (!current.isBefore(windowStart)) {
                 return null;
             }
+            if (!absentDeadline.equals(LocalTime.MIDNIGHT) && !current.isAfter(absentDeadline)) {
+                return null;
+            }
+            if (absentDeadline.equals(LocalTime.MIDNIGHT)
+                    && (current.equals(LocalTime.MIDNIGHT) || current.equals(LocalTime.MIN))) {
+                return null;
+            }
             return today.minusDays(1);
         }
         if (!current.isBefore(windowStart) && !current.isBefore(absentDeadline)) {

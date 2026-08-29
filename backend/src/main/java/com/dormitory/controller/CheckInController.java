@@ -7,6 +7,7 @@ import com.dormitory.service.ManagerScopeService;
 import com.dormitory.service.OperationLogService;
 import com.dormitory.mapper.StudentMapper;
 import com.dormitory.utils.ApiResponses;
+import com.dormitory.utils.AuthRoles;
 import com.dormitory.utils.JwtUtils;
 import com.dormitory.utils.Pagination;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -15,6 +16,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -113,7 +115,7 @@ public class CheckInController {
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
     public ResponseEntity<?> getByDate(@PathVariable @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate date,
                                       HttpServletRequest request) {
-        if (isManager(request)) {
+        if (isManager()) {
             Long userId = getUserIdFromRequest(request);
             if (!managerScopeService.hasScope(userId)) {
                 return ResponseEntity.ok(List.of());
@@ -139,7 +141,7 @@ public class CheckInController {
             @RequestParam(required = false) Long buildingId,
             @RequestParam(required = false) Integer status,
             HttpServletRequest request) {
-        if (isManager(request)) {
+        if (isManager()) {
             Long userId = getUserIdFromRequest(request);
             if (!managerScopeService.hasScope(userId)) {
                 return ResponseEntity.ok(List.of());
@@ -171,7 +173,7 @@ public class CheckInController {
             HttpServletRequest request) {
         int safePage = Pagination.page(page);
         int safeSize = Pagination.size(size);
-        if (isManager(request)) {
+        if (isManager()) {
             Long userId = getUserIdFromRequest(request);
             if (!managerScopeService.hasScope(userId)) {
                 return ResponseEntity.ok(Map.of("code", 200, "data", Map.of("records", List.of(), "total", 0, "page", safePage, "size", safeSize)));
@@ -200,7 +202,7 @@ public class CheckInController {
             HttpServletRequest request) {
         if (startDate != null || endDate != null) {
             Map<String, Object> data;
-            if (isManager(request)) {
+            if (isManager()) {
                 Long userId = getUserIdFromRequest(request);
                 if (!managerScopeService.hasScope(userId)) {
                     data = Map.of(
@@ -221,7 +223,7 @@ public class CheckInController {
         if (date == null) {
             date = LocalDate.now();
         }
-        if (isManager(request)) {
+        if (isManager()) {
             Long userId = getUserIdFromRequest(request);
             if (!managerScopeService.hasScope(userId)) {
                 return ResponseEntity.ok(Map.of("code", 200, "data", Map.of(
@@ -244,7 +246,7 @@ public class CheckInController {
             @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate startDate,
             @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate endDate,
             HttpServletRequest request) {
-        if (isManager(request)) {
+        if (isManager()) {
             Long userId = getUserIdFromRequest(request);
             if (!managerScopeService.hasScope(userId)) {
                 return ResponseEntity.ok(Map.of("code", 200, "data", Map.of(
@@ -297,7 +299,7 @@ public class CheckInController {
             @RequestParam(required = false) Integer status,
             HttpServletRequest request) {
         Map<String, Object> result;
-        if (isManager(request)) {
+        if (isManager()) {
             Long userId = getUserIdFromRequest(request);
             if (!managerScopeService.hasScope(userId)) {
                 result = Map.of("records", List.of(), "total", 0);
@@ -325,7 +327,7 @@ public class CheckInController {
                     .append(nullToEmpty(record.getLongitude())).append(',')
                     .append(nullToEmpty(record.getLocationAccuracy())).append('\n');
         }
-        operationLogService.log(null, isManager(request) ? "manager" : "admin",
+        operationLogService.log(null, isManager() ? "manager" : "admin",
                 jwtUtils.getUsernameFromToken(getToken(request)), "checkin.export", Map.of("count", records.size()));
 
         return ResponseEntity.ok()
@@ -367,9 +369,8 @@ public class CheckInController {
         return token;
     }
 
-    private boolean isManager(HttpServletRequest request) {
-        String role = jwtUtils.parseToken(getToken(request)).get("role", String.class);
-        return "MANAGER".equalsIgnoreCase(role);
+    private boolean isManager() {
+        return AuthRoles.isManagerOnly(SecurityContextHolder.getContext().getAuthentication());
     }
 
     private BigDecimal toBigDecimal(Object value) {
@@ -410,7 +411,7 @@ public class CheckInController {
         if (record == null) {
             return ResponseEntity.notFound().build();
         }
-        if (isManager(request)) {
+        if (isManager()) {
             Long userId = getUserIdFromRequest(request);
             if (!managerScopeService.canSee(userId, record.getBuildingId(), record.getClassName())) {
                 return ApiResponses.forbidden("无权查看该范围外的打卡记录");

@@ -228,6 +228,108 @@ class ApiContractTest {
                 .andExpect(status().isForbidden());
     }
 
+    @Test
+    void generateMissingCheckInsSkipsOpenWindowDate() throws Exception {
+        MvcResult result = mockMvc.perform(post("/api/checkin/generate-exceptions")
+                        .param("date", "2099-01-01")
+                        .header("Authorization", bearer(adminToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andReturn();
+        int count = objectMapper.readTree(result.getResponse().getContentAsString(StandardCharsets.UTF_8))
+                .path("count").asInt();
+        assertEquals(0, count);
+        Integer rows = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM check_in_records WHERE check_date = '2099-01-01'", Integer.class);
+        assertEquals(0, rows);
+    }
+
+    @Test
+    void utilityCreateCannotMarkPaidDirectly() throws Exception {
+        MvcResult created = mockMvc.perform(post("/api/utility-fees")
+                        .header("Authorization", bearer(adminToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "roomId", 1,
+                                "month", "2026-09",
+                                "electricFee", 12,
+                                "waterFee", 3,
+                                "status", 1))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(201))
+                .andReturn();
+        long id = objectMapper.readTree(created.getResponse().getContentAsString(StandardCharsets.UTF_8))
+                .at("/data/id").asLong();
+        Integer status = jdbcTemplate.queryForObject(
+                "SELECT status FROM utility_fees WHERE id = ?", Integer.class, id);
+        assertEquals(0, status);
+        Integer payTimeNull = jdbcTemplate.queryForObject(
+                "SELECT CASE WHEN pay_time IS NULL THEN 1 ELSE 0 END FROM utility_fees WHERE id = ?",
+                Integer.class, id);
+        assertEquals(1, payTimeNull);
+    }
+
+    @Test
+    void pendingRepairCannotComplete() throws Exception {
+        mockMvc.perform(post("/api/repairs/1/complete")
+                        .header("Authorization", bearer(adminToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(400));
+    }
+
+    @Test
+    void managerCannotCompleteOutOfScopeInspectionPlan() throws Exception {
+        jdbcTemplate.update("""
+                INSERT INTO inspection_plans (id, name, inspection_type, status, building_ids, total_rooms, completed_rooms)
+                VALUES (91, '2号楼越权计划', 'HYGIENE', 'IN_PROGRESS', '2', 1, 0)
+                """);
+        mockMvc.perform(post("/api/inspection/plans/91/complete")
+                        .header("Authorization", bearer(managerToken)))
+                .andExpect(status().isForbidden());
+        String planStatus = jdbcTemplate.queryForObject(
+                "SELECT status FROM inspection_plans WHERE id = 91", String.class);
+        assertEquals("IN_PROGRESS", planStatus);
+    }
+
+    @Test
+    void pendingStudentCanBeAssignedRoomAndOccupancySyncs() throws Exception {
+        jdbcTemplate.update("""
+                INSERT INTO rooms (id, building_id, room_number, floor, capacity, current_count, status, is_active)
+                VALUES (91, 1, '0191', 1, 4, 0, 1, 1)
+                """);
+        jdbcTemplate.update("""
+                INSERT INTO bed (bed_number, room_id, bed_type, is_occupied)
+                VALUES ('A', 91, 'window', 0)
+                """);
+        jdbcTemplate.update("""
+                INSERT INTO students (id, student_no, name, gender, status)
+                VALUES (91, '20990091', '待入住甲', '男', 0)
+                """);
+
+        mockMvc.perform(put("/api/students/91")
+                        .header("Authorization", bearer(adminToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "studentNo", "20990091",
+                                "name", "待入住甲",
+                                "gender", "男",
+                                "roomId", 91))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200));
+
+        Integer studentStatus = jdbcTemplate.queryForObject(
+                "SELECT status FROM students WHERE id = 91", Integer.class);
+        assertEquals(1, studentStatus);
+        Integer currentCount = jdbcTemplate.queryForObject(
+                "SELECT current_count FROM rooms WHERE id = 91", Integer.class);
+        assertEquals(1, currentCount);
+        Integer occupied = jdbcTemplate.queryForObject(
+                "SELECT is_occupied FROM bed WHERE room_id = 91 AND bed_number = 'A'", Integer.class);
+        assertEquals(1, occupied);
+    }
+
     private String login(String username, String password) throws Exception {
         MvcResult result = mockMvc.perform(post("/api/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)

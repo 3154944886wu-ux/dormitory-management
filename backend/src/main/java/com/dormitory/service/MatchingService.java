@@ -135,12 +135,13 @@ public class MatchingService {
 
             List<RoommateGroup> allGroups = new ArrayList<>();
             List<AllocationResult> allResults = new ArrayList<>();
+            Set<Long> reservedBedIds = new HashSet<>();
+            Map<Long, Integer> roomExtraOccupants = new HashMap<>();
 
             // 3. 对每个性别组执行匹配
             for (Map.Entry<String, List<Student>> entry : byGender.entrySet()) {
                 String gender = entry.getKey();
                 List<Student> genderStudents = entry.getValue();
-                Set<Long> reservedBedIds = new HashSet<>();
 
                 // 获取适用于该性别的空房和未满房
                 List<Room> compatibleEmptyRooms = allEmptyRooms.stream()
@@ -177,7 +178,7 @@ public class MatchingService {
                     capacityRooms.addAll(compatiblePartialRooms);
                     List<StudentGroup> groups = matchSubmitted(submitted, matchQuestions, optionMap,
                             questionMap, studentAnswers, batch, capacityRooms);
-                    assignRoomsAndBeds(groups, compatibleEmptyRooms, compatiblePartialRooms, batch, buildingMap, reservedBedIds);
+                    assignRoomsAndBeds(groups, compatibleEmptyRooms, compatiblePartialRooms, batch, buildingMap, reservedBedIds, roomExtraOccupants);
                     for (StudentGroup g : groups) {
                         RoommateGroup rg = createRoommateGroup(g, batch.getId());
                         allGroups.add(rg);
@@ -191,7 +192,7 @@ public class MatchingService {
                 if (!unsubmitted.isEmpty()) {
                     List<StudentGroup> groups = matchUnsubmitted(unsubmitted, batch,
                             compatibleEmptyRooms, buildingMap);
-                    assignRoomsAndBeds(groups, compatibleEmptyRooms, compatiblePartialRooms, batch, buildingMap, reservedBedIds);
+                    assignRoomsAndBeds(groups, compatibleEmptyRooms, compatiblePartialRooms, batch, buildingMap, reservedBedIds, roomExtraOccupants);
                     for (StudentGroup g : groups) {
                         RoommateGroup rg = createRoommateGroup(g, batch.getId());
                         allGroups.add(rg);
@@ -418,9 +419,8 @@ public class MatchingService {
     private void assignRoomsAndBeds(List<StudentGroup> groups, List<Room> emptyRooms,
                                      List<Room> partialRooms, DormBatch batch,
                                      Map<Long, Building> buildingMap,
-                                     Set<Long> reservedBedIds) {
-        // 跟踪每个房间在本次匹配中已分配的额外人数（不修改数据库 current_count）
-        Map<Long, Integer> roomExtraOccupants = new HashMap<>();
+                                     Set<Long> reservedBedIds,
+                                     Map<Long, Integer> roomExtraOccupants) {
         boolean preferSameFloor = batch.getPreferSameFloor() != null
                 && batch.getPreferSameFloor() == 1;
 
@@ -659,8 +659,9 @@ public class MatchingService {
         // 加入新房间的室友组（或新建）
         List<RoommateGroup> roomGroups = roommateGroupMapper.findByRoomId(targetRoom.getId());
         RoommateGroup targetGroup = null;
+        int roomCapacity = targetRoom.getCapacity() != null ? targetRoom.getCapacity() : 4;
         for (RoommateGroup rg : roomGroups) {
-            if (rg.getMemberIdList() != null && rg.getMemberIdList().size() < 4) {
+            if (rg.getMemberIdList() != null && rg.getMemberIdList().size() < roomCapacity) {
                 targetGroup = rg;
                 break;
             }

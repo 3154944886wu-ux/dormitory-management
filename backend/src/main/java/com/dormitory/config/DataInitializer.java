@@ -32,12 +32,6 @@ public class DataInitializer implements CommandLineRunner {
             admin.setStatus(1);
             userMapper.insert(admin);
             System.out.println("✅ 默认管理员账号已创建: admin / admin123");
-        } else {
-            // 确保管理员密码正确（重置为 admin123）
-            if (!passwordEncoder.matches("admin123", existingAdmin.getPassword())) {
-                userMapper.updatePassword(existingAdmin.getId(), passwordEncoder.encode("admin123"));
-                System.out.println("✅ 管理员密码已重置: admin / admin123");
-            }
         }
     }
 }

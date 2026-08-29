@@ -81,6 +81,9 @@ public interface CheckInMapper {
 
     @Delete("DELETE FROM check_in_records WHERE check_date BETWEEN #{startDate} AND #{endDate}")
     int deleteByDateRange(@Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
+
+    @Delete("DELETE FROM check_in_records WHERE student_id = #{studentId} AND status = 3 AND check_date >= #{fromDate}")
+    int deleteLeaveRecordsFromDate(@Param("studentId") Long studentId, @Param("fromDate") LocalDate fromDate);
     
     @Select("SELECT COUNT(*) FROM check_in_records WHERE check_date = #{checkDate} AND status = #{status}")
     int countByDateAndStatus(@Param("checkDate") LocalDate checkDate, @Param("status") Integer status);

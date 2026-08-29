@@ -52,17 +52,17 @@
             <el-tag v-else type="info" size="small">未分配</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="status" label="状态" width="80">
+        <el-table-column prop="status" label="状态" width="90">
           <template #default="{ row }">
-            <el-tag :type="row.status === 1 ? 'success' : 'info'">
-              {{ row.status === 1 ? '在住' : '已退宿' }}
+            <el-tag :type="studentStatusMeta(row).type">
+              {{ studentStatusMeta(row).text }}
             </el-tag>
           </template>
         </el-table-column>
         <el-table-column label="操作" width="260" fixed="right">
           <template #default="{ row }">
             <el-button
-              v-if="row.status === 1"
+              v-if="canEditStudent(row)"
               type="primary"
               link
               @click="handleEdit(row)"
@@ -681,6 +681,18 @@ const handleSearch = async () => {
   currentPage.value = 1
   loadStudents()
 }
+
+const studentStatusMeta = (row) => {
+  if (row.status === 1) {
+    return { text: '在住', type: 'success' }
+  }
+  if (row.checkOutDate) {
+    return { text: '已退宿', type: 'info' }
+  }
+  return { text: '待入住', type: 'warning' }
+}
+
+const canEditStudent = (row) => row.status === 1 || (row.status === 0 && !row.checkOutDate)
 
 const handleAdd = () => {
   isEdit.value = false

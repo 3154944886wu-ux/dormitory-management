@@ -72,8 +72,8 @@ public class InspectionPlanController {
      * 按状态查询
      */
     @GetMapping("/status/{status}")
-    public ResponseEntity<?> getByStatus(@PathVariable String status) {
-        List<InspectionPlan> plans = planService.findByStatus(status);
+    public ResponseEntity<?> getByStatus(@PathVariable String status, Authentication auth) {
+        List<InspectionPlan> plans = scoped(auth, planService.findByStatus(status));
         return ResponseEntity.ok(Map.of("data", plans));
     }
 
@@ -81,8 +81,8 @@ public class InspectionPlanController {
      * 按类型查询
      */
     @GetMapping("/type/{type}")
-    public ResponseEntity<?> getByType(@PathVariable String type) {
-        List<InspectionPlan> plans = planService.findByType(type);
+    public ResponseEntity<?> getByType(@PathVariable String type, Authentication auth) {
+        List<InspectionPlan> plans = scoped(auth, planService.findByType(type));
         return ResponseEntity.ok(Map.of("data", plans));
     }
 
@@ -107,8 +107,16 @@ public class InspectionPlanController {
      */
     @PostMapping
     public ResponseEntity<?> create(@RequestBody InspectionPlan plan,
-                                   @RequestHeader("Authorization") String token) {
+                                   @RequestHeader("Authorization") String token,
+                                   Authentication auth) {
         try {
+            Set<Long> buildings = managerBuildingIds(auth);
+            if (buildings != null && !InspectionPlanScope.fullyWithin(plan.getBuildingIds(), buildings)) {
+                return ResponseEntity.status(403).body(Map.of(
+                    "success", false,
+                    "message", "无权创建范围外楼栋的检查计划"
+                ));
+            }
             Long userId = jwtUtils.getUserIdFromToken(token.replace("Bearer ", ""));
             String username = jwtUtils.getUsernameFromToken(token.replace("Bearer ", ""));
             plan.setCreatorId(userId);
@@ -157,8 +165,13 @@ public class InspectionPlanController {
      * 更新计划状态（通用）
      */
     @PutMapping("/{id}/status")
-    public ResponseEntity<?> updateStatus(@PathVariable Long id, @RequestBody Map<String, String> body) {
+    public ResponseEntity<?> updateStatus(@PathVariable Long id, @RequestBody Map<String, String> body,
+                                          Authentication auth) {
         try {
+            ResponseEntity<?> denied = denyIfOutOfScope(auth, planService.findById(id));
+            if (denied != null) {
+                return denied;
+            }
             String status = body.get("status");
             InspectionPlan updated = planService.updateStatus(id, status);
             return ResponseEntity.ok(Map.of(
@@ -202,8 +215,12 @@ public class InspectionPlanController {
      * 完成检查计划（IN_PROGRESS -> COMPLETED）
      */
     @PostMapping("/{id}/complete")
-    public ResponseEntity<?> completePlan(@PathVariable Long id) {
+    public ResponseEntity<?> completePlan(@PathVariable Long id, Authentication auth) {
         try {
+            ResponseEntity<?> denied = denyIfOutOfScope(auth, planService.findById(id));
+            if (denied != null) {
+                return denied;
+            }
             InspectionPlan updated = planService.completePlan(id);
             return ResponseEntity.ok(Map.of(
                 "success", true,
@@ -222,8 +239,12 @@ public class InspectionPlanController {
      * 取消检查计划（-> CANCELLED）
      */
     @PostMapping("/{id}/cancel")
-    public ResponseEntity<?> cancelPlan(@PathVariable Long id) {
+    public ResponseEntity<?> cancelPlan(@PathVariable Long id, Authentication auth) {
         try {
+            ResponseEntity<?> denied = denyIfOutOfScope(auth, planService.findById(id));
+            if (denied != null) {
+                return denied;
+            }
             InspectionPlan updated = planService.cancelPlan(id);
             return ResponseEntity.ok(Map.of(
                 "success", true,

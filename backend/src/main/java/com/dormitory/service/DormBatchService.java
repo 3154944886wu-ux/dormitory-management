@@ -299,6 +299,7 @@ public class DormBatchService {
         }
         student.setRoomId(null);
         student.setBedNumber(null);
+        student.setStatus(0);
         studentMapper.update(student);
     }
 

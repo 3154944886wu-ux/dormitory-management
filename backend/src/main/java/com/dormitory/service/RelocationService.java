@@ -172,6 +172,11 @@ public class RelocationService {
         if (newBed.getIsOccupied() == 1)
             throw new RuntimeException("该床位已被占用");
 
+        int cas = relocationAppMapper.markExecuted(applicationId, adminUserId, newRoomId, newBedId);
+        if (cas == 0) {
+            throw new RuntimeException("申请状态已变化，无法执行");
+        }
+
         Long currentBedId = studentCurrentBedId(student);
         releaseOldResources(student, currentBedId);
 
@@ -215,8 +220,9 @@ public class RelocationService {
             // 加入新房间的室友组（或新建）
             List<RoommateGroup> newRoomGroups = roommateGroupMapper.findByRoomId(newRoomId);
             RoommateGroup targetGroup = null;
+            int roomCapacity = newRoom.getCapacity() != null ? newRoom.getCapacity() : 4;
             for (RoommateGroup rg : newRoomGroups) {
-                if (rg.getMemberIdList() != null && rg.getMemberIdList().size() < 4) {
+                if (rg.getMemberIdList() != null && rg.getMemberIdList().size() < roomCapacity) {
                     targetGroup = rg;
                     break;
                 }
@@ -241,13 +247,6 @@ public class RelocationService {
             result.setRoommateGroupId(targetGroup.getId());
             allocationResultMapper.update(result);
         }
-
-        // 更新申请
-        app.setStatus("executed");
-        app.setExecutedBy(adminUserId);
-        app.setNewRoomId(newRoomId);
-        app.setNewBedId(newBedId);
-        relocationAppMapper.update(app);
 
         writeLog(student.getId(), "admin", String.valueOf(adminUserId),
                 "执行调换", "{\"applicationId\":" + applicationId

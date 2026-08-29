@@ -8,8 +8,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class RepairCompletionTest {
 
     @Test
-    void pendingAndProcessingCanComplete() {
-        assertTrue(RepairCompletion.canComplete(0));
+    void onlyProcessingCanComplete() {
+        assertFalse(RepairCompletion.canComplete(0));
         assertTrue(RepairCompletion.canComplete(1));
     }
 

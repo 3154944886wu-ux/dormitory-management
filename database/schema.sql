@@ -350,7 +350,8 @@ CREATE TABLE IF NOT EXISTS inspection_records (
     update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (plan_id) REFERENCES inspection_plans(id) ON DELETE SET NULL,
     FOREIGN KEY (building_id) REFERENCES buildings(id) ON DELETE CASCADE,
-    FOREIGN KEY (room_id) REFERENCES rooms(id) ON DELETE CASCADE
+    FOREIGN KEY (room_id) REFERENCES rooms(id) ON DELETE CASCADE,
+    UNIQUE KEY uk_plan_room (plan_id, room_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='安全卫生检查记录表';
 
 -- ================================================================

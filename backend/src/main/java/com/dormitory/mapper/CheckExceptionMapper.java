@@ -12,7 +12,8 @@ public interface CheckExceptionMapper {
             "r.room_number, r.building_id as buildingId, b.name as building_name " +
             "FROM check_exceptions e " +
             "LEFT JOIN students s ON e.student_id = s.id " +
-            "LEFT JOIN rooms r ON s.room_id = r.id " +
+            "LEFT JOIN check_in_records csnap ON csnap.student_id = e.student_id AND csnap.check_date = e.exception_date " +
+            "LEFT JOIN rooms r ON COALESCE(csnap.room_id, s.room_id) = r.id " +
             "LEFT JOIN buildings b ON r.building_id = b.id " +
             "WHERE e.id = #{id}")
     CheckException findById(@Param("id") Long id);
@@ -21,7 +22,8 @@ public interface CheckExceptionMapper {
             "r.room_number, r.building_id as buildingId, b.name as building_name " +
             "FROM check_exceptions e " +
             "LEFT JOIN students s ON e.student_id = s.id " +
-            "LEFT JOIN rooms r ON s.room_id = r.id " +
+            "LEFT JOIN check_in_records csnap ON csnap.student_id = e.student_id AND csnap.check_date = e.exception_date " +
+            "LEFT JOIN rooms r ON COALESCE(csnap.room_id, s.room_id) = r.id " +
             "LEFT JOIN buildings b ON r.building_id = b.id " +
             "ORDER BY e.exception_date DESC, e.create_time DESC " +
             "LIMIT #{offset}, #{limit}")
@@ -34,7 +36,8 @@ public interface CheckExceptionMapper {
             "r.room_number, r.building_id as buildingId, b.name as building_name " +
             "FROM check_exceptions e " +
             "LEFT JOIN students s ON e.student_id = s.id " +
-            "LEFT JOIN rooms r ON s.room_id = r.id " +
+            "LEFT JOIN check_in_records csnap ON csnap.student_id = e.student_id AND csnap.check_date = e.exception_date " +
+            "LEFT JOIN rooms r ON COALESCE(csnap.room_id, s.room_id) = r.id " +
             "LEFT JOIN buildings b ON r.building_id = b.id " +
             "WHERE e.exception_date = #{date} ORDER BY e.create_time DESC")
     List<CheckException> findByDate(@Param("date") LocalDate date);
@@ -43,7 +46,8 @@ public interface CheckExceptionMapper {
             "r.room_number, r.building_id as buildingId, b.name as building_name " +
             "FROM check_exceptions e " +
             "LEFT JOIN students s ON e.student_id = s.id " +
-            "LEFT JOIN rooms r ON s.room_id = r.id " +
+            "LEFT JOIN check_in_records csnap ON csnap.student_id = e.student_id AND csnap.check_date = e.exception_date " +
+            "LEFT JOIN rooms r ON COALESCE(csnap.room_id, s.room_id) = r.id " +
             "LEFT JOIN buildings b ON r.building_id = b.id " +
             "WHERE e.student_id = #{studentId} " +
             "ORDER BY e.exception_date DESC")
@@ -53,7 +57,8 @@ public interface CheckExceptionMapper {
             "r.room_number, r.building_id as buildingId, b.name as building_name " +
             "FROM check_exceptions e " +
             "LEFT JOIN students s ON e.student_id = s.id " +
-            "LEFT JOIN rooms r ON s.room_id = r.id " +
+            "LEFT JOIN check_in_records csnap ON csnap.student_id = e.student_id AND csnap.check_date = e.exception_date " +
+            "LEFT JOIN rooms r ON COALESCE(csnap.room_id, s.room_id) = r.id " +
             "LEFT JOIN buildings b ON r.building_id = b.id " +
             "WHERE e.handled = #{handled} ORDER BY e.exception_date DESC")
     List<CheckException> findByHandled(@Param("handled") Integer handled);
@@ -62,7 +67,8 @@ public interface CheckExceptionMapper {
             "r.room_number, r.building_id as buildingId, b.name as building_name " +
             "FROM check_exceptions e " +
             "LEFT JOIN students s ON e.student_id = s.id " +
-            "LEFT JOIN rooms r ON s.room_id = r.id " +
+            "LEFT JOIN check_in_records csnap ON csnap.student_id = e.student_id AND csnap.check_date = e.exception_date " +
+            "LEFT JOIN rooms r ON COALESCE(csnap.room_id, s.room_id) = r.id " +
             "LEFT JOIN buildings b ON r.building_id = b.id " +
             "WHERE e.exception_date BETWEEN #{startDate} AND #{endDate} " +
             "AND (#{buildingId} IS NULL OR r.building_id = #{buildingId}) " +
@@ -126,7 +132,8 @@ public interface CheckExceptionMapper {
             "r.room_number, r.building_id as buildingId, b.name as building_name " +
             "FROM check_exceptions e " +
             "LEFT JOIN students s ON e.student_id = s.id " +
-            "LEFT JOIN rooms r ON s.room_id = r.id " +
+            "LEFT JOIN check_in_records csnap ON csnap.student_id = e.student_id AND csnap.check_date = e.exception_date " +
+            "LEFT JOIN rooms r ON COALESCE(csnap.room_id, s.room_id) = r.id " +
             "LEFT JOIN buildings b ON r.building_id = b.id " +
             "WHERE e.exception_date BETWEEN #{startDate} AND #{endDate} " +
             "AND (#{exceptionType} IS NULL OR e.exception_type = #{exceptionType}) " +
@@ -142,7 +149,8 @@ public interface CheckExceptionMapper {
     @Select("SELECT b.name AS name, e.exception_type AS type, e.handled, COUNT(*) AS count " +
             "FROM check_exceptions e " +
             "LEFT JOIN students s ON e.student_id = s.id " +
-            "LEFT JOIN rooms r ON s.room_id = r.id " +
+            "LEFT JOIN check_in_records csnap ON csnap.student_id = e.student_id AND csnap.check_date = e.exception_date " +
+            "LEFT JOIN rooms r ON COALESCE(csnap.room_id, s.room_id) = r.id " +
             "LEFT JOIN buildings b ON r.building_id = b.id " +
             "WHERE e.exception_date BETWEEN #{startDate} AND #{endDate} " +
             "GROUP BY b.name, e.exception_type, e.handled ORDER BY b.name")
@@ -159,7 +167,8 @@ public interface CheckExceptionMapper {
 
     @Select("SELECT e.exception_type AS type, e.handled, COUNT(*) AS count FROM check_exceptions e " +
             "LEFT JOIN students s ON e.student_id = s.id " +
-            "LEFT JOIN rooms r ON s.room_id = r.id " +
+            "LEFT JOIN check_in_records csnap ON csnap.student_id = e.student_id AND csnap.check_date = e.exception_date " +
+            "LEFT JOIN rooms r ON COALESCE(csnap.room_id, s.room_id) = r.id " +
             "WHERE e.exception_date BETWEEN #{startDate} AND #{endDate} " +
             "AND (#{scopesJson} IS NULL OR EXISTS (SELECT 1 FROM JSON_TABLE(CAST(#{scopesJson} AS JSON), '$[*]' COLUMNS (scope_building_id BIGINT PATH '$.buildingId', scope_class_name VARCHAR(128) PATH '$.className')) scope_tbl WHERE (scope_tbl.scope_building_id IS NULL OR scope_tbl.scope_building_id = r.building_id) AND (scope_tbl.scope_class_name IS NULL OR scope_tbl.scope_class_name = IFNULL(s.class_name,'')))) " +
             "GROUP BY e.exception_type, e.handled")
@@ -169,7 +178,8 @@ public interface CheckExceptionMapper {
 
     @Select("SELECT e.exception_type AS type, COUNT(*) AS count FROM check_exceptions e " +
             "LEFT JOIN students s ON e.student_id = s.id " +
-            "LEFT JOIN rooms r ON s.room_id = r.id " +
+            "LEFT JOIN check_in_records csnap ON csnap.student_id = e.student_id AND csnap.check_date = e.exception_date " +
+            "LEFT JOIN rooms r ON COALESCE(csnap.room_id, s.room_id) = r.id " +
             "WHERE e.exception_date BETWEEN #{startDate} AND #{endDate} " +
             "AND (#{scopesJson} IS NULL OR EXISTS (SELECT 1 FROM JSON_TABLE(CAST(#{scopesJson} AS JSON), '$[*]' COLUMNS (scope_building_id BIGINT PATH '$.buildingId', scope_class_name VARCHAR(128) PATH '$.className')) scope_tbl WHERE (scope_tbl.scope_building_id IS NULL OR scope_tbl.scope_building_id = r.building_id) AND (scope_tbl.scope_class_name IS NULL OR scope_tbl.scope_class_name = IFNULL(s.class_name,'')))) " +
             "GROUP BY e.exception_type")
@@ -179,7 +189,8 @@ public interface CheckExceptionMapper {
 
     @Select("SELECT COUNT(*) FROM check_exceptions e " +
             "LEFT JOIN students s ON e.student_id = s.id " +
-            "LEFT JOIN rooms r ON s.room_id = r.id " +
+            "LEFT JOIN check_in_records csnap ON csnap.student_id = e.student_id AND csnap.check_date = e.exception_date " +
+            "LEFT JOIN rooms r ON COALESCE(csnap.room_id, s.room_id) = r.id " +
             "WHERE e.handled = 0 AND e.exception_date BETWEEN #{startDate} AND #{endDate} " +
             "AND (#{scopesJson} IS NULL OR EXISTS (SELECT 1 FROM JSON_TABLE(CAST(#{scopesJson} AS JSON), '$[*]' COLUMNS (scope_building_id BIGINT PATH '$.buildingId', scope_class_name VARCHAR(128) PATH '$.className')) scope_tbl WHERE (scope_tbl.scope_building_id IS NULL OR scope_tbl.scope_building_id = r.building_id) AND (scope_tbl.scope_class_name IS NULL OR scope_tbl.scope_class_name = IFNULL(s.class_name,''))))")
     int countUnhandledInRange(@Param("startDate") LocalDate startDate,
