@@ -93,13 +93,12 @@ public class QuestionnaireService {
 
         if (options != null) {
             int answerCount = studentAnswerMapper.countByQId(id);
-            if (!QuestionnaireEditPolicy.canReplaceOptions(answerCount)) {
-                throw new RuntimeException("已有学生作答，不能替换选项，以免已提交答案被清空");
-            }
-            optionMapper.deleteByQId(id);
-            for (QuestionOption option : options) {
-                option.setQId(id);
-                optionMapper.insert(option);
+            if (QuestionnaireEditPolicy.canReplaceOptions(answerCount)) {
+                optionMapper.deleteByQId(id);
+                for (QuestionOption option : options) {
+                    option.setQId(id);
+                    optionMapper.insert(option);
+                }
             }
         }
 

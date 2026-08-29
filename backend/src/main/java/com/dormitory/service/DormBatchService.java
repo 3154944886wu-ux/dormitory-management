@@ -5,6 +5,7 @@ import com.dormitory.model.College;
 import com.dormitory.model.DormBatch;
 import com.dormitory.utils.BatchFinishPolicy;
 import com.dormitory.utils.OccupancyRelease;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,6 +28,7 @@ public class DormBatchService {
     private final NotificationService notificationService;
     private final RelocationApplicationMapper relocationApplicationMapper;
     private final MatchingService matchingService;
+    private final LeaveRequestService leaveRequestService;
 
     public DormBatchService(DormBatchMapper batchMapper, CollegeMapper collegeMapper,
                             StudentMapper studentMapper, AllocationResultMapper allocationResultMapper,
@@ -36,7 +38,8 @@ public class DormBatchService {
                             NotificationMapper notificationMapper,
                             NotificationService notificationService,
                             RelocationApplicationMapper relocationApplicationMapper,
-                            MatchingService matchingService) {
+                            MatchingService matchingService,
+                            @Lazy LeaveRequestService leaveRequestService) {
         this.batchMapper = batchMapper;
         this.collegeMapper = collegeMapper;
         this.studentMapper = studentMapper;
@@ -50,6 +53,7 @@ public class DormBatchService {
         this.notificationService = notificationService;
         this.relocationApplicationMapper = relocationApplicationMapper;
         this.matchingService = matchingService;
+        this.leaveRequestService = leaveRequestService;
     }
 
     public List<DormBatch> findAll() {
@@ -297,6 +301,7 @@ public class DormBatchService {
         if (ar.getRoomId() != null) {
             roomMapper.decrementCount(ar.getRoomId());
         }
+        leaveRequestService.closeActiveOnCheckout(student.getId());
         student.setRoomId(null);
         student.setBedNumber(null);
         student.setStatus(0);

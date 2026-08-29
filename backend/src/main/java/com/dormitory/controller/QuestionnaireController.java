@@ -138,6 +138,9 @@ public class QuestionnaireController {
 
     @SuppressWarnings("unchecked")
     private List<QuestionOption> parseOptions(Map<String, Object> body) {
+        if (!body.containsKey("options")) {
+            return null;
+        }
         List<Map<String, Object>> optionsData = (List<Map<String, Object>>) body.get("options");
         if (optionsData == null) {
             return List.of();

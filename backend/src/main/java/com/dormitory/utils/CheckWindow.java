@@ -39,10 +39,16 @@ public final class CheckWindow {
     }
 
     /**
-     * 学生端「今日」展示：凌晨看上一窗口，白天看当天日历。
+     * 学生端「今日」展示：打卡窗内看当前业务日，窗外看日历当天。
      */
     public static LocalDate displayDate(LocalDateTime now, CheckRule rule) {
-        return businessDate(now, rule);
+        if (now == null) {
+            return null;
+        }
+        if (rule != null && isInCheckWindow(now.toLocalTime(), rule)) {
+            return businessDate(now, rule);
+        }
+        return now.toLocalDate();
     }
 
     public static boolean isOvernightPortion(LocalTime time, LocalTime windowStart) {

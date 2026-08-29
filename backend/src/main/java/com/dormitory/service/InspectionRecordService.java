@@ -77,7 +77,10 @@ public class InspectionRecordService {
             }
             if (record.getRoomId() != null) {
                 Room room = roomMapper.findById(record.getRoomId());
-                if (room != null && !InspectionPlanScope.containsBuilding(plan.getBuildingIds(), room.getBuildingId())) {
+                if (room == null) {
+                    throw new RuntimeException("房间不存在");
+                }
+                if (!InspectionPlanScope.containsBuilding(plan.getBuildingIds(), room.getBuildingId())) {
                     throw new RuntimeException("该房间不在检查计划范围内");
                 }
             }

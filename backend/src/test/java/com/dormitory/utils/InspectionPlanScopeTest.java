@@ -31,4 +31,12 @@ class InspectionPlanScopeTest {
         assertFalse(InspectionPlanScope.containsBuilding("1,3", 2L));
         assertFalse(InspectionPlanScope.containsBuilding("1", null));
     }
+
+    @Test
+    void updateAllowsExistingOutOfScopeBuildingsButRejectsAddedOnes() {
+        assertTrue(InspectionPlanScope.addedWithin("1,2", "1,2", Set.of(1L)));
+        assertTrue(InspectionPlanScope.addedWithin("1,2", "1", Set.of(1L)));
+        assertFalse(InspectionPlanScope.addedWithin("1", "1,3", Set.of(1L)));
+        assertTrue(InspectionPlanScope.addedWithin("1", "1,2", Set.of(1L, 2L)));
+    }
 }
