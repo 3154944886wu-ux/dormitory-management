@@ -89,6 +89,7 @@
         <el-descriptions-item label="请假原因">{{ currentRequest.reason }}</el-descriptions-item>
         <el-descriptions-item label="联系电话">{{ currentRequest.contactPhone }}</el-descriptions-item>
         <el-descriptions-item label="紧急联系人">{{ currentRequest.emergencyContact || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="外出地点">{{ currentRequest.destination || '-' }}</el-descriptions-item>
       </el-descriptions>
       
       <el-form 

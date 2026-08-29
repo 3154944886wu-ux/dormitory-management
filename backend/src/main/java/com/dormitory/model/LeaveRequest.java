@@ -22,6 +22,7 @@ public class LeaveRequest {
     
     private String contactPhone;
     private String destination;
+    private String emergencyContact;
     private String attachment;
     private Integer status;  // 0待审批 1已批准 2已拒绝 3已撤销 4已销假
     private Long approverId;

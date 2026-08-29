@@ -12,6 +12,7 @@ import com.dormitory.model.Student;
 import com.dormitory.model.Bed;
 import com.dormitory.utils.GenderMatcher;
 import com.dormitory.utils.RoommateNames;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,17 +29,20 @@ public class StudentService {
     private final BedMapper bedMapper;
     private final AllocationResultMapper allocationResultMapper;
     private final RelocationService relocationService;
+    private final LeaveRequestService leaveRequestService;
 
     public StudentService(StudentMapper studentMapper, RoomMapper roomMapper,
                           BuildingMapper buildingMapper, BedMapper bedMapper,
                           AllocationResultMapper allocationResultMapper,
-                          RelocationService relocationService) {
+                          RelocationService relocationService,
+                          @Lazy LeaveRequestService leaveRequestService) {
         this.studentMapper = studentMapper;
         this.roomMapper = roomMapper;
         this.buildingMapper = buildingMapper;
         this.bedMapper = bedMapper;
         this.allocationResultMapper = allocationResultMapper;
         this.relocationService = relocationService;
+        this.leaveRequestService = leaveRequestService;
     }
     
     public List<Student> findAll() {
@@ -141,6 +145,7 @@ public class StudentService {
 
         // 管理员清空了房间 → 自动退宿
         if (student.getRoomId() == null && existing.getRoomId() != null) {
+            leaveRequestService.closeActiveOnCheckout(existing.getId());
             releaseStudentResources(existing);
             relocationService.cancelActiveByStudent(existing.getId());
             student.setStatus(0);
@@ -149,6 +154,7 @@ public class StudentService {
         }
         // 更换房间
         else if (student.getRoomId() != null && !student.getRoomId().equals(existing.getRoomId())) {
+            relocationService.cancelActiveByStudent(existing.getId());
             // 释放旧资源
             if (existing.getRoomId() != null) {
                 releaseStudentResources(existing);
@@ -299,6 +305,7 @@ public class StudentService {
         }
 
         Long oldRoomId = student.getRoomId();
+        leaveRequestService.closeActiveOnCheckout(id);
         releaseStudentResources(student);
         relocationService.cancelActiveByStudent(id);
 
@@ -381,7 +388,9 @@ public class StudentService {
 
         student.setRoomId(newRoomId);
         student.setBedNumber(bed.getBedNumber());
-        student.setCheckInDate(LocalDateTime.now());
+        if (student.getCheckInDate() == null) {
+            student.setCheckInDate(LocalDateTime.now());
+        }
         studentMapper.update(student);
         syncCurrentCount(newRoomId);
         if (oldRoomId != null && !oldRoomId.equals(newRoomId)) {

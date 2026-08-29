@@ -208,6 +208,7 @@ CREATE TABLE IF NOT EXISTS leave_requests (
     start_time DATETIME NOT NULL COMMENT '开始时间',
     end_time DATETIME NOT NULL COMMENT '结束时间',
     contact_phone VARCHAR(20) COMMENT '联系电话',
+    emergency_contact VARCHAR(100) COMMENT '紧急联系人',
     destination VARCHAR(200) COMMENT '去向',
     attachment VARCHAR(500) COMMENT '附件URL(请假条等)',
     status TINYINT DEFAULT 0 COMMENT '状态: 0待审批, 1已批准, 2已拒绝, 3已撤销, 4已销假',

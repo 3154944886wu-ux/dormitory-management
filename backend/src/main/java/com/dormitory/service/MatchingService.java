@@ -6,6 +6,7 @@ import com.dormitory.utils.BedSelection;
 import com.dormitory.utils.GenderMatcher;
 import com.dormitory.utils.MatchingCapacity;
 import com.dormitory.utils.MatchingGroups;
+import com.dormitory.utils.MatchingMajors;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -266,6 +267,10 @@ public class MatchingService {
                 if (grouped[i]) continue;
                 for (int j = i + 1; j < n; j++) {
                     if (grouped[j]) continue;
+                    if (!MatchingMajors.canGroup(batch.getAllowMixMajor(),
+                            students.get(i).getMajorId(), students.get(j).getMajorId())) {
+                        continue;
+                    }
                     if (scores[i][j] > bestScore) {
                         bestScore = scores[i][j];
                         bestI = i;
@@ -288,6 +293,10 @@ public class MatchingService {
                 int bestK = -1;
                 for (int k = 0; k < n; k++) {
                     if (grouped[k]) continue;
+                    if (!MatchingMajors.canGroup(batch.getAllowMixMajor(),
+                            group.students.get(0).getMajorId(), students.get(k).getMajorId())) {
+                        continue;
+                    }
                     double avg = 0;
                     for (Student member : group.students) {
                         int idx = students.indexOf(member);
@@ -313,15 +322,40 @@ public class MatchingService {
             if (!grouped[i]) leftover.add(students.get(i));
         }
         if (!leftover.isEmpty()) {
-            List<List<Student>> asLists = new ArrayList<>();
-            for (StudentGroup group : groups) {
-                asLists.add(group.students);
+            List<Student> still = new ArrayList<>();
+            for (Student s : leftover) {
+                boolean placed = false;
+                for (StudentGroup g : groups) {
+                    if (g.students.size() >= capacity) {
+                        continue;
+                    }
+                    if (!MatchingMajors.canGroup(batch.getAllowMixMajor(),
+                            g.students.get(0).getMajorId(), s.getMajorId())) {
+                        continue;
+                    }
+                    g.students.add(s);
+                    placed = true;
+                    break;
+                }
+                if (!placed) {
+                    still.add(s);
+                }
             }
-            MatchingGroups.appendLeftovers(asLists, leftover, capacity);
-            while (groups.size() < asLists.size()) {
-                StudentGroup extra = new StudentGroup();
-                extra.students.addAll(asLists.get(groups.size()));
-                groups.add(extra);
+            if (!still.isEmpty()) {
+                List<List<Student>> extraGroups = new ArrayList<>();
+                if (batch.getAllowMixMajor() != null && batch.getAllowMixMajor() == 0) {
+                    still.stream()
+                            .collect(Collectors.groupingBy(s -> s.getMajorId() != null ? s.getMajorId() : 0))
+                            .values()
+                            .forEach(majorLeft -> MatchingGroups.appendLeftovers(extraGroups, majorLeft, capacity));
+                } else {
+                    MatchingGroups.appendLeftovers(extraGroups, still, capacity);
+                }
+                for (List<Student> extra : extraGroups) {
+                    StudentGroup g = new StudentGroup();
+                    g.students.addAll(extra);
+                    groups.add(g);
+                }
             }
         }
 
@@ -661,6 +695,9 @@ public class MatchingService {
         RoommateGroup targetGroup = null;
         int roomCapacity = targetRoom.getCapacity() != null ? targetRoom.getCapacity() : 4;
         for (RoommateGroup rg : roomGroups) {
+            if (rg.getBatchId() != null && !rg.getBatchId().equals(batchId)) {
+                continue;
+            }
             if (rg.getMemberIdList() != null && rg.getMemberIdList().size() < roomCapacity) {
                 targetGroup = rg;
                 break;

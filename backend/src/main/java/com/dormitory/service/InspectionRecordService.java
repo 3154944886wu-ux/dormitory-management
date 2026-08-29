@@ -2,7 +2,11 @@ package com.dormitory.service;
 
 import com.dormitory.mapper.InspectionRecordMapper;
 import com.dormitory.mapper.InspectionPlanMapper;
+import com.dormitory.mapper.RoomMapper;
 import com.dormitory.model.InspectionRecord;
+import com.dormitory.model.Room;
+import com.dormitory.utils.FileOwnership;
+import com.dormitory.utils.InspectionPlanScope;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,6 +23,9 @@ public class InspectionRecordService {
 
     @Autowired
     private InspectionPlanMapper planMapper;
+
+    @Autowired
+    private RoomMapper roomMapper;
 
     public InspectionRecord findById(Long id) {
         return recordMapper.findById(id);
@@ -68,6 +75,12 @@ public class InspectionRecordService {
             if (!"IN_PROGRESS".equals(plan.getStatus())) {
                 throw new RuntimeException("只有进行中的计划才能录入检查记录");
             }
+            if (record.getRoomId() != null) {
+                Room room = roomMapper.findById(record.getRoomId());
+                if (room != null && !InspectionPlanScope.containsBuilding(plan.getBuildingIds(), room.getBuildingId())) {
+                    throw new RuntimeException("该房间不在检查计划范围内");
+                }
+            }
             if (record.getRoomId() != null
                     && recordMapper.countByPlanIdAndRoomId(record.getPlanId(), record.getRoomId()) > 0) {
                 throw new RuntimeException("该房间在本计划中已有检查记录");
@@ -106,7 +119,7 @@ public class InspectionRecordService {
     }
 
     @Transactional
-    public InspectionRecord submitRectify(Long id, String rectificationPhotos, String rectifyRemark) {
+    public InspectionRecord submitRectify(Long id, String rectificationPhotos, String rectifyRemark, Long ownerUserId) {
         InspectionRecord record = recordMapper.findById(id);
         if (record == null) {
             throw new RuntimeException("检查记录不存在");
@@ -116,7 +129,7 @@ public class InspectionRecordService {
         }
         record.setRectificationStatus("COMPLETED");
         record.setRectificationTime(LocalDateTime.now());
-        record.setRectificationPhotos(rectificationPhotos);
+        record.setRectificationPhotos(FileOwnership.keepOwned(rectificationPhotos, ownerUserId));
         record.setRectifyRemark(rectifyRemark);
         record.setUpdateTime(LocalDateTime.now());
         recordMapper.updateRectify(record);

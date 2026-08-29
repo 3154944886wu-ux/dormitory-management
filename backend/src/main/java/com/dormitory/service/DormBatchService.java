@@ -147,7 +147,7 @@ public class DormBatchService {
         if (batch.getAllowMixMajor() == null) batch.setAllowMixMajor(existing.getAllowMixMajor());
         if (batch.getMajorBonus() == null) batch.setMajorBonus(existing.getMajorBonus());
         if (batch.getPreferSameFloor() == null) batch.setPreferSameFloor(existing.getPreferSameFloor());
-        if (batch.getMatchStatus() == null) batch.setMatchStatus(existing.getMatchStatus());
+        batch.setMatchStatus(existing.getMatchStatus());
 
         batch.setId(id);
         batchMapper.update(batch);

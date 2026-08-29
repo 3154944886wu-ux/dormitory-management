@@ -146,6 +146,14 @@ public class InspectionPlanController {
             if (denied != null) {
                 return denied;
             }
+            Set<Long> buildings = managerBuildingIds(auth);
+            if (buildings != null && plan.getBuildingIds() != null
+                    && !InspectionPlanScope.fullyWithin(plan.getBuildingIds(), buildings)) {
+                return ResponseEntity.status(403).body(Map.of(
+                    "success", false,
+                    "message", "无权把检查计划扩大到范围外楼栋"
+                ));
+            }
             plan.setId(id);
             InspectionPlan updated = planService.update(plan);
             return ResponseEntity.ok(Map.of(

@@ -58,6 +58,9 @@
             <el-form-item label="紧急联系人" prop="emergencyContact">
               <el-input v-model="form.emergencyContact" placeholder="紧急联系人姓名及电话" />
             </el-form-item>
+            <el-form-item label="外出地点" prop="destination">
+              <el-input v-model="form.destination" placeholder="外出目的地（选填）" />
+            </el-form-item>
             
             <el-form-item>
               <el-button type="primary" @click="handleSubmit" :loading="submitting">
@@ -162,7 +165,8 @@ const form = ref({
   endTime: '',
   reason: '',
   contactPhone: '',
-  emergencyContact: ''
+  emergencyContact: '',
+  destination: ''
 })
 
 const rules = {

@@ -44,6 +44,10 @@ public final class InspectionPlanScope {
         return true;
     }
 
+    public static boolean containsBuilding(String planBuildingIds, Long buildingId) {
+        return buildingId != null && parseIds(planBuildingIds).contains(buildingId);
+    }
+
     public static Set<Long> parseIds(String csv) {
         Set<Long> ids = new HashSet<>();
         if (csv == null || csv.isBlank()) {

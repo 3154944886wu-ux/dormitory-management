@@ -109,18 +109,17 @@ public class AllocationResultViewController {
                 item.put("bedType", bed.getBedType());
                 item.put("isOccupied", bed.getIsOccupied() != null && bed.getIsOccupied() == 1);
 
-                Student s = studentMap.get(bed.getId());
                 AllocationResult ar = arMap.get(bed.getId());
-
-                if (s != null && ar != null) {
+                Student s = ar != null ? studentMapper.findById(ar.getStudentId()) : studentMap.get(bed.getId());
+                if (s != null) {
                     Map<String, Object> studentInfo = new LinkedHashMap<>();
                     studentInfo.put("id", s.getId());
                     studentInfo.put("studentNo", s.getStudentNo());
                     studentInfo.put("name", s.getName());
                     studentInfo.put("gender", s.getGender());
                     studentInfo.put("majorId", s.getMajorId());
-                    studentInfo.put("matchScore", ar.getMatchScore());
-                    studentInfo.put("allocationStatus", ar.getStatus());
+                    studentInfo.put("matchScore", ar == null ? null : ar.getMatchScore());
+                    studentInfo.put("allocationStatus", ar == null ? null : ar.getStatus());
                     item.put("student", studentInfo);
                 } else {
                     item.put("student", null);

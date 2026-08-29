@@ -24,4 +24,11 @@ class InspectionPlanScopeTest {
         assertFalse(InspectionPlanScope.fullyWithin("1,2", Set.of(1L)));
         assertFalse(InspectionPlanScope.fullyWithin("1", Set.of()));
     }
+
+    @Test
+    void containsBuildingInPlanCsv() {
+        assertTrue(InspectionPlanScope.containsBuilding("1,2,3", 2L));
+        assertFalse(InspectionPlanScope.containsBuilding("1,3", 2L));
+        assertFalse(InspectionPlanScope.containsBuilding("1", null));
+    }
 }

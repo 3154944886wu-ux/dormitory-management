@@ -89,6 +89,17 @@ public class LeaveRequestService {
         leaveRequestMapper.insert(request);
         return leaveRequestMapper.findById(request.getId());
     }
+
+    public void closeActiveOnCheckout(Long studentId) {
+        if (studentId == null) {
+            return;
+        }
+        leaveRequestMapper.cancelPendingByStudent(studentId);
+        int closed = leaveRequestMapper.closeApprovedByStudent(studentId, CheckWindow.now());
+        if (closed > 0) {
+            checkInService.clearLeaveAfterReturn(studentId, CheckWindow.now());
+        }
+    }
     
     /**
      * 审批请假申请
@@ -166,7 +177,7 @@ public class LeaveRequestService {
         if (updated == 0) {
             throw new RuntimeException("销假失败，记录状态已变化");
         }
-        checkInService.clearFutureLeaveRecords(studentId, CheckWindow.today());
+        checkInService.clearLeaveAfterReturn(studentId, CheckWindow.now());
     }
     
     public LeaveRequest findById(Long id) {

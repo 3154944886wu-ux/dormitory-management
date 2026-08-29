@@ -14,6 +14,8 @@ import com.dormitory.model.Room;
 import com.dormitory.model.Student;
 import com.dormitory.util.MapValueUtils;
 import com.dormitory.utils.CheckWindow;
+import com.dormitory.utils.LeaveReturn;
+import com.dormitory.utils.OccupancyArrival;
 import com.dormitory.utils.LeaveCoverage;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DuplicateKeyException;
@@ -271,6 +273,9 @@ public class CheckInService {
             if (leaveAt == null) {
                 leaveAt = date.atTime(LocalTime.MAX);
             }
+            if (!OccupancyArrival.residingOnBusinessDate(student.getCheckInDate(), date)) {
+                continue;
+            }
             if (insertAbsentIfNeeded(student, date, leaveAt)) {
                 count++;
             }
@@ -323,6 +328,16 @@ public class CheckInService {
             }
             checkExceptionMapper.markHandledByStudentAndDate(studentId, date, "leave_approved", "请假已批准自动关闭");
         }
+    }
+
+    public void clearLeaveAfterReturn(Long studentId, LocalDateTime returnedAt) {
+        if (studentId == null || returnedAt == null) {
+            return;
+        }
+        Student student = studentMapper.findById(studentId);
+        CheckRule rule = student != null ? getCheckRule(student) : null;
+        LocalDate from = LeaveReturn.firstRestorableDate(returnedAt, rule);
+        clearFutureLeaveRecords(studentId, from);
     }
 
     public void clearFutureLeaveRecords(Long studentId, LocalDate fromDate) {
@@ -524,6 +539,9 @@ public class CheckInService {
                 continue;
             }
             if (!CheckWindow.isPastAbsentDeadline(now.toLocalTime(), rule)) {
+                continue;
+            }
+            if (!OccupancyArrival.residingOnBusinessDate(student.getCheckInDate(), businessDate)) {
                 continue;
             }
             if (insertAbsentIfNeeded(student, businessDate, now)) {
