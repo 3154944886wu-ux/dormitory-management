@@ -5,6 +5,7 @@ import com.dormitory.mapper.QuestionOptionMapper;
 import com.dormitory.mapper.StudentAnswerMapper;
 import com.dormitory.model.Questionnaire;
 import com.dormitory.model.QuestionOption;
+import com.dormitory.utils.QuestionnaireEditPolicy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -91,10 +92,13 @@ public class QuestionnaireService {
         }
 
         if (options != null) {
-            optionMapper.deleteByQId(id);
-            for (QuestionOption option : options) {
-                option.setQId(id);
-                optionMapper.insert(option);
+            int answerCount = studentAnswerMapper.countByQId(id);
+            if (QuestionnaireEditPolicy.canReplaceOptions(answerCount)) {
+                optionMapper.deleteByQId(id);
+                for (QuestionOption option : options) {
+                    option.setQId(id);
+                    optionMapper.insert(option);
+                }
             }
         }
 

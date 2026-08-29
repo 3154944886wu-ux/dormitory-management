@@ -31,4 +31,13 @@ public final class MatchingGroups {
             groups.add(group);
         }
     }
+
+    /**
+     * 单独成组，不填入调用方已有末组。禁止混专业时每个专业必须各打一份。
+     */
+    public static <T> List<List<T>> packIsolated(List<T> leftover, int capacity) {
+        List<List<T>> groups = new ArrayList<>();
+        appendLeftovers(groups, leftover, capacity);
+        return groups;
+    }
 }

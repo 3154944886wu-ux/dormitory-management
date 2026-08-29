@@ -71,4 +71,15 @@ class CheckWindowTest {
         assertFalse(CheckWindow.absentWindowClosed(LocalDate.of(2026, 8, 29), rule,
                 LocalDateTime.of(2026, 8, 29, 13, 0)));
     }
+
+    @Test
+    void displayDateUsesBusinessDateInWindowAndCalendarOutside() {
+        CheckRule rule = overnightRule();
+        assertEquals(LocalDate.of(2026, 8, 27),
+                CheckWindow.displayDate(LocalDateTime.of(2026, 8, 28, 0, 0), rule));
+        assertEquals(LocalDate.of(2026, 8, 28),
+                CheckWindow.displayDate(LocalDateTime.of(2026, 8, 28, 10, 0), rule));
+        assertEquals(LocalDate.of(2026, 8, 28),
+                CheckWindow.displayDate(LocalDateTime.of(2026, 8, 28, 22, 10), rule));
+    }
 }

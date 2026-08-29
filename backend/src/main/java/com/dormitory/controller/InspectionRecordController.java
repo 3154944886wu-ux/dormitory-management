@@ -237,7 +237,8 @@ public class InspectionRecordController {
     @PostMapping("/{id}/rectify")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<?> submitRectify(@PathVariable Long id,
-                                           @RequestBody Map<String, String> body) {
+                                           @RequestBody Map<String, String> body,
+                                           @RequestHeader(value = "Authorization", required = false) String token) {
         try {
             InspectionRecord existing = recordService.findById(id);
             if (existing == null) {
@@ -259,8 +260,16 @@ public class InspectionRecordController {
             }
             String rectificationPhotos = body.get("rectificationPhotos");
             String rectifyRemark = body.get("rectifyRemark");
+            Long ownerUserId = null;
+            if (token != null && token.startsWith("Bearer ")) {
+                ownerUserId = jwtUtils.getUserIdFromToken(token.replace("Bearer ", ""));
+            }
+            if (ownerUserId == null && auth != null) {
+                User user = userMapper.findByUsername(auth.getName());
+                ownerUserId = user == null ? null : user.getId();
+            }
 
-            InspectionRecord updated = recordService.submitRectify(id, rectificationPhotos, rectifyRemark);
+            InspectionRecord updated = recordService.submitRectify(id, rectificationPhotos, rectifyRemark, ownerUserId);
             return ResponseEntity.ok(Map.of(
                 "success", true,
                 "message", "整改提交成功",

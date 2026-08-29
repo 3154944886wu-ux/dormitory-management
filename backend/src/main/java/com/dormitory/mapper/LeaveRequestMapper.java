@@ -71,9 +71,9 @@ public interface LeaveRequestMapper {
     LeaveRequest findCoveringLeaveByStudent(@Param("studentId") Long studentId, @Param("now") LocalDateTime now);
     
     @Insert("INSERT INTO leave_requests (student_id, leave_type, reason, start_time, end_time, " +
-            "contact_phone, destination, attachment, status) " +
+            "contact_phone, emergency_contact, destination, attachment, status) " +
             "VALUES (#{studentId}, #{leaveType}, #{reason}, #{startTime}, #{endTime}, " +
-            "#{contactPhone}, #{destination}, #{attachment}, 0)")
+            "#{contactPhone}, #{emergencyContact}, #{destination}, #{attachment}, 0)")
     @Options(useGeneratedKeys = true, keyProperty = "id")
     int insert(LeaveRequest request);
     
@@ -94,4 +94,11 @@ public interface LeaveRequestMapper {
     @Select("SELECT COUNT(*) FROM leave_requests WHERE student_id = #{studentId} " +
             "AND (status = 0 OR (status = 1 AND end_time > #{now}))")
     int countPendingOrApprovedByStudent(@Param("studentId") Long studentId, @Param("now") LocalDateTime now);
+
+    @Update("UPDATE leave_requests SET status = 3 WHERE student_id = #{studentId} AND status = 0")
+    int cancelPendingByStudent(@Param("studentId") Long studentId);
+
+    @Update("UPDATE leave_requests SET status = 4, actual_return_time = #{now} " +
+            "WHERE student_id = #{studentId} AND status = 1")
+    int closeApprovedByStudent(@Param("studentId") Long studentId, @Param("now") LocalDateTime now);
 }

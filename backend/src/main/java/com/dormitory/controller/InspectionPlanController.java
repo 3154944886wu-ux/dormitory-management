@@ -142,9 +142,19 @@ public class InspectionPlanController {
     @PutMapping("/{id}")
     public ResponseEntity<?> update(@PathVariable Long id, @RequestBody InspectionPlan plan, Authentication auth) {
         try {
-            ResponseEntity<?> denied = denyIfOutOfScope(auth, planService.findById(id));
+            InspectionPlan existing = planService.findById(id);
+            ResponseEntity<?> denied = denyIfOutOfScope(auth, existing);
             if (denied != null) {
                 return denied;
+            }
+            Set<Long> buildings = managerBuildingIds(auth);
+            if (buildings != null && plan.getBuildingIds() != null
+                    && !InspectionPlanScope.addedWithin(existing == null ? null : existing.getBuildingIds(),
+                    plan.getBuildingIds(), buildings)) {
+                return ResponseEntity.status(403).body(Map.of(
+                    "success", false,
+                    "message", "无权把检查计划扩大到范围外楼栋"
+                ));
             }
             plan.setId(id);
             InspectionPlan updated = planService.update(plan);

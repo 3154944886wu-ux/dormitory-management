@@ -149,6 +149,10 @@ public class RelocationService {
         if (student.getStatus() == null || student.getStatus() != 1) {
             throw new RuntimeException("学生已退宿，无法执行调宿");
         }
+        if (app.getCurrentRoomId() != null && student.getRoomId() != null
+                && !app.getCurrentRoomId().equals(student.getRoomId())) {
+            throw new RuntimeException("学生当前房间已变化，请重新申请调宿");
+        }
 
         Room newRoom = roomMapper.findById(newRoomId);
         if (newRoom == null) throw new RuntimeException("目标房间不存在");

@@ -27,12 +27,21 @@ class MatchingCapacityAndGroupsTest {
     }
 
     @Test
-    void leftoverFillsRemainingSlotsThenNewGroup() {
-        List<List<Integer>> groups = new ArrayList<>();
-        groups.add(new ArrayList<>(List.of(1, 2, 3)));
-        MatchingGroups.appendLeftovers(groups, List.of(4, 5, 6), 4);
-        assertEquals(List.of(1, 2, 3, 4), groups.get(0));
-        assertEquals(List.of(5, 6), groups.get(1));
+    void leftoverPackPerBucketDoesNotFillOtherBucket() {
+        List<List<Integer>> extra = new ArrayList<>();
+        extra.addAll(MatchingGroups.packIsolated(List.of(1, 2), 4));
+        extra.addAll(MatchingGroups.packIsolated(List.of(10), 4));
+        assertEquals(2, extra.size());
+        assertEquals(List.of(1, 2), extra.get(0));
+        assertEquals(List.of(10), extra.get(1));
+    }
+
+    @Test
+    void leftoverAppendOnSharedListFillsLastGroup() {
+        List<List<Integer>> extra = new ArrayList<>();
+        MatchingGroups.appendLeftovers(extra, List.of(1, 2), 4);
+        MatchingGroups.appendLeftovers(extra, List.of(10), 4);
+        assertEquals(List.of(1, 2, 10), extra.get(0));
     }
 
     private static Room room(int capacity) {

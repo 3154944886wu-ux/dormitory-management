@@ -308,6 +308,7 @@ CREATE TABLE `leave_requests` (
   `start_time` datetime NOT NULL COMMENT '开始时间',
   `end_time` datetime NOT NULL COMMENT '结束时间',
   `contact_phone` varchar(20) DEFAULT NULL COMMENT '联系电话',
+  `emergency_contact` varchar(100) DEFAULT NULL COMMENT '紧急联系人',
   `destination` varchar(200) DEFAULT NULL COMMENT '去向',
   `attachment` varchar(500) DEFAULT NULL COMMENT '附件URL(请假条等)',
   `status` tinyint DEFAULT '0' COMMENT '状态: 0待审批, 1已批准, 2已拒绝, 3已撤销, 4已销假',

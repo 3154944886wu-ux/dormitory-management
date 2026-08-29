@@ -44,6 +44,31 @@ public final class InspectionPlanScope {
         return true;
     }
 
+    public static boolean containsBuilding(String planBuildingIds, Long buildingId) {
+        return buildingId != null && parseIds(planBuildingIds).contains(buildingId);
+    }
+
+    /**
+     * 更新时只校验新增楼栋是否在宿管范围内；原计划已有的范围外楼栋可保留。
+     */
+    public static boolean addedWithin(String existingBuildingIds, String incomingBuildingIds,
+                                      Collection<Long> managerBuildingIds) {
+        Set<Long> added = parseIds(incomingBuildingIds);
+        added.removeAll(parseIds(existingBuildingIds));
+        if (added.isEmpty()) {
+            return true;
+        }
+        if (managerBuildingIds == null || managerBuildingIds.isEmpty()) {
+            return false;
+        }
+        for (Long id : added) {
+            if (id == null || !managerBuildingIds.contains(id)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     public static Set<Long> parseIds(String csv) {
         Set<Long> ids = new HashSet<>();
         if (csv == null || csv.isBlank()) {

@@ -39,15 +39,15 @@
         size="large"
         class="check-button"
         :loading="checking || locating"
-        :disabled="todayStatus.checkedIn || todayStatus.status === 3"
+        :disabled="todayStatus.checkedIn || todayStatus.status === 3 || todayStatus.status == null"
         @click="handleCheckIn"
       >
         {{ checkButtonText }}
       </el-button>
 
       <div v-if="rule" class="rule">
-        <div>打卡时段：{{ rule.checkStartTime }} - {{ rule.checkEndTime }}</div>
-        <div>未归截止：{{ rule.absentDeadline || '-' }}（超过结束至未归前为晚归）</div>
+        <div>打卡时段：{{ rule.checkStartTime }} 起至未归截止 {{ rule.absentDeadline || '-' }}</div>
+        <div>{{ rule.checkEndTime }} 前为已归，之后至未归截止为晚归</div>
         <div>围栏半径：{{ rule.allowedRadius || 500 }} 米</div>
         <div>最大定位误差：{{ rule.maxLocationAccuracy || 200 }} 米</div>
       </div>
@@ -111,8 +111,13 @@ const statusMeta = computed(() => {
   if (todayStatus.value.status === 3) {
     return statusInfo(3)
   }
-  if (!todayStatus.value.checkedIn && todayStatus.value.status === 0) {
-    return { text: '待打卡', type: 'info' }
+  if (!todayStatus.value.checkedIn && (todayStatus.value.status === 0 || todayStatus.value.status === 1)) {
+    return todayStatus.value.status === 1
+      ? statusInfo(1)
+      : { text: '待打卡', type: 'info' }
+  }
+  if (!todayStatus.value.checkedIn && (todayStatus.value.status === null || todayStatus.value.status === undefined)) {
+    return { text: '非打卡时段', type: 'info' }
   }
   return statusInfo(todayStatus.value.status)
 })
@@ -120,6 +125,7 @@ const statusMeta = computed(() => {
 const checkButtonText = computed(() => {
   if (todayStatus.value.status === 3) return '请假中无需打卡'
   if (todayStatus.value.checkedIn) return '今日已打卡'
+  if (todayStatus.value.status === null || todayStatus.value.status === undefined) return '非打卡时段'
   if (rule.value && rule.value.requireLocation === 0) return '立即打卡'
   return '获取定位并打卡'
 })

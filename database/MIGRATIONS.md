@@ -20,6 +20,7 @@ mysql -u root -p dormitory < database/migration_rectify_remark.sql
 mysql -u root -p dormitory < database/migration_remaining_integrity.sql
 mysql -u root -p dormitory < database/migration_sync_room_occupancy.sql
 mysql -u root -p dormitory < database/migration_inspection_plan_creator.sql
+mysql -u root -p dormitory < database/migration_exploratory_qa.sql
 ```
 
 `schema.sql` 已包含 `inspection_items` 表及种子数据；若从更旧版本升级，可单独执行 `migration_inspection_items.sql`。
@@ -42,6 +43,7 @@ mysql -u root -p dormitory < database/migration_inspection_plan_creator.sql
 | `migration_remaining_integrity.sql` | 楼栋 name 唯一、异常 (学生,日期,类型) 唯一 |
 | `migration_sync_room_occupancy.sql` | 用实际在住学生数回写 `rooms.current_count` |
 | `migration_inspection_plan_creator.sql` | 检查计划 `creator_id` / `floor_range` |
+| `migration_exploratory_qa.sql` | 异常/检查记录唯一键、请假 `emergency_contact`（幂等，已执行过旧版的库也需再跑一次） |
 | `migration_inspection_items.sql` | 仅缺检查项表时执行 |
 
 ## `dormitory.sql` 便利快照
