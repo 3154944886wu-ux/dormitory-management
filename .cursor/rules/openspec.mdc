@@ -1,0 +1,28 @@
+---
+description: OpenSpec 变更文档：中文、小范围、文档与实现同步
+globs:
+  - openspec/**/*
+  - .claude/skills/openspec-*/**/*
+  - .claude/commands/opsx*/**/*
+  - .agents/skills/source-command-opsx*/**/*
+alwaysApply: false
+---
+
+# OpenSpec
+
+## 何时用
+
+- 新功能、跨模块、公共逻辑、接口协议、数据库、新依赖 → 先 proposal/design/specs/tasks。
+- Bug 修复、文案、样式微调、小配置 → 可跳过完整 proposal，但仍说明现象/预期/改法/验证。
+
+## 文档要求（中文优先）
+
+每个 change 写清：目标、Scope、Out of Scope、当前/期望行为、关键场景、验收标准、风险、任务拆分。
+
+## 执行约束
+
+- 实现前：用户同意方案后再大规模写码。
+- 实现中：方案变化先更新 spec/tasks，再改代码。
+- 实现后：勾选 tasks；文档与代码不得长期脱节。
+- 开工前如需把关，用 `sdd-design-review` Skill。
+- 归档用对应 archive/verify 流程；不手改无关历史 archive。

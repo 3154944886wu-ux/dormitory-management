@@ -1,0 +1,10 @@
+---
+description: 提交时不把 Cursor 列为共同作者
+alwaysApply: true
+---
+
+# Git 提交署名
+
+- 禁止在 commit message 中加入 `Co-authored-by: Cursor`、`cursoragent@cursor.com`、`Made with Cursor` 或任何把 Cursor/Agent 列为贡献者的 trailer。
+- 禁止使用 `git commit --trailer` 添加上述署名。
+- 只使用仓库已配置的 Author（当前为用户本人）。

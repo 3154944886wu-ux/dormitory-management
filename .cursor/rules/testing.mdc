@@ -1,0 +1,32 @@
+---
+description: 测试编写与验收：小而准、贴近现有 runner、证明行为
+globs:
+  - "**/*.test.ts"
+  - "**/*.test.tsx"
+  - "**/*.test.js"
+  - "**/*.test.mjs"
+  - "**/*.integration.test.ts"
+  - admin/test/**/*
+  - admin/src/**/*.structure.test.ts
+alwaysApply: false
+---
+
+# 测试
+
+## 原则
+
+- 优先证明行为与回归点，不追求覆盖率数字。
+- 跟随邻近测试风格（node:test / 现有 assert 模式）；不引入新测试框架。
+- 单测默认不依赖真实网络、真实 Docker、真实外部密钥。
+- 修 bug 先补失败用例（或可复现断言），再改实现。
+
+## Admin 常用命令
+
+- 定向：`cd admin && node --test path/to/file.test.ts`
+- 全量：`cd admin && npm test`（较慢，非默认）
+- UI 契约：`cd admin && npm run check:ui:fast`
+
+## 交付
+
+- 写明已执行命令与结果；未跑的说明原因。
+- 不把「文件存在」或「规范写了」当成测试通过。
